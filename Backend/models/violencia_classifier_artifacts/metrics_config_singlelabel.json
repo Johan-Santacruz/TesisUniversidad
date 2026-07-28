@@ -1,0 +1,87 @@
+{
+  "config": {
+    "MODEL_KEY": "beto",
+    "SEED": 42,
+    "TEST_SIZE": 0.15,
+    "VAL_SIZE": 0.15,
+    "MIN_SAMPLES_CATEGORY": 50,
+    "MIN_SAMPLES_SUBCATEGORY": 50,
+    "MIN_EVAL_EXAMPLES_PER_CLASS": 2,
+    "REQUIRE_SINGLE_CATEGORY_FOR_SUBCATEGORY": true,
+    "MIN_HIERARCHICAL_GROUP_SIZE": 35,
+    "TARGET_MACRO_F1": 0.85,
+    "MAX_LEN_CAP": 256,
+    "MAX_LEN_PERCENTILE": 95,
+    "BATCH_SIZE": 16,
+    "EPOCHS": 6,
+    "PATIENCE": 2,
+    "MIN_DELTA": 0.0001,
+    "DROPOUT": 0.35,
+    "LABEL_SMOOTHING": 0.05,
+    "LR_TRANSFORMER": 2e-05,
+    "LR_HEAD": 0.0001,
+    "WEIGHT_DECAY_TRANSFORMER": 0.01,
+    "WEIGHT_DECAY_HEAD": 0.001,
+    "FREEZE_EMBEDDINGS": true,
+    "FREEZE_LOWER_LAYERS": 4,
+    "USE_WEIGHTED_SAMPLER": true,
+    "NUM_WORKERS": 0,
+    "USE_HIERARCHY_FOR_SUBCATEGORY": true,
+    "ARTIFACT_DIR": "/content/drive/MyDrive/violencia_classifier_artifacts",
+    "MODEL_NAME": "dccuchile/bert-base-spanish-wwm-cased",
+    "MAX_LEN": 240
+  },
+  "n_events_total": 2870,
+  "n_category_trainable": 2449,
+  "n_subcategory_trainable": 1806,
+  "category_coverage_single_label": 1.0,
+  "subcategory_coverage_single_label": 1.0,
+  "n_category_excluded": 421,
+  "n_subcategory_excluded": 1064,
+  "category_classes": [
+    "Acciones armadas",
+    "Ataques contra la población civil",
+    "Desplazamiento forzado",
+    "Restricción al acceso humanitario",
+    "Uso de artefactos explosivos"
+  ],
+  "subcategory_classes": [
+    "Amenazas (individuales/colectivas)",
+    "Atentado",
+    "Combates",
+    "Enfrentamiento entre actores no estatales",
+    "Homicidio intencional en persona protegida",
+    "Hostigamiento",
+    "Mina antipersonal - MAP",
+    "Reclutamiento, vinculación y utilización de menores",
+    "Secuestro",
+    "Trampas explosivas- TE"
+  ],
+  "category_removed_classes": {},
+  "subcategory_removed_classes": {},
+  "baseline_category_test": {
+    "accuracy": 0.9184782608695652,
+    "f1_macro": 0.8959127151403543,
+    "f1_weighted": 0.9181368042985932
+  },
+  "baseline_subcategory_test": {
+    "accuracy": 0.9003690036900369,
+    "f1_macro": 0.8505416010744403,
+    "f1_weighted": 0.8961401061047989
+  },
+  "hierarchical_baseline_subcategory_test": {
+    "accuracy": 0.8966789667896679,
+    "f1_macro": 0.8474802252077899,
+    "f1_weighted": 0.8932151905156288
+  },
+  "transformer_category_test": {
+    "accuracy": 0.9293478260869565,
+    "f1_macro": 0.8979038378508003,
+    "f1_weighted": 0.9297187394997104
+  },
+  "transformer_subcategory_test": {
+    "accuracy": 0.9261992619926199,
+    "f1_macro": 0.8871309529968056,
+    "f1_weighted": 0.9273267884184379
+  }
+}

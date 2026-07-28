@@ -1,0 +1,34 @@
+# OS
+**/.DS_Store
+
+# Vite / local tooling
+.vite/
+
+# Dependencies and build outputs
+**/node_modules/
+**/dist/
+**/build/
+**/*.tsbuildinfo
+Backend/.venv/
+
+# Local runtime data
+Backend/data/*.db
+Backend/data/*.db-*
+Backend/data/*.sqlite
+Backend/data/*.sqlite-*
+
+# Environment files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python caches and notebook checkpoints
+**/__pycache__/
+**/*.py[cod]
+**/.ipynb_checkpoints/

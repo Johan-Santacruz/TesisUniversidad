@@ -1,0 +1,4 @@
+﻿dataset;rows;cat_rows;sub_rows;category_classes_kept;subcategory_classes_kept;category_coverage;subcategory_coverage
+full_curado;2870;2449;1806;5;10;0.9722;0.7435
+categoria_trainable;2449;2449;0;5;0;0.9722;
+subcategoria_trainable;1806;0;1806;0;10;;0.7435
