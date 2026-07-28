@@ -196,19 +196,19 @@ class VideoService:
         return video
 
     def create_demo(self, session: Session, *, user: User) -> Video:
-        from io import BytesIO
-
-        demo_bytes = (
-            b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"
-            + b"SIAD-FICTITIOUS-DEMO-FRAMES" * 256
+        fixture = (
+            Path(__file__).resolve().parents[1]
+            / "data"
+            / "demo-fictitious.mp4"
         )
-        return self.create(
-            session,
-            user=user,
-            source=BytesIO(demo_bytes),
-            data_kind=DataKind.FICTITIOUS,
-            is_demo=True,
-        )
+        with fixture.open("rb") as source:
+            return self.create(
+                session,
+                user=user,
+                source=source,
+                data_kind=DataKind.FICTITIOUS,
+                is_demo=True,
+            )
 
     def manifest(self, video: Video) -> ChunkManifest:
         chunks = tuple(
@@ -266,4 +266,3 @@ def parse_byte_range(value: str | None, total_size: int) -> tuple[int, int, bool
     if start < 0 or start >= total_size or end < start:
         raise ValueError("unsatisfiable byte range")
     return start, min(end, total_size - 1), True
-

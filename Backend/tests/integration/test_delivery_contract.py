@@ -62,6 +62,18 @@ def test_openapi_export_contains_the_complete_public_contract(client):
     ]
 
 
+def test_openapi_export_can_write_to_an_explicit_contract_path(
+    client,
+    tmp_path,
+):
+    from scripts.export_openapi import write_openapi
+
+    destination = tmp_path / "openapi.json"
+    write_openapi(client.app, destination)
+
+    assert destination.read_text(encoding="utf-8").startswith("{\n")
+
+
 def test_non_interactive_cli_manages_users_and_sources(
     tmp_path: Path,
     settings_factory,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+
 
 def _upload_fictitious(operator_client, payload: bytes):
     return operator_client.post(
@@ -118,6 +120,37 @@ def test_demo_endpoint_creates_only_a_fictitious_record(operator_client):
     )
     assert streamed.status_code == 200
     assert streamed.content[4:8] == b"ftyp"
+
+
+def test_demo_video_is_a_browser_playable_synthetic_mp4(
+    operator_client,
+    tmp_path,
+):
+    video = operator_client.post("/api/v1/videos/demo").json()
+    content = operator_client.get(
+        f"/api/v1/videos/{video['id']}/stream"
+    ).content
+    fixture = tmp_path / "demo.mp4"
+    fixture.write_bytes(content)
+
+    inspected = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(fixture),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert inspected.returncode == 0
+    assert float(inspected.stdout.strip()) > 1
 
 
 def test_stream_rejects_multiple_or_unsatisfiable_ranges(

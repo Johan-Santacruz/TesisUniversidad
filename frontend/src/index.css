@@ -6,12 +6,12 @@
   --paper-white: oklch(0.987 0.008 88);
   --ink: oklch(0.19 0.018 60);
   --ink-soft: oklch(0.37 0.018 60);
-  --ink-faded: oklch(0.54 0.015 60);
+  --ink-faded: oklch(0.43 0.015 60);
   --rule: oklch(0.79 0.025 73);
   --amarillo: oklch(0.82 0.16 88);
   --azul: oklch(0.39 0.12 255);
-  --rojo: oklch(0.48 0.17 27);
-  --green: oklch(0.43 0.09 152);
+  --rojo: oklch(0.42 0.16 27);
+  --green: oklch(0.34 0.085 152);
   --shadow: 0 16px 42px color-mix(in oklch, var(--ink) 10%, transparent);
   --background: var(--paper);
   --foreground: var(--ink);
@@ -772,7 +772,13 @@
 }
 .classification-panel dt { color: var(--ink-faded); font-size: 0.62rem; text-transform: uppercase; }
 .classification-panel dd { margin: 0.25rem 0; font-family: "Libre Caslon Text", Georgia, serif; font-size: 0.95rem; font-weight: 700; }
-.classification-panel dl span { color: var(--ink-faded); font-size: 0.6rem; }
+.classification-panel .model-confidence {
+  margin: 0;
+  color: var(--ink-faded);
+  font-family: "Public Sans", Inter, sans-serif;
+  font-size: 0.6rem;
+  font-weight: 400;
+}
 
 /* Human verification */
 .verification-panel {

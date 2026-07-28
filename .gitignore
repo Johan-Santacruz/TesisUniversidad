@@ -10,6 +10,8 @@
 **/build/
 **/*.tsbuildinfo
 Backend/.venv/
+frontend/playwright-report/
+frontend/test-results/
 
 # Local runtime data
 Backend/data/*.db

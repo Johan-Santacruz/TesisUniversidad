@@ -208,6 +208,7 @@ export function AnalysisWorkspace({
 
   return (
     <div className="analysis-workspace">
+      <h1 className="visually-hidden">Análisis inteligente del video</h1>
       <div className="workspace-columns">
         <VideoPanel
           ref={videoRef}

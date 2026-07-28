@@ -46,8 +46,10 @@ packages = ["app"]
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers"
 testpaths = ["tests"]
+markers = [
+  "smoke: opt-in calls to real external AI providers using fictitious data only",
+]
 
 [tool.coverage.run]
 branch = true
 source = ["app"]
-

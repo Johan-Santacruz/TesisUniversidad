@@ -1,0 +1,88 @@
+[
+  {
+    "id": "uariv-services-national",
+    "entity": "Unidad para las Víctimas",
+    "program": "Guía de trámites y servicios",
+    "coverage": "Colombia",
+    "requirements": "La entidad publica los requisitos vigentes de cada trámite y servicio en su guía oficial.",
+    "contact": "Verifique canales, horarios y requisitos directamente en la ficha oficial antes de orientar el caso.",
+    "url": "https://www.unidadvictimas.gov.co/guia-de-tramites-y-servicios/",
+    "verified_at": "2026-07-27T00:00:00Z",
+    "expires_at": "2026-10-25T00:00:00Z",
+    "source_kind": "program",
+    "route_types": [
+      "emergency",
+      "housing_stabilization",
+      "return_relocation"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "uariv-return-relocation",
+    "entity": "Unidad para las Víctimas",
+    "program": "Ruta de retornos y reubicaciones",
+    "coverage": "Colombia",
+    "requirements": "La ruta institucional contempla acompañamiento para retorno, reubicación e integración local conforme a las condiciones del caso.",
+    "contact": "Consulte el canal territorial de la Unidad para las Víctimas y confirme la oferta vigente.",
+    "url": "https://www.unidadvictimas.gov.co/ruta-de-retornos-y-reubicaciones/",
+    "verified_at": "2026-07-27T00:00:00Z",
+    "expires_at": "2026-10-25T00:00:00Z",
+    "source_kind": "program",
+    "route_types": [
+      "return_relocation"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "defensoria-public-ministry",
+    "entity": "Defensoría del Pueblo / Ministerio Público",
+    "program": "Acompañamiento y garantías en retornos y reubicaciones",
+    "coverage": "Colombia",
+    "requirements": "La participación del Ministerio Público y las garantías aplicables deben verificarse con la autoridad competente para el territorio.",
+    "contact": "Solicite orientación a la Defensoría del Pueblo o al Ministerio Público territorial.",
+    "url": "https://forseti.defensoria.gov.co/gestor/compilacion/docs/resolucion_uaeariv_3132_2022.htm",
+    "verified_at": "2026-07-27T00:00:00Z",
+    "expires_at": "2026-10-25T00:00:00Z",
+    "source_kind": "program",
+    "route_types": [
+      "emergency",
+      "return_relocation"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "icbf-mobile-units",
+    "entity": "Instituto Colombiano de Bienestar Familiar",
+    "program": "Atención por unidades móviles a familias víctimas de desplazamiento forzado",
+    "coverage": "Colombia, incluida la regional Cauca",
+    "requirements": "La atención se dirige a familias víctimas de desplazamiento forzado y debe coordinarse según la valoración institucional vigente.",
+    "contact": "Confirme disponibilidad y activación con la regional ICBF correspondiente.",
+    "url": "https://www.icbf.gov.co/procedimiento-atencion-por-unidades-moviles-familias-victimas-desplazamiento-forzado",
+    "verified_at": "2026-07-27T00:00:00Z",
+    "expires_at": "2026-10-25T00:00:00Z",
+    "source_kind": "program",
+    "route_types": [
+      "emergency",
+      "housing_stabilization"
+    ],
+    "status": "active"
+  },
+  {
+    "id": "uariv-crav-popayan",
+    "entity": "Unidad para las Víctimas",
+    "program": "Centro Regional de Atención a Víctimas de Popayán",
+    "coverage": "Popayán, Cauca",
+    "requirements": "El centro orienta el acceso a la oferta institucional; requisitos y turnos deben confirmarse antes del desplazamiento.",
+    "contact": "Consulte ubicación, horario y canal de atención vigentes en el directorio oficial.",
+    "url": "https://www.unidadvictimas.gov.co/atencion-y-servicios-a-la-ciudadania/",
+    "verified_at": "2026-07-27T00:00:00Z",
+    "expires_at": "2026-08-26T00:00:00Z",
+    "source_kind": "contact",
+    "route_types": [
+      "emergency",
+      "housing_stabilization",
+      "return_relocation"
+    ],
+    "status": "active"
+  }
+]

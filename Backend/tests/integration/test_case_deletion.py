@@ -1,6 +1,18 @@
 from __future__ import annotations
 
-from app.models import CaseRecord, Fact, Tombstone, Video
+from sqlalchemy import select
+
+from app.models import (
+    Analysis,
+    AnalysisEvent,
+    AuditLog,
+    CaseRecord,
+    Fact,
+    Review,
+    Route,
+    Tombstone,
+    Video,
+)
 from tests.integration.case_helpers import (
     APPROVAL_PAYLOAD,
     confirm_critical_facts,
@@ -21,6 +33,14 @@ def test_total_delete_leaves_only_a_non_sensitive_tombstone(client):
     ).status_code == 200
     case_before = client.get(f"/api/v1/cases/{case_id}").json()
     video_id = case_before["video_id"]
+    analysis_id = case_before["analysis_id"]
+    sensitive_entity_ids = {
+        case_id,
+        video_id,
+        analysis_id,
+        *(fact["id"] for fact in case_before["facts"]),
+        *(route["id"] for route in case_before["routes"]),
+    }
 
     login(client, "admin@siad.local", "Cambiar-Esta-Clave-2026!")
     deleted = client.delete(f"/api/v1/cases/{case_id}")
@@ -41,7 +61,23 @@ def test_total_delete_leaves_only_a_non_sensitive_tombstone(client):
     with database.session() as session:
         assert session.get(CaseRecord, case_id) is None
         assert session.get(Video, video_id) is None
+        assert session.get(Analysis, analysis_id) is None
         assert session.query(Fact).filter(Fact.case_id == case_id).count() == 0
+        assert session.query(Route).filter(Route.case_id == case_id).count() == 0
+        assert session.query(Review).filter(Review.case_id == case_id).count() == 0
+        assert (
+            session.query(AnalysisEvent)
+            .filter(AnalysisEvent.analysis_id == analysis_id)
+            .count()
+            == 0
+        )
+        assert not set(
+            session.scalars(
+                select(AuditLog.entity_id).where(
+                    AuditLog.entity_id.in_(sensitive_entity_ids)
+                )
+            )
+        )
         assert session.query(Tombstone).count() == 1
 
 
@@ -57,4 +93,3 @@ def test_operator_cannot_perform_total_deletion(operator_client):
     response = operator_client.delete(f"/api/v1/cases/{case_id}")
 
     assert response.status_code == 403
-

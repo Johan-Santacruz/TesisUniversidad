@@ -310,6 +310,25 @@ class CaseService:
         analysis = session.get(Analysis, case.analysis_id)
         video = session.get(Video, case.video_id)
         consent_id = video.consent_id if video is not None else None
+        fact_ids = set(
+            session.scalars(select(Fact.id).where(Fact.case_id == case.id))
+        )
+        route_ids = set(
+            session.scalars(select(Route.id).where(Route.case_id == case.id))
+        )
+        review_ids = set(
+            session.scalars(select(Review.id).where(Review.case_id == case.id))
+        )
+        sensitive_entity_ids = {
+            case.id,
+            case.video_id,
+            case.analysis_id,
+            *fact_ids,
+            *route_ids,
+            *review_ids,
+        }
+        if consent_id is not None:
+            sensitive_entity_ids.add(consent_id)
         chunk_paths = [
             self.storage_dir / path
             for path in session.scalars(
@@ -324,7 +343,7 @@ class CaseService:
         session.execute(delete(Route).where(Route.case_id == case.id))
         session.execute(
             delete(AuditLog).where(
-                AuditLog.entity_id.in_([case.id, case.video_id, case.analysis_id])
+                AuditLog.entity_id.in_(sensitive_entity_ids)
             )
         )
         session.delete(case)

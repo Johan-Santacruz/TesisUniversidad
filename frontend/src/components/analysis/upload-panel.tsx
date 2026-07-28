@@ -53,6 +53,7 @@ export function UploadPanel({
           ref={inputRef}
           className="visually-hidden"
           type="file"
+          aria-label="Archivo de video ficticio"
           accept="video/mp4,video/webm,video/quicktime"
           onChange={(event) => choose(event.target.files?.[0])}
         />

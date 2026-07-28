@@ -33,14 +33,18 @@ export function ClassificationPanel({
           <dt>Categoría</dt>
           <dd>{category?.label ?? "No disponible"}</dd>
           {category?.confidence !== undefined ? (
-            <span>{Math.round(category.confidence * 100)}% de confianza del modelo</span>
+            <dd className="model-confidence">
+              {Math.round(category.confidence * 100)}% de confianza del modelo
+            </dd>
           ) : null}
         </div>
         <div>
           <dt>Subcategoría</dt>
           <dd>{subcategory?.label ?? "No disponible"}</dd>
           {subcategory?.confidence !== undefined ? (
-            <span>{Math.round(subcategory.confidence * 100)}% de confianza del modelo</span>
+            <dd className="model-confidence">
+              {Math.round(subcategory.confidence * 100)}% de confianza del modelo
+            </dd>
           ) : null}
         </div>
       </dl>

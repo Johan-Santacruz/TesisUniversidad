@@ -50,8 +50,8 @@ export function Timeline({
           {events.map((event, index) => (
             <motion.li
               key={event.id}
-              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={reduceMotion ? false : { y: 12 }}
+              animate={{ y: 0 }}
               transition={{
                 delay: reduceMotion ? 0 : index * 0.08,
                 duration: reduceMotion ? 0.01 : 0.32,
