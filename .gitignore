@@ -16,6 +16,7 @@ Backend/data/*.db
 Backend/data/*.db-*
 Backend/data/*.sqlite
 Backend/data/*.sqlite-*
+.worktrees/
 
 # Environment files
 **/.env
