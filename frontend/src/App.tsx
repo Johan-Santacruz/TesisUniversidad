@@ -1,14 +1,10 @@
-import { useState } from "react"
-import OpeningSequence from "./components/ui/opening"
+import { AuthProvider } from "./auth/auth-context"
 import { AppRouter } from "./router/app-router"
 
 export default function App() {
-  const [showOpening, setShowOpening] = useState(true)
-
   return (
-    <div className="page-route-stage">
-      {showOpening ? <OpeningSequence onFinished={() => setShowOpening(false)} /> : null}
+    <AuthProvider>
       <AppRouter />
-    </div>
+    </AuthProvider>
   )
 }
