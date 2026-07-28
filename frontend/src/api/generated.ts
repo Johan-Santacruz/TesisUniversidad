@@ -306,8 +306,7 @@ export interface components {
     schemas: {
         /** AnalysisRead */
         AnalysisRead: {
-            /** Current Stage */
-            current_stage: string | null;
+            current_stage: components["schemas"]["AnalysisStage"] | null;
             /** Events Url */
             events_url: string;
             /** Id */
@@ -317,6 +316,11 @@ export interface components {
             /** Video Id */
             video_id: string;
         };
+        /**
+         * AnalysisStage
+         * @enum {string}
+         */
+        AnalysisStage: "audio" | "transcription" | "people_places" | "dates_facts" | "classification" | "sources" | "timeline" | "routes";
         /** Body_login_api_v1_auth_token_post */
         Body_login_api_v1_auth_token_post: {
             /** Client Id */

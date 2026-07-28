@@ -6,13 +6,12 @@
           "current_stage": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/AnalysisStage"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Current Stage"
+            ]
           },
           "events_url": {
             "title": "Events Url",
@@ -40,6 +39,20 @@
         ],
         "title": "AnalysisRead",
         "type": "object"
+      },
+      "AnalysisStage": {
+        "enum": [
+          "audio",
+          "transcription",
+          "people_places",
+          "dates_facts",
+          "classification",
+          "sources",
+          "timeline",
+          "routes"
+        ],
+        "title": "AnalysisStage",
+        "type": "string"
       },
       "Body_login_api_v1_auth_token_post": {
         "properties": {

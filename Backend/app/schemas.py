@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.ai.contracts import (
+    AnalysisStage,
     ConfidenceBand,
     EvidenceRef,
     Origin,
@@ -96,7 +97,7 @@ class AnalysisRead(BaseModel):
     id: str
     video_id: str
     status: str
-    current_stage: str | None
+    current_stage: AnalysisStage | None
     events_url: str
 
 

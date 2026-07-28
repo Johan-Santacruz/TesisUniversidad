@@ -50,6 +50,16 @@ def test_openapi_export_contains_the_complete_public_contract(client):
         "housing_stabilization",
         "return_relocation",
     ]
+    assert schema["components"]["schemas"]["AnalysisStage"]["enum"] == [
+        "audio",
+        "transcription",
+        "people_places",
+        "dates_facts",
+        "classification",
+        "sources",
+        "timeline",
+        "routes",
+    ]
 
 
 def test_non_interactive_cli_manages_users_and_sources(

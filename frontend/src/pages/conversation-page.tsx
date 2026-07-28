@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { useAuth } from "../auth/auth-context"
+import { AnalysisWorkspace } from "../components/analysis/analysis-workspace"
 
 export default function ConversationPage() {
   const { user, logout } = useAuth()
@@ -14,11 +15,7 @@ export default function ConversationPage() {
           <button type="button" onClick={() => void logout()}>Cerrar sesión</button>
         </div>
       </header>
-      <section className="workspace-placeholder">
-        <p className="eyebrow">Análisis inteligente</p>
-        <h1>Subir video</h1>
-        <p>El espacio de análisis está listo para recibir un caso ficticio.</p>
-      </section>
+      {user ? <AnalysisWorkspace role={user.role} /> : null}
     </main>
   )
 }

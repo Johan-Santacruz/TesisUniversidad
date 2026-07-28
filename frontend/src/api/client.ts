@@ -114,6 +114,55 @@ export class ApiClient {
     }
     return this.parse<T>(response)
   }
+
+  async openStream(path: string, lastEventId = 0): Promise<Response> {
+    const headers = new Headers({ Accept: "text/event-stream" })
+    if (lastEventId > 0) {
+      headers.set("Last-Event-ID", String(lastEventId))
+    }
+    if (this.accessToken) {
+      headers.set("Authorization", `Bearer ${this.accessToken}`)
+    }
+    let response = await fetch(`${this.baseUrl}${path}`, {
+      headers,
+      credentials: "include",
+    })
+    if (response.status === 401) {
+      await this.refresh()
+      headers.set("Authorization", `Bearer ${this.accessToken}`)
+      response = await fetch(`${this.baseUrl}${path}`, {
+        headers,
+        credentials: "include",
+      })
+    }
+    if (!response.ok) {
+      await this.parse(response)
+    }
+    return response
+  }
+
+  async download(path: string): Promise<Blob> {
+    const headers = new Headers()
+    if (this.accessToken) {
+      headers.set("Authorization", `Bearer ${this.accessToken}`)
+    }
+    let response = await fetch(`${this.baseUrl}${path}`, {
+      headers,
+      credentials: "include",
+    })
+    if (response.status === 401) {
+      await this.refresh()
+      headers.set("Authorization", `Bearer ${this.accessToken}`)
+      response = await fetch(`${this.baseUrl}${path}`, {
+        headers,
+        credentials: "include",
+      })
+    }
+    if (!response.ok) {
+      await this.parse(response)
+    }
+    return response.blob()
+  }
 }
 
 
