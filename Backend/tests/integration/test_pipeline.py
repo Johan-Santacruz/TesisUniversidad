@@ -239,6 +239,25 @@ def test_configured_pipeline_runs_all_models_and_grounds_three_routes(
     assert all(route["verification_status"] == "confirmed" for route in routes)
 
 
+def test_configured_pipeline_case_is_readable_through_public_workspace_contract(
+    operator_client, tiny_video_bytes
+):
+    _, payloads = _run_uploaded(
+        operator_client,
+        tiny_video_bytes,
+        claude_value=_provider("claude"),
+    )
+    case_id = payloads[7]["payload"]["case_id"]
+
+    response = operator_client.get(f"/api/v1/cases/{case_id}")
+
+    assert response.status_code == 200
+    workspace = response.json()
+    assert workspace["segments"][0]["id"] == "segment-1"
+    assert "urgency" in {fact["label"] for fact in workspace["facts"]}
+    assert len(workspace["routes"]) == 3
+
+
 def test_provider_disagreement_stays_visible_instead_of_choosing_gpt(
     operator_client, tiny_video_bytes
 ):

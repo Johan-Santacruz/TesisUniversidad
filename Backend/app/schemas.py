@@ -3,7 +3,20 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 
+from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.ai.contracts import (
+    ConfidenceBand,
+    EvidenceRef,
+    Origin,
+    ProviderRouteStep,
+    RouteType,
+    ScalarValue,
+    TranscriptSegment,
+    VerificationStatus,
+)
 
 
 class UserRole(StrEnum):
@@ -85,3 +98,134 @@ class AnalysisRead(BaseModel):
     status: str
     current_stage: str | None
     events_url: str
+
+
+class FactRead(BaseModel):
+    id: str
+    label: str
+    value: ScalarValue
+    origin: Origin
+    verification_status: VerificationStatus
+    confidence_band: ConfidenceBand
+    is_critical: bool
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    provider_values: dict[str, ScalarValue] = Field(default_factory=dict)
+
+
+class FactReviewRequest(BaseModel):
+    action: Literal["confirm", "correct"]
+    value: ScalarValue = None
+    reason: str = Field(min_length=5, max_length=1000)
+
+
+class RouteRead(BaseModel):
+    id: str
+    route_type: RouteType
+    title: str
+    summary: str
+    steps: list[ProviderRouteStep]
+    origin: Origin = Origin.INFERRED
+    verification_status: VerificationStatus
+    confidence_band: ConfidenceBand
+    provider_options: dict[str, Any] | None = None
+
+
+class TimelineEventRead(BaseModel):
+    id: str
+    title: str
+    description: str
+    start_ms: int
+    end_ms: int
+    origin: Origin
+    verification_status: VerificationStatus
+    confidence_band: ConfidenceBand
+    provider_options: dict[str, Any] | None = None
+
+
+class SourceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    entity: str
+    program: str
+    coverage: str
+    requirements: str
+    contact: str
+    url: str
+    verified_at: datetime
+    expires_at: datetime
+    source_kind: Literal["contact", "program"]
+    route_types: list[RouteType]
+    status: str
+    is_expired: bool
+    disclaimer: str | None
+
+
+class SourceList(BaseModel):
+    items: list[SourceRead]
+
+
+class SourceCreate(BaseModel):
+    id: str = Field(min_length=3, max_length=64)
+    entity: str = Field(min_length=2, max_length=180)
+    program: str = Field(min_length=2, max_length=255)
+    coverage: str = Field(min_length=2, max_length=180)
+    requirements: str = Field(min_length=2)
+    contact: str = Field(min_length=2)
+    url: str = Field(pattern=r"^https://")
+    verified_at: datetime
+    expires_at: datetime
+    source_kind: Literal["contact", "program"]
+    route_types: list[RouteType] = Field(min_length=1)
+    status: str = "active"
+
+
+class SourceUpdate(BaseModel):
+    entity: str | None = Field(default=None, min_length=2, max_length=180)
+    program: str | None = Field(default=None, min_length=2, max_length=255)
+    coverage: str | None = Field(default=None, min_length=2, max_length=180)
+    requirements: str | None = Field(default=None, min_length=2)
+    contact: str | None = Field(default=None, min_length=2)
+    url: str | None = Field(default=None, pattern=r"^https://")
+    verified_at: datetime | None = None
+    expires_at: datetime | None = None
+    source_kind: Literal["contact", "program"] | None = None
+    route_types: list[RouteType] | None = Field(default=None, min_length=1)
+    status: str | None = None
+
+
+class CaseRead(BaseModel):
+    id: str
+    analysis_id: str
+    video_id: str
+    status: str
+    recommendation_status: str
+    approved_at: datetime | None
+    video_stream_url: str
+    segments: list[TranscriptSegment]
+    timeline: list[TimelineEventRead]
+    facts: list[FactRead]
+    classification: dict[str, Any]
+    sources: list[SourceRead]
+    routes: list[RouteRead]
+    critical_inconsistencies: int
+
+
+class CaseApprovalRequest(BaseModel):
+    confirmed_route_types: list[RouteType]
+
+
+class CaseApprovalRead(BaseModel):
+    id: str
+    status: str
+    recommendation_status: str
+    approved_at: datetime
+    video_delete_after: datetime
+    video_retention_days: int
+
+
+class TombstoneRead(BaseModel):
+    case_id_hash: str
+    deleted_at: datetime
+    action: str
+    actor_role: str

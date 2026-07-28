@@ -72,9 +72,10 @@ def require_roles(*allowed: UserRole):
 
 require_operator = require_roles(UserRole.OPERATOR)
 require_validator = require_roles(UserRole.VALIDATOR)
+require_reviewer = require_roles(UserRole.OPERATOR, UserRole.VALIDATOR)
 require_admin = require_roles(UserRole.ADMIN)
 
 OperatorUser = Annotated[User, Depends(require_operator)]
 ValidatorUser = Annotated[User, Depends(require_validator)]
+ReviewerUser = Annotated[User, Depends(require_reviewer)]
 AdminUser = Annotated[User, Depends(require_admin)]
-

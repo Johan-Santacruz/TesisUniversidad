@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from app.api import admin, analyses, auth, videos
+from app.api import admin, analyses, auth, cases, sources, videos
 from app.ai.beto import BetoAdapter
 from app.ai.providers import (
     AnthropicAnalysisAdapter,
@@ -24,6 +24,7 @@ from app.security.tokens import TokenService
 from app.services.audit import AuditService
 from app.services.analysis import AnalysisService
 from app.services.auth import AuthService
+from app.services.cases import CaseService
 from app.services.rag import RagCatalog, seed_official_sources
 from app.services.retention import RetentionService
 from app.services.videos import VideoService
@@ -58,6 +59,13 @@ def create_app(
         app_settings.storage_dir.mkdir(parents=True, exist_ok=True)
         seed_official_sources(app_database)
         application.state.rag = RagCatalog(app_database)
+        application.state.cases = CaseService(
+            cipher=cipher,
+            audit=application.state.audit,
+            rag=application.state.rag,
+            storage_dir=app_settings.storage_dir,
+            retention_days=app_settings.video_retention_days,
+        )
         openai_client = None
         anthropic_client = None
         if app_settings.openai_api_key is not None:
@@ -165,6 +173,8 @@ def create_app(
     application.include_router(admin.router, prefix=app_settings.api_prefix)
     application.include_router(videos.router, prefix=app_settings.api_prefix)
     application.include_router(analyses.router, prefix=app_settings.api_prefix)
+    application.include_router(cases.router, prefix=app_settings.api_prefix)
+    application.include_router(sources.router, prefix=app_settings.api_prefix)
 
     @application.get("/health", include_in_schema=False)
     def health() -> dict[str, str]:

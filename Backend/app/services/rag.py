@@ -174,6 +174,7 @@ class RagCatalog:
                 self._view(entry)
                 for entry in entries
                 if entry is not None
+                and entry.status != "retired"
                 and (
                     route_type is None
                     or route_type in entry.route_types.split(",")
@@ -186,15 +187,25 @@ class RagCatalog:
         if not unique_ids:
             return
         with self.database.session() as session:
-            existing = set(
-                session.scalars(
-                    select(SourceEntry.id).where(SourceEntry.id.in_(unique_ids))
+            rows = list(
+                session.execute(
+                    select(SourceEntry.id, SourceEntry.status).where(
+                        SourceEntry.id.in_(unique_ids)
+                    )
                 )
             )
+        existing = {source_id for source_id, _ in rows}
         missing = sorted(unique_ids - existing)
         if missing:
             raise GroundingError(
                 f"source_entry_id inexistente: {', '.join(missing)}"
+            )
+        inactive = sorted(
+            source_id for source_id, status in rows if status == "retired"
+        )
+        if inactive:
+            raise GroundingError(
+                f"source_entry_id no activa: {', '.join(inactive)}"
             )
 
 

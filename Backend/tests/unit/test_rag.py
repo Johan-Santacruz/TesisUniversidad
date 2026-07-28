@@ -88,6 +88,22 @@ def test_route_grounding_rejects_nonexistent_source_ids():
         catalog.validate_source_ids(["invented-source"])
 
 
+def test_retired_source_cannot_ground_new_route_claims():
+    database = Database("sqlite://")
+    database.create_schema()
+    catalog = RagCatalog(database)
+    with database.session() as session:
+        source = _seed(
+            source_id="retired-source",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            route_types=["emergency"],
+        ).model_copy(update={"status": "retired"})
+        catalog.upsert(session, source)
+
+    with pytest.raises(GroundingError, match="no activa"):
+        catalog.validate_source_ids(["retired-source"])
+
+
 def test_official_seed_uses_30_day_contacts_and_90_day_program_expiry():
     seeds = load_official_sources()
 

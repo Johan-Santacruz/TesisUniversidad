@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hmac
 import os
 from collections.abc import Iterator, Mapping
 from pathlib import Path
@@ -93,6 +94,13 @@ class EnvelopeCipher:
     ) -> Any:
         plaintext = self.decrypt_bytes(record_id, purpose, payload)
         return json.loads(plaintext.decode("utf-8"))
+
+    def fingerprint(self, value: str, *, purpose: str) -> str:
+        return hmac.digest(
+            self._keys[self.current_version],
+            f"siad:{purpose}:{value}".encode("utf-8"),
+            "sha256",
+        ).hex()
 
 
 class EncryptedChunk(BaseModel):
