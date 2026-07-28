@@ -47,3 +47,57 @@ def token_service():
 
     return TokenService(secret=b"J" * 32, issuer="siad-test")
 
+
+@pytest.fixture
+def client(settings_factory):
+    from fastapi.testclient import TestClient
+
+    from app.database import Database
+    from app.main import create_app
+
+    settings = settings_factory(demo_users_enabled=True)
+    database = Database(settings.database_url)
+    application = create_app(settings=settings, database=database)
+    with TestClient(application) as test_client:
+        yield test_client
+    database.dispose()
+
+
+@pytest.fixture
+def admin_credentials():
+    return {
+        "username": "admin@siad.local",
+        "password": "Cambiar-Esta-Clave-2026!",
+    }
+
+
+@pytest.fixture
+def admin_client(client, admin_credentials):
+    response = client.post("/api/v1/auth/token", data=admin_credentials)
+    assert response.status_code == 200
+    client.headers["Authorization"] = f"Bearer {response.json()['access_token']}"
+    return client
+
+
+@pytest.fixture
+def operator_client(admin_client, client):
+    created = admin_client.post(
+        "/api/v1/users",
+        json={
+            "email": "operador@siad.local",
+            "password": "Clave-Operador-2026!",
+            "role": "operador",
+        },
+    )
+    assert created.status_code == 201
+    admin_client.headers.pop("Authorization")
+    login = client.post(
+        "/api/v1/auth/token",
+        data={
+            "username": "operador@siad.local",
+            "password": "Clave-Operador-2026!",
+        },
+    )
+    assert login.status_code == 200
+    client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
+    return client
