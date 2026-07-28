@@ -12,32 +12,26 @@ interface RedirectState {
 const COLLAGE_PHOTOS = [
   {
     src: "/images/cover-andes.jpg",
-    caption: "territorio",
     position: "login-photo--1",
   },
   {
     src: "/images/tecnologia.jpg",
-    caption: "comunidad",
     position: "login-photo--2",
   },
   {
     src: "/images/hero-esperanza.jpg",
-    caption: "escucha",
     position: "login-photo--3",
   },
   {
     src: "/images/archivo.jpg",
-    caption: "memoria",
     position: "login-photo--4",
   },
   {
     src: "/images/justicia.jpg",
-    caption: "garantías",
     position: "login-photo--5",
   },
   {
     src: "/images/manos-documento.jpg",
-    caption: "identidad",
     position: "login-photo--6",
   },
 ] as const
@@ -84,30 +78,14 @@ export default function LoginPage() {
             className={`login-photo ${photo.position}`}
             key={photo.src}
           >
-            <span className="login-tape" />
             <img src={photo.src} alt="" />
-            <figcaption>{photo.caption}</figcaption>
           </figure>
         ))}
-        <div className="login-color-rule">
-          <i />
-          <i />
-          <i />
-        </div>
       </section>
 
       <section className="login-panel" aria-labelledby="login-title">
-        <div className="login-brand" aria-label="SIAD">
-          <span className="login-ribbon" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <strong>SIAD</strong>
-        </div>
-
         <div className="login-form-shell">
-          <p className="login-eyebrow">Acceso al sistema</p>
+          <p className="login-eyebrow">Acceso institucional</p>
           <h1 id="login-title">Bienvenido.</h1>
           <p className="login-intro">
             Ingrese para analizar casos ficticios y validar rutas de atención.
