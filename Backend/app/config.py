@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     anthropic_analysis_model: str = "claude-sonnet-5"
     whisper_model: str = "whisper-1"
     analysis_retry_attempts: int = Field(default=2, ge=0, le=5)
+    beto_artifact_dir: Path = Path("./models/violencia_classifier_artifacts")
 
     video_chunk_bytes: int = Field(default=1024 * 1024, ge=64 * 1024)
     max_video_bytes: int = Field(default=500 * 1024 * 1024, ge=1024)
@@ -89,4 +90,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()  # type: ignore[call-arg]
-

@@ -8,7 +8,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from app.api import admin, auth, videos
+from app.api import admin, analyses, auth, videos
+from app.ai.beto import BetoAdapter
+from app.ai.providers import (
+    AnthropicAnalysisAdapter,
+    OpenAIAnalysisAdapter,
+    WhisperAdapter,
+)
 from app.config import Settings, get_settings
 from app.database import Database
 from app.models import User
@@ -16,7 +22,9 @@ from app.security.crypto import ChunkCipher, EnvelopeCipher
 from app.security.passwords import PasswordService
 from app.security.tokens import TokenService
 from app.services.audit import AuditService
+from app.services.analysis import AnalysisService
 from app.services.auth import AuthService
+from app.services.rag import RagCatalog, seed_official_sources
 from app.services.retention import RetentionService
 from app.services.videos import VideoService
 
@@ -48,6 +56,54 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         app_database.create_schema()
         app_settings.storage_dir.mkdir(parents=True, exist_ok=True)
+        seed_official_sources(app_database)
+        application.state.rag = RagCatalog(app_database)
+        openai_client = None
+        anthropic_client = None
+        if app_settings.openai_api_key is not None:
+            from openai import OpenAI
+
+            openai_client = OpenAI(
+                api_key=app_settings.openai_api_key.get_secret_value()
+            )
+        if app_settings.anthropic_api_key is not None:
+            from anthropic import Anthropic
+
+            anthropic_client = Anthropic(
+                api_key=app_settings.anthropic_api_key.get_secret_value()
+            )
+        application.state.analysis = AnalysisService(
+            database=app_database,
+            cipher=cipher,
+            rag=application.state.rag,
+            beto=BetoAdapter.load(app_settings.beto_artifact_dir),
+            video_service=application.state.videos,
+            whisper=(
+                WhisperAdapter(
+                    client=openai_client,
+                    model=app_settings.whisper_model,
+                )
+                if openai_client is not None
+                else None
+            ),
+            gpt=(
+                OpenAIAnalysisAdapter(
+                    client=openai_client,
+                    model=app_settings.openai_analysis_model,
+                )
+                if openai_client is not None
+                else None
+            ),
+            claude=(
+                AnthropicAnalysisAdapter(
+                    client=anthropic_client,
+                    model=app_settings.anthropic_analysis_model,
+                )
+                if anthropic_client is not None
+                else None
+            ),
+            retry_attempts=app_settings.analysis_retry_attempts,
+        )
         if app_settings.demo_users_enabled:
             with app_database.session() as session:
                 existing = session.scalar(
@@ -108,6 +164,7 @@ def create_app(
     application.include_router(auth.router, prefix=app_settings.api_prefix)
     application.include_router(admin.router, prefix=app_settings.api_prefix)
     application.include_router(videos.router, prefix=app_settings.api_prefix)
+    application.include_router(analyses.router, prefix=app_settings.api_prefix)
 
     @application.get("/health", include_in_schema=False)
     def health() -> dict[str, str]:

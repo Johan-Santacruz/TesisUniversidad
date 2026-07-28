@@ -75,3 +75,13 @@ class VideoRead(BaseModel):
     status: str
     is_demo: bool
     created_at: datetime
+
+
+class AnalysisRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    video_id: str
+    status: str
+    current_stage: str | None
+    events_url: str

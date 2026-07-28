@@ -1,8 +1,0 @@
-fastapi
-uvicorn[standard]
-torch
-transformers
-tokenizers
-joblib
-scikit-learn
-numpy

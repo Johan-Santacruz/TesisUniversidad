@@ -10,18 +10,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from transformers import AutoModel, AutoTokenizer
 
 
 ARTIFACT_DIR = Path(
     os.environ.get("MODEL_ARTIFACT_DIR", "./models/violencia_classifier_artifacts")
 ).resolve()
-
-
-class PredictionRequest(BaseModel):
-    text: str
 
 
 class TransformerClasificador(nn.Module):
@@ -110,15 +104,6 @@ class ViolenceClassifier:
             for index in top_idx
         ]
 
-    @staticmethod
-    def _risk_level(category: str, subcategory: str) -> str:
-        text = f"{category} {subcategory}".lower()
-        if any(term in text for term in ["homicidio", "secuestro", "masacre", "desaparici", "reclutamiento"]):
-            return "critico"
-        if any(term in text for term in ["amenaza", "desplazamiento", "confinamiento", "ataque"]):
-            return "alto"
-        return "medio"
-
     @torch.inference_mode()
     def predict(self, text: str) -> dict[str, Any]:
         clean_text = text.strip()
@@ -160,36 +145,4 @@ class ViolenceClassifier:
                     subcategory_probs,
                 ),
             },
-            "riskLevel": self._risk_level(category_label, subcategory_label),
-            "notes": ["Prediccion generada con el modelo BETO entrenado en el notebook."],
         }
-
-
-app = FastAPI(title="SIAD Violence Classifier")
-classifier: ViolenceClassifier | None = None
-
-
-@app.on_event("startup")
-def load_classifier() -> None:
-    global classifier
-    classifier = ViolenceClassifier(ARTIFACT_DIR)
-
-
-@app.get("/health")
-def health() -> dict[str, Any]:
-    return {
-        "success": True,
-        "artifactDir": str(ARTIFACT_DIR),
-        "loaded": classifier is not None,
-    }
-
-
-@app.post("/predict")
-def predict(payload: PredictionRequest) -> dict[str, Any]:
-    if classifier is None:
-        raise HTTPException(status_code=503, detail="El clasificador aun no esta cargado.")
-
-    try:
-        return classifier.predict(payload.text)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
