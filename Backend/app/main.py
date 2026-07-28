@@ -8,15 +8,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from app.api import admin, auth
+from app.api import admin, auth, videos
 from app.config import Settings, get_settings
 from app.database import Database
 from app.models import User
-from app.security.crypto import EnvelopeCipher
+from app.security.crypto import ChunkCipher, EnvelopeCipher
 from app.security.passwords import PasswordService
 from app.security.tokens import TokenService
 from app.services.audit import AuditService
 from app.services.auth import AuthService
+from app.services.retention import RetentionService
+from app.services.videos import VideoService
 
 
 def create_app(
@@ -82,6 +84,19 @@ def create_app(
         refresh_hours=app_settings.refresh_token_hours,
     )
     application.state.audit = AuditService(cipher)
+    application.state.retention = RetentionService(
+        application.state.audit,
+        app_settings.storage_dir,
+    )
+    application.state.videos = VideoService(
+        settings=app_settings,
+        chunk_cipher=ChunkCipher(
+            keys={app_settings.key_version: app_settings.encryption_key_bytes},
+            current_version=app_settings.key_version,
+        ),
+        envelope_cipher=cipher,
+        audit=application.state.audit,
+    )
 
     application.add_middleware(
         CORSMiddleware,
@@ -92,6 +107,7 @@ def create_app(
     )
     application.include_router(auth.router, prefix=app_settings.api_prefix)
     application.include_router(admin.router, prefix=app_settings.api_prefix)
+    application.include_router(videos.router, prefix=app_settings.api_prefix)
 
     @application.get("/health", include_in_schema=False)
     def health() -> dict[str, str]:

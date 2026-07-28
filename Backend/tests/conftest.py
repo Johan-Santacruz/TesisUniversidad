@@ -101,3 +101,19 @@ def operator_client(admin_client, client):
     assert login.status_code == 200
     client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
     return client
+
+
+@pytest.fixture
+def tiny_video_bytes() -> bytes:
+    # ISO BMFF signature followed by deterministic fictitious bytes.
+    return (
+        b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"
+        + bytes(range(256)) * 24
+    )
+
+
+@pytest.fixture
+def chunk_cipher():
+    from app.security.crypto import ChunkCipher
+
+    return ChunkCipher(keys={1: b"E" * 32}, current_version=1)

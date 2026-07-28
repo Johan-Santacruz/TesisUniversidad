@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -56,3 +57,21 @@ class TokenResponse(BaseModel):
 
 class Message(BaseModel):
     message: str
+
+
+class DataKind(StrEnum):
+    FICTITIOUS = "fictitious"
+    REAL = "real"
+
+
+class VideoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    filename: str
+    media_type: str
+    size_bytes: int
+    data_kind: DataKind
+    status: str
+    is_demo: bool
+    created_at: datetime
