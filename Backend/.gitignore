@@ -1,7 +1,6 @@
 # Dependencies
-node_modules/
-package-lock.json
-pnpm-lock.yaml
+.venv/
+*.egg-info/
 
 # Production
 dist/
@@ -39,3 +38,8 @@ Thumbs.db
 # Temp
 tmp/
 temp/
+
+# Python tooling
+.pytest_cache/
+.coverage
+htmlcov/
