@@ -11,7 +11,7 @@ function timestamp(milliseconds: number) {
 }
 
 
-export const VideoPanel = forwardRef<
+export const DocumentaryVideoRail = forwardRef<
   HTMLVideoElement,
   {
     source: string | null
@@ -19,20 +19,14 @@ export const VideoPanel = forwardRef<
     activeSegmentId: string | null
     onSegmentSelect: (segment: Segment) => void
   }
->(function VideoPanel(
+>(function DocumentaryVideoRail(
   { source, segments, activeSegmentId, onSegmentSelect },
   ref,
 ) {
   return (
-    <section className="case-video-panel" aria-labelledby="video-title">
-      <div className="video-panel-heading">
-        <div>
-          <p className="eyebrow">Evidencia audiovisual</p>
-          <h2 id="video-title">Video del caso</h2>
-        </div>
-        <span>cifrado</span>
-      </div>
-      <div className="video-frame">
+    <aside className="documentary-rail" aria-labelledby="video-title">
+      <h2 id="video-title">Tu declaración</h2>
+      <div className="documentary-video">
         <video
           ref={ref}
           data-testid="case-video"
@@ -48,22 +42,26 @@ export const VideoPanel = forwardRef<
           </div>
         ) : null}
       </div>
-      <div className="segment-list" aria-label="Segmentos de transcripción">
-        <h3>Transcripción segmentada</h3>
+      <p className="privacy-caption">
+        Caso ficticio · identidad protegida <span aria-hidden="true">●</span>
+      </p>
+      <div
+        className="documentary-fragments"
+        aria-label="Fragmentos de la transcripción"
+      >
         {segments.map((segment) => (
           <button
             type="button"
             key={segment.id}
             className={segment.id === activeSegmentId ? "is-active" : ""}
+            aria-pressed={segment.id === activeSegmentId}
             onClick={() => onSegmentSelect(segment)}
           >
             <time>{timestamp(segment.start_ms)}</time>
-            <span data-active={segment.id === activeSegmentId ? "true" : "false"}>
-              {segment.text}
-            </span>
+            <span>{segment.text}</span>
           </button>
         ))}
       </div>
-    </section>
+    </aside>
   )
 })

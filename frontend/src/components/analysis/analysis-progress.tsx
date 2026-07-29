@@ -14,6 +14,16 @@ const stages: Array<{ id: AnalysisStage; label: string }> = [
   { id: "routes", label: "Rutas" },
 ]
 
+const chapters = [
+  { number: "01", title: "Escuchando", stages: ["audio", "transcription"] },
+  {
+    number: "02",
+    title: "Ordenando",
+    stages: ["people_places", "dates_facts", "classification", "sources"],
+  },
+  { number: "03", title: "Trazando", stages: ["timeline", "routes"] },
+] as const
+
 
 export function AnalysisProgress({
   events,
@@ -27,36 +37,60 @@ export function AnalysisProgress({
   const complete = events.length
 
   return (
-    <section className="analysis-progress" aria-labelledby="progress-title">
-      <p className="eyebrow">Procesamiento cifrado</p>
-      <h1 id="progress-title">Construyendo la lectura del caso</h1>
-      <p aria-live="polite">
-        {error
-          ? error
-          : `${Math.min(complete, stages.length)} de ${stages.length} etapas persistidas`}
-      </p>
-      <div className="progress-rule" aria-hidden="true">
-        <motion.span
-          initial={reduceMotion ? false : { scaleX: 0 }}
-          animate={{ scaleX: Math.min(1, complete / stages.length) }}
-          transition={{ duration: reduceMotion ? 0.01 : 0.45 }}
-        />
-      </div>
-      <ol>
-        {stages.map((stage, index) => {
-          const state = states.get(stage.id)
-          return (
-            <li
-              key={stage.id}
-              className={state ? `is-complete state-${state}` : ""}
-            >
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <strong>{stage.label}</strong>
-              <small>{state ? "Persistida" : "En espera"}</small>
+    <section className="analysis-prelude" aria-labelledby="progress-title">
+      <aside className="prelude-document">
+        <p className="eyebrow">Procesamiento protegido</p>
+        <h2>Tres capítulos, una sola lectura.</h2>
+        <p>
+          Cada resultado queda persistido antes de aparecer. La ruta solo se
+          abre cuando el relato, los hechos y las fuentes están preparados.
+        </p>
+        <p className="processing-note">
+          Puedes mantener esta ventana abierta mientras avanza el análisis.
+        </p>
+      </aside>
+      <div className="narrative-sheet analysis-progress">
+        <p className="eyebrow">Procesamiento cifrado</p>
+        <h1 id="progress-title">Construyendo la lectura del caso</h1>
+        <p aria-live="polite" className={error ? "progress-message is-error" : "progress-message"}>
+          {error
+            ? error
+            : `${Math.min(complete, stages.length)} de ${stages.length} etapas persistidas`}
+        </p>
+        <div className="progress-rule" aria-hidden="true">
+          <motion.span
+            initial={reduceMotion ? false : { scaleX: 0 }}
+            animate={{ scaleX: Math.min(1, complete / stages.length) }}
+            transition={{ duration: reduceMotion ? 0.01 : 0.45 }}
+          />
+        </div>
+        <ol className="progress-chapters">
+          {chapters.map((chapter) => (
+            <li key={chapter.number}>
+              <span>{chapter.number}</span>
+              <div>
+                <strong>{chapter.title}</strong>
+                <ul>
+                  {chapter.stages.map((stageId) => {
+                    const stage = stages.find((item) => item.id === stageId)
+                    const state = states.get(stageId)
+                    return (
+                      <li
+                        key={stageId}
+                        className={state ? `is-complete state-${state}` : ""}
+                      >
+                        <span aria-hidden="true" />
+                        <span>{stage?.label}</span>
+                        <small>{state ? "Persistida" : "En espera"}</small>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
             </li>
-          )
-        })}
-      </ol>
+          ))}
+        </ol>
+      </div>
     </section>
   )
 }

@@ -17,6 +17,21 @@ function PageShell({ children }: { children: React.ReactNode }) {
   )
 }
 
+function LoginWithBookBackdrop() {
+  return (
+    <div className="login-route">
+      <div
+        className="login-book-layer"
+        aria-hidden="true"
+        inert
+      >
+        <BookPage backgroundMode />
+      </div>
+      <LoginPage />
+    </div>
+  )
+}
+
 export function AppRoutes() {
   return (
       <Routes>
@@ -28,7 +43,7 @@ export function AppRoutes() {
             </PageShell>
           }
         />
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login" element={<LoginWithBookBackdrop />} />
         <Route element={<ProtectedRoute />}>
           <Route
             path="/subir-video"

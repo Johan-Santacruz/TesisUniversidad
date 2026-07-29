@@ -7,6 +7,7 @@ import { StatusBadge } from "./status-badge"
 type Fact = components["schemas"]["FactRead"]
 type FactReview = components["schemas"]["FactReviewRequest"]
 type Role = components["schemas"]["UserRole"]
+type ReviewMode = "confirm" | "correct"
 
 
 function displayValue(value: Fact["value"]) {
@@ -27,20 +28,26 @@ function FactCard({
   selected: boolean
   onReview: (factId: string, payload: FactReview) => Promise<void> | void
 }) {
-  const [value, setValue] = useState(displayValue(fact.value))
+  const [value, setValue] = useState(
+    fact.value === null ? "" : displayValue(fact.value),
+  )
   const [reason, setReason] = useState("")
+  const [reviewMode, setReviewMode] = useState<ReviewMode | null>(null)
   const [saving, setSaving] = useState(false)
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!reviewMode) return
     setSaving(true)
     try {
+      const reviewNeedsValue = reviewMode === "correct" || fact.value === null
       await onReview(fact.id, {
-        action: role === "operador" ? "correct" : "confirm",
-        value: value === "Sin valor acordado" ? null : value,
+        action: reviewMode,
+        value: reviewNeedsValue ? value : undefined,
         reason,
       })
       setReason("")
+      setReviewMode(null)
     } finally {
       setSaving(false)
     }
@@ -71,28 +78,74 @@ function FactCard({
         </dl>
       ) : null}
       {fact.verification_status !== "confirmed" ? (
-        <form onSubmit={submit} className="fact-review-form">
-          <label>
-            {role === "operador" ? "Corrección propuesta" : "Lectura validada"}
-            <input
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Razón de la revisión
-            <textarea
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              minLength={5}
-              required
-            />
-          </label>
-          <button type="submit" disabled={saving}>
-            {role === "operador" ? "Proponer corrección" : "Confirmar lectura"}
-          </button>
-        </form>
+        <>
+          <div className="fact-review-actions">
+            {role !== "operador" ? (
+              <button
+                type="button"
+                className="confirm-action"
+                aria-pressed={reviewMode === "confirm"}
+                onClick={() => setReviewMode("confirm")}
+              >
+                <span aria-hidden="true">✓</span> Esto es correcto
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="correct-action"
+              aria-pressed={reviewMode === "correct"}
+              onClick={() => setReviewMode("correct")}
+            >
+              <span aria-hidden="true">✎</span> Necesito corregirlo
+            </button>
+          </div>
+          {reviewMode ? (
+            <form onSubmit={submit} className="fact-review-form">
+              {reviewMode === "correct" || fact.value === null ? (
+                <label>
+                  {reviewMode === "confirm"
+                    ? "Valor confirmado"
+                    : "Valor corregido"}
+                  <input
+                    value={value}
+                    onChange={(event) => setValue(event.target.value)}
+                    required
+                  />
+                </label>
+              ) : null}
+              <label>
+                {reviewMode === "confirm"
+                  ? "Razón de la confirmación"
+                  : "Razón de la corrección"}
+                <textarea
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  minLength={5}
+                  required
+                />
+              </label>
+              <div className="fact-review-submit">
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => {
+                    setReviewMode(null)
+                    setReason("")
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" disabled={saving}>
+                  {saving
+                    ? "Guardando…"
+                    : reviewMode === "confirm"
+                      ? "Confirmar lectura"
+                      : "Guardar corrección"}
+                </button>
+              </div>
+            </form>
+          ) : null}
+        </>
       ) : null}
     </article>
   )
@@ -122,59 +175,31 @@ export function VerificationPanel({
         ))
       .map((fact) => fact.id),
   )
-  const groups = [
-    {
-      title: "Alta confianza",
-      facts: facts.filter(
-        (fact) =>
-          fact.verification_status === "confirmed"
-          && fact.confidence_band === "high",
-      ),
-    },
-    {
-      title: "Requiere confirmación",
-      facts: facts.filter((fact) =>
-        fact.verification_status === "pending"
-        || fact.verification_status === "inconsistent"),
-    },
-    {
-      title: "No identificado",
-      facts: facts.filter(
-        (fact) => fact.verification_status === "not_identified",
-      ),
-    },
-  ]
+  const orderedFacts = [...facts].sort((left, right) => {
+    if (left.is_critical === right.is_critical) return 0
+    return left.is_critical ? -1 : 1
+  })
 
   return (
-    <aside className="verification-panel" aria-labelledby="verification-title">
-      <div className="verification-intro">
-        <p className="eyebrow">Control humano</p>
-        <h2 id="verification-title">Verificación</h2>
-        <p>
-          Cada cambio conserva autor, razón y estado. Ninguna inconsistencia se
-          resuelve en silencio.
-        </p>
+    <section className="verification-panel" aria-labelledby="verification-title">
+      <div className="stage-section-heading">
+        <div>
+          <p className="eyebrow">Control humano</p>
+          <h2 id="verification-title">Señales encontradas</h2>
+        </div>
+        <p>Cada corrección conserva autor, razón y estado.</p>
       </div>
-      {groups.map((group) => (
-        <section key={group.title} className="fact-group">
-          <h3>{group.title}</h3>
-          {group.facts.length ? (
-            <div className="fact-list">
-              {group.facts.map((fact) => (
-                <FactCard
-                  key={fact.id}
-                  fact={fact}
-                  role={role}
-                  selected={selectedFacts.has(fact.id)}
-                  onReview={onReview}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="empty-group">Sin elementos en este grupo.</p>
-          )}
-        </section>
-      ))}
-    </aside>
+      <div className="evidence-grid">
+        {orderedFacts.map((fact) => (
+          <FactCard
+            key={fact.id}
+            fact={fact}
+            role={role}
+            selected={selectedFacts.has(fact.id)}
+            onReview={onReview}
+          />
+        ))}
+      </div>
+    </section>
   )
 }

@@ -4,12 +4,15 @@ import { apiClient } from "../../api/client"
 import type { components } from "../../api/generated"
 import { useAnalysisEvents } from "../../hooks/use-analysis-events"
 import { AnalysisProgress } from "./analysis-progress"
-import { ClassificationPanel } from "./classification-panel"
-import { RoutesComparison } from "./routes-comparison"
-import { Timeline } from "./timeline"
+import { EvidenceStage, riskLabelForFacts } from "./evidence-stage"
+import { ListeningStage } from "./listening-stage"
+import {
+  NarrativeStageHeader,
+  type NarrativeStage,
+} from "./narrative-stage"
+import { RouteStage } from "./route-stage"
 import { UploadPanel } from "./upload-panel"
-import { VerificationPanel } from "./verification-panel"
-import { VideoPanel } from "./video-panel"
+import { DocumentaryVideoRail } from "./video-panel"
 
 
 type CaseData = components["schemas"]["CaseRead"]
@@ -32,10 +35,11 @@ export function AnalysisWorkspace({
   const [eventsUrl, setEventsUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [narrativeStage, setNarrativeStage] = useState<NarrativeStage>("listening")
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null)
   const [videoSource, setVideoSource] = useState<string | null>(null)
   const [loadRemoteVideo, setLoadRemoteVideo] = useState(false)
-  const [verificationOpen, setVerificationOpen] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const stream = useAnalysisEvents(eventsUrl)
 
@@ -82,13 +86,18 @@ export function AnalysisWorkspace({
   }, [caseData, loadRemoteVideo])
 
   const activeSegment = useMemo(() => {
-    if (!selectedEvent || !caseData) return null
+    if (!caseData) return null
+    const explicitlySelected = caseData.segments.find(
+      (segment) => segment.id === selectedSegmentId,
+    )
+    if (explicitlySelected) return explicitlySelected
+    if (!selectedEvent) return caseData.segments[0] ?? null
     return caseData.segments.find(
       (segment) =>
         selectedEvent.start_ms >= segment.start_ms
         && selectedEvent.start_ms <= segment.end_ms,
     ) ?? null
-  }, [caseData, selectedEvent])
+  }, [caseData, selectedEvent, selectedSegmentId])
 
   const startAnalysis = async (video: VideoRead) => {
     const analysis = await apiClient.request<AnalysisRead>(
@@ -101,6 +110,9 @@ export function AnalysisWorkspace({
   const useDemo = async () => {
     setBusy(true)
     setError("")
+    setNarrativeStage("listening")
+    setSelectedEvent(null)
+    setSelectedSegmentId(null)
     try {
       const video = await apiClient.request<VideoRead>("/api/v1/videos/demo", {
         method: "POST",
@@ -115,6 +127,9 @@ export function AnalysisWorkspace({
   const upload = async (file: File) => {
     setBusy(true)
     setError("")
+    setNarrativeStage("listening")
+    setSelectedEvent(null)
+    setSelectedSegmentId(null)
     const body = new FormData()
     body.append("file", file)
     body.append("data_kind", "fictitious")
@@ -138,10 +153,16 @@ export function AnalysisWorkspace({
 
   const selectEvent = (event: TimelineEvent) => {
     setSelectedEvent(event)
+    const segment = caseData?.segments.find(
+      (item) =>
+        event.start_ms >= item.start_ms && event.start_ms <= item.end_ms,
+    )
+    setSelectedSegmentId(segment?.id ?? null)
     seekTo(event.start_ms)
   }
 
   const selectSegment = (segment: Segment) => {
+    setSelectedSegmentId(segment.id)
     seekTo(segment.start_ms)
     const event = caseData?.timeline.find(
       (item) =>
@@ -195,10 +216,12 @@ export function AnalysisWorkspace({
 
   if (!caseData && !eventsUrl) {
     return (
-      <>
-        <UploadPanel busy={busy} onUpload={upload} onDemo={useDemo} />
-        {error ? <p className="workspace-error" role="alert">{error}</p> : null}
-      </>
+      <UploadPanel
+        busy={busy}
+        error={error}
+        onUpload={upload}
+        onDemo={useDemo}
+      />
     )
   }
 
@@ -206,49 +229,77 @@ export function AnalysisWorkspace({
     return <AnalysisProgress events={stream.events} error={stream.error || error} />
   }
 
+  const riskLabel = riskLabelForFacts(caseData.facts)
+
   return (
     <div className="analysis-workspace">
-      <h1 className="visually-hidden">Análisis inteligente del video</h1>
-      <div className="workspace-columns">
-        <VideoPanel
+      <div className="narrative-workspace-grid">
+        <DocumentaryVideoRail
           ref={videoRef}
           source={videoSource}
           segments={caseData.segments}
           activeSegmentId={activeSegment?.id ?? null}
           onSegmentSelect={selectSegment}
         />
-        <div className="analysis-narrative">
-          <Timeline
-            events={caseData.timeline}
-            selectedId={selectedEvent?.id ?? null}
-            onSelect={selectEvent}
+        <main className="narrative-sheet" aria-live="polite">
+          <NarrativeStageHeader
+            stage={narrativeStage}
+            onStageChange={setNarrativeStage}
+            aside={
+              narrativeStage === "evidence"
+                ? (
+                    <span className="risk-summary-header" role="status">
+                      {riskLabel}
+                    </span>
+                  )
+                : undefined
+            }
           />
-          <ClassificationPanel classification={caseData.classification} />
-        </div>
-        <div className={verificationOpen ? "verification-shell is-open" : "verification-shell"}>
-          <button
-            type="button"
-            className="verification-close"
-            onClick={() => setVerificationOpen(false)}
-          >
-            Cerrar verificación
-          </button>
-          <VerificationPanel
-            facts={caseData.facts}
-            role={role}
-            selectedStartMs={selectedEvent?.start_ms}
-            onReview={review}
-          />
-        </div>
+          <div key={narrativeStage} className="narrative-stage-content">
+            {narrativeStage === "listening" ? (
+              <ListeningStage
+                segments={caseData.segments}
+                activeSegmentId={activeSegment?.id ?? null}
+                onSelect={selectSegment}
+              />
+            ) : null}
+            {narrativeStage === "evidence" ? (
+              <EvidenceStage
+                classification={caseData.classification}
+                facts={caseData.facts}
+                role={role}
+                selectedStartMs={activeSegment?.start_ms}
+                onReview={review}
+              />
+            ) : null}
+            {narrativeStage === "route" ? (
+              <RouteStage
+                caseData={caseData}
+                role={role}
+                selectedId={selectedEvent?.id ?? null}
+                onTimelineSelect={selectEvent}
+                onApprove={approve}
+              />
+            ) : null}
+          </div>
+          <footer className="narrative-stage-actions">
+            <p>Los cambios quedan guardados en el caso.</p>
+            {narrativeStage !== "route" ? (
+              <button
+                type="button"
+                onClick={() => setNarrativeStage(
+                  narrativeStage === "listening" ? "evidence" : "route",
+                )}
+              >
+                {narrativeStage === "listening"
+                  ? "Revisar señales"
+                  : "Continuar a la ruta"}{" "}
+                <span aria-hidden="true">→</span>
+              </button>
+            ) : null}
+          </footer>
+        </main>
       </div>
-      <button
-        type="button"
-        className="verification-trigger"
-        onClick={() => setVerificationOpen(true)}
-      >
-        Abrir verificación
-      </button>
-      <RoutesComparison caseData={caseData} role={role} onApprove={approve} />
     </div>
   )
 }

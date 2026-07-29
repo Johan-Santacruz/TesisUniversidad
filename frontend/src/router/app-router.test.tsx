@@ -33,7 +33,7 @@ it("redirects unauthenticated visitors to login", async () => {
   renderAt("/subir-video")
 
   expect(
-    await screen.findByRole("heading", { name: /ingresar a siad/i }),
+    await screen.findByRole("heading", { name: /bienvenido de nuevo/i }),
   ).toBeVisible()
 })
 

@@ -28,7 +28,7 @@ export function RoutesComparison({
 
   return (
     <section className="routes-section" aria-labelledby="routes-title">
-      <div className="section-heading routes-heading">
+      <div className="stage-section-heading routes-heading">
         <div>
           <p className="eyebrow">Tres recorridos comparables</p>
           <h2 id="routes-title">Rutas institucionales</h2>

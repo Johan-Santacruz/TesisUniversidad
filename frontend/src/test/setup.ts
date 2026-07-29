@@ -46,3 +46,27 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => false,
   }),
 })
+
+class IntersectionObserverMock implements IntersectionObserver {
+  readonly root = null
+  readonly rootMargin = "0px"
+  readonly thresholds = [0]
+
+  constructor(
+    _callback: IntersectionObserverCallback,
+    _options?: IntersectionObserverInit,
+  ) {}
+
+  disconnect() {}
+  observe(_target: Element) {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return []
+  }
+  unobserve(_target: Element) {}
+}
+
+Object.defineProperty(window, "IntersectionObserver", {
+  configurable: true,
+  writable: true,
+  value: IntersectionObserverMock,
+})

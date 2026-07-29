@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import path from "node:path"
 
+const siadBackendPort = Number(process.env.SIAD_E2E_BACKEND_PORT ?? 8000)
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -14,7 +16,7 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:8000",
+      "/api": `http://127.0.0.1:${siadBackendPort}`,
     },
   },
   test: {

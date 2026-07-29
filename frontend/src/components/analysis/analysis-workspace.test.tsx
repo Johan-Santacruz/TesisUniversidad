@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { caseFixture } from "../../test/case-fixture"
@@ -14,16 +14,24 @@ describe("AnalysisWorkspace", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
+        name: /ir a trazando la ruta/i,
+      }),
+    )
+    fireEvent.click(
+      screen.getByRole("button", {
         name: /desplazamiento hacia popayán/i,
       }),
     )
 
     expect(video.currentTime).toBe(18.4)
-    expect(screen.getByText("La familia llegó a Popayán y necesita alojamiento seguro."))
-      .toHaveAttribute("data-active", "true")
+    expect(
+      screen.getByRole("button", {
+        name: /0:18la familia llegó a popayán/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true")
   })
 
-  it("groups facts with visible verification labels", () => {
+  it("shows each signal with its verification state and review action", () => {
     render(
       <VerificationPanel
         facts={caseFixture.facts}
@@ -32,13 +40,53 @@ describe("AnalysisWorkspace", () => {
       />,
     )
 
-    expect(screen.getByRole("heading", { name: "Alta confianza" })).toBeVisible()
+    expect(screen.getByRole("heading", { name: "Señales encontradas" })).toBeVisible()
+    expect(screen.getByText("Confirmado")).toBeVisible()
+    expect(screen.getByText("Inconsistente")).toBeVisible()
+    expect(screen.getByText("No identificado")).toBeVisible()
     expect(
-      screen.getByRole("heading", { name: "Requiere confirmación" }),
-    ).toBeVisible()
-    expect(
-      screen.getByRole("heading", { name: "No identificado" }),
-    ).toBeVisible()
+      screen.getAllByRole("button", { name: /necesito corregirlo/i }),
+    ).toHaveLength(2)
+  })
+
+  it("collects a value when a validator confirms an unresolved signal", () => {
+    const onReview = vi.fn()
+    render(
+      <VerificationPanel
+        facts={caseFixture.facts}
+        role="validador"
+        onReview={onReview}
+      />,
+    )
+    const urgency = screen.getByText("Urgencia").closest("article")
+    expect(urgency).not.toBeNull()
+
+    fireEvent.click(
+      within(urgency as HTMLElement).getByRole("button", {
+        name: /esto es correcto/i,
+      }),
+    )
+    fireEvent.change(
+      within(urgency as HTMLElement).getByLabelText("Valor confirmado"),
+      { target: { value: "high" } },
+    )
+    fireEvent.change(
+      within(urgency as HTMLElement).getByLabelText(
+        "Razón de la confirmación",
+      ),
+      { target: { value: "Validación humana del caso ficticio" } },
+    )
+    fireEvent.click(
+      within(urgency as HTMLElement).getByRole("button", {
+        name: "Confirmar lectura",
+      }),
+    )
+
+    expect(onReview).toHaveBeenCalledWith("fact-urgency", {
+      action: "confirm",
+      value: "high",
+      reason: "Validación humana del caso ficticio",
+    })
   })
 
   it("keeps real testimonies locked and exposes the fictitious demo", () => {

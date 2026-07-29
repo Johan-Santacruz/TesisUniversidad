@@ -6,16 +6,34 @@ export default function ConversationPage() {
   const { user, logout } = useAuth()
 
   return (
-    <main className="analysis-app" data-testid="video-analysis-workspace">
+    <div className="analysis-app" data-testid="video-analysis-workspace">
       <header className="workspace-header">
-        <Link to="/" aria-label="Volver al libro">SIAD</Link>
-        <div>
-          <span>{user?.email}</span>
-          <span>{user?.role}</span>
-          <button type="button" onClick={() => void logout()}>Cerrar sesión</button>
+        <Link
+          to="/"
+          className="workspace-brand"
+          aria-label="Volver al libro"
+        >
+          <span className="workspace-mark" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span>
+            <strong>SIAD</strong>
+            <small>Constructor de ruta de acción</small>
+          </span>
+        </Link>
+        <div className="workspace-identity">
+          <span>
+            <strong>{user?.email}</strong>
+            <small>{user?.role}</small>
+          </span>
+          <button type="button" onClick={() => void logout()}>
+            Cerrar sesión <span aria-hidden="true">→</span>
+          </button>
         </div>
       </header>
       {user ? <AnalysisWorkspace role={user.role} /> : null}
-    </main>
+    </div>
   )
 }

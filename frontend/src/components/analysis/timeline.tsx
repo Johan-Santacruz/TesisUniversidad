@@ -38,15 +38,18 @@ export function Timeline({
           className="tricolor-rail"
           data-testid="tricolor-rail"
           aria-hidden="true"
-          initial={reduceMotion ? false : { scaleY: 0 }}
-          animate={{ scaleY: 1 }}
+          initial={reduceMotion ? false : { scaleX: 0 }}
+          animate={{ scaleX: 1 }}
           transition={{ duration: reduceMotion ? 0.01 : 0.8 }}
         >
           <span />
           <span />
           <span />
         </motion.div>
-        <ol className="timeline-events">
+        <ol
+          className="timeline-events"
+          aria-label="Momentos vinculados al video"
+        >
           {events.map((event, index) => (
             <motion.li
               key={event.id}

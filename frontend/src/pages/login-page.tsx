@@ -9,33 +9,12 @@ interface RedirectState {
   from?: { pathname?: string }
 }
 
-const COLLAGE_PHOTOS = [
-  {
-    src: "/images/cover-andes.jpg",
-    position: "login-photo--1",
-  },
-  {
-    src: "/images/tecnologia.jpg",
-    position: "login-photo--2",
-  },
-  {
-    src: "/images/hero-esperanza.jpg",
-    position: "login-photo--3",
-  },
-  {
-    src: "/images/archivo.jpg",
-    position: "login-photo--4",
-  },
-  {
-    src: "/images/justicia.jpg",
-    position: "login-photo--5",
-  },
-  {
-    src: "/images/manos-documento.jpg",
-    position: "login-photo--6",
-  },
+const LOGIN_PHOTOS = [
+  "/images/hero-esperanza.jpg",
+  "/images/archivo.jpg",
+  "/images/justicia.jpg",
+  "/images/manos-documento.jpg",
 ] as const
-
 
 export default function LoginPage() {
   const { status, login } = useAuth()
@@ -51,8 +30,10 @@ export default function LoginPage() {
     return <Navigate to={target} replace />
   }
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (submitting) return // evita doble submit si llega un segundo Enter antes del re-render
+
     const form = new FormData(event.currentTarget)
     setSubmitting(true)
     setError("")
@@ -73,31 +54,44 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-collage" aria-hidden="true">
-        {COLLAGE_PHOTOS.map((photo) => (
-          <figure
-            className={`login-photo ${photo.position}`}
-            key={photo.src}
-          >
-            <img src={photo.src} alt="" />
-          </figure>
-        ))}
+        <div className="login-photo-rail">
+          {LOGIN_PHOTOS.map((src, index) => (
+            <figure
+              className={`login-rail-photo login-rail-photo--${index + 1}`}
+              key={src}
+            >
+              <img src={src} alt="" />
+            </figure>
+          ))}
+        </div>
       </section>
 
       <section className="login-panel" aria-labelledby="login-title">
         <div className="login-form-shell">
-          <p className="login-eyebrow">Acceso institucional</p>
-          <h1 id="login-title">Bienvenido.</h1>
-          <p className="login-intro">
-            Ingrese para analizar casos ficticios y validar rutas de atención.
-          </p>
+          <div className="login-form-heading">
+            <p className="login-eyebrow">
+              <span className="login-brand-mark" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              <span>SIAD · Acceso institucional</span>
+            </p>
+            <h1 id="login-title">Bienvenido de nuevo.</h1>
+            <p className="login-intro">
+              Ingresa para analizar casos ficticios y validar rutas de atención.
+            </p>
+          </div>
 
-          <form onSubmit={submit}>
+          <form onSubmit={handleSubmit} aria-busy={submitting}>
             <label htmlFor="login-email">Correo institucional</label>
             <input
               id="login-email"
               name="email"
               type="email"
               autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
               required
             />
 
@@ -123,7 +117,14 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {error ? <p className="form-error" role="alert">{error}</p> : null}
+            {/* Se mantiene siempre montado (nunca desaparece del DOM) para que
+                los lectores de pantalla anuncien el cambio de contenido, no
+                la aparición del nodo. Cuando está vacío, .form-error:not(:empty)
+                en el CSS lo colapsa a padding/border 0 — no ocupa espacio. */}
+            <p className="form-error" role="alert" aria-live="assertive">
+              {error}
+            </p>
+
             <button
               className="login-submit"
               type="submit"

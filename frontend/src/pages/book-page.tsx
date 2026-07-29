@@ -719,7 +719,11 @@ const FlipBookPage = forwardRef<HTMLDivElement, { page: FlipbookPageItem }>(
 
 FlipBookPage.displayName = "FlipBookPage"
 
-export default function BookPage() {
+type BookPageProps = {
+  backgroundMode?: boolean
+}
+
+export default function BookPage({ backgroundMode = false }: BookPageProps) {
   const prefersReducedMotion = useReducedMotion()
   const [bookPhase, setBookPhase] = useState<BookPhase>("open")
   const [openPageIndex, setOpenPageIndex] = useState(0)
@@ -932,7 +936,9 @@ export default function BookPage() {
               key="open-book"
               className="relative h-[min(81vh,860px)] w-[min(96vw,1320px,calc(min(81vh,860px)*1.7))]"
               initial={
-                isInitialLoadRef.current && !prefersReducedMotion
+                backgroundMode
+                  ? false
+                  : isInitialLoadRef.current && !prefersReducedMotion
                   ? {
                       opacity: 0,
                       rotateX: 4,

@@ -19,14 +19,13 @@ export function ClassificationPanel({
   const subcategory = classificationValue(classification.subcategory)
 
   return (
-    <section className="classification-panel" aria-labelledby="classification-title">
+    <section
+      className="classification-summary"
+      aria-labelledby="classification-title"
+    >
       <div>
         <p className="eyebrow">Lectura especializada</p>
         <h2 id="classification-title">Clasificación BETO</h2>
-        <p>
-          BETO aporta únicamente categoría y subcategoría. La urgencia y las
-          vulnerabilidades se contrastan por separado entre GPT y Claude.
-        </p>
       </div>
       <dl>
         <div>
@@ -48,6 +47,10 @@ export function ClassificationPanel({
           ) : null}
         </div>
       </dl>
+      <p>
+        BETO aporta categoría y subcategoría; la verificación humana conserva
+        la decisión final.
+      </p>
     </section>
   )
 }
