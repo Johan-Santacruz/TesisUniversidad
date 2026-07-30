@@ -27,6 +27,7 @@ from app.schemas import (
     CaseApprovalRead,
     CaseApprovalRequest,
     CaseRead,
+    DataKind,
     FactRead,
     FactReviewRequest,
     RouteRead,
@@ -266,11 +267,16 @@ class CaseService:
             route.verification_status = VerificationStatus.CONFIRMED.value
             route.confidence_band = ConfidenceBand.HIGH.value
 
-        approved_at = now or datetime.now(timezone.utc)
-        delete_after = approved_at + timedelta(days=self.retention_days)
         video = session.get(Video, case.video_id)
         if video is None:
             raise CaseConflictError("El video asociado no existe")
+        approved_at = now or datetime.now(timezone.utc)
+        if video.data_kind == DataKind.REAL.value:
+            if video.delete_after is None:
+                raise CaseConflictError("El testimonio real no tiene retención válida")
+            delete_after = video.delete_after
+        else:
+            delete_after = approved_at + timedelta(days=self.retention_days)
         case.status = "approved"
         case.recommendation_status = "final"
         case.approved_by_id = actor.id

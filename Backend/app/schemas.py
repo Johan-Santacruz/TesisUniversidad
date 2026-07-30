@@ -101,6 +101,19 @@ class AnalysisRead(BaseModel):
     events_url: str
 
 
+class AnalysisReadinessRead(BaseModel):
+    real_analysis_ready: bool
+    can_upload: bool
+    openai_configured: bool
+    anthropic_configured: bool
+    beto_available: bool
+    ffmpeg_available: bool
+    ffprobe_available: bool
+    accepted_media_types: list[Literal["video/mp4", "video/webm"]]
+    max_video_bytes: int
+    video_retention_days: int
+
+
 class FactRead(BaseModel):
     id: str
     label: str

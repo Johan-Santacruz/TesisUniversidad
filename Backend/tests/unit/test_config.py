@@ -32,6 +32,21 @@ def test_real_data_is_ready_only_with_zdr_and_institutional_authorization(
     assert settings.real_data_ready is True
 
 
+def test_real_controls_reject_blank_keys_and_authorization(settings_factory):
+    settings = settings_factory(
+        real_data_enabled=True,
+        openai_zdr_confirmed=True,
+        anthropic_zdr_confirmed=True,
+        institutional_authorization_id="   ",
+        openai_api_key="",
+        anthropic_api_key=" ",
+    )
+
+    assert settings.openai_configured is False
+    assert settings.anthropic_configured is False
+    assert settings.real_data_controls_ready is False
+
+
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -51,4 +66,3 @@ def test_provider_model_defaults_match_the_approved_contract(settings_factory):
     assert settings.openai_analysis_model == "gpt-5.6-terra"
     assert settings.anthropic_analysis_model == "claude-sonnet-5"
     assert settings.whisper_model == "whisper-1"
-

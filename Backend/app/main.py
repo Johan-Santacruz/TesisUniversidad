@@ -26,6 +26,7 @@ from app.services.analysis import AnalysisService
 from app.services.auth import AuthService
 from app.services.cases import CaseService
 from app.services.rag import RagCatalog, seed_official_sources
+from app.services.readiness import AnalysisReadinessService
 from app.services.retention import RetentionService
 from app.services.videos import VideoService
 
@@ -152,6 +153,13 @@ def create_app(
         application.state.audit,
         app_settings.storage_dir,
     )
+    application.state.readiness = AnalysisReadinessService(
+        settings=app_settings,
+        beto_available=lambda: bool(
+            getattr(getattr(application.state, "analysis", None), "beto", None)
+            and application.state.analysis.beto.classifier is not None
+        ),
+    )
     application.state.videos = VideoService(
         settings=app_settings,
         chunk_cipher=ChunkCipher(
@@ -160,6 +168,7 @@ def create_app(
         ),
         envelope_cipher=cipher,
         audit=application.state.audit,
+        readiness=application.state.readiness,
     )
 
     application.add_middleware(

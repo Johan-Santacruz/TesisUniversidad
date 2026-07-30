@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import select
 
-from app.models import Review
+from app.models import Review, Video
 from tests.integration.case_helpers import (
     APPROVAL_PAYLOAD,
     confirm_critical_facts,
@@ -126,3 +128,26 @@ def test_validator_approval_schedules_video_for_seven_days(client):
     assert body["recommendation_status"] == "final"
     assert body["video_delete_after"]
     assert body["video_retention_days"] == 7
+
+
+def test_validator_approval_preserves_real_video_upload_deadline(client):
+    case_id = create_demo_case(client)
+    stored_deadline = datetime(2026, 8, 5, 12)
+    database = client.app.state.database
+    with database.session() as session:
+        case = client.get(f"/api/v1/cases/{case_id}").json()
+        video = session.get(Video, case["video_id"])
+        assert video is not None
+        video.data_kind = "real"
+        video.delete_after = stored_deadline
+
+    create_validator(client)
+    login(client, "validador@siad.local", "Clave-Validador-2026!")
+    confirm_critical_facts(client, case_id)
+
+    approved = client.post(
+        f"/api/v1/cases/{case_id}/approve",
+        json=APPROVAL_PAYLOAD,
+    ).json()
+
+    assert approved["video_delete_after"] == stored_deadline.isoformat()

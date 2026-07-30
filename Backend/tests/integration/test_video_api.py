@@ -64,7 +64,7 @@ def test_real_upload_is_blocked_without_both_zdr_confirmations(
     )
 
 
-def test_real_upload_also_requires_explicit_per_video_consent(
+def test_real_upload_rejects_blank_consent_reference(
     client, settings_factory, tiny_video_bytes
 ):
     from fastapi.testclient import TestClient
@@ -93,11 +93,55 @@ def test_real_upload_also_requires_explicit_per_video_consent(
         response = gated_client.post(
             "/api/v1/videos",
             files={"file": ("real.mp4", tiny_video_bytes, "video/mp4")},
-            data={"data_kind": "real", "explicit_consent": "false"},
+            data={
+                "data_kind": "real",
+                "explicit_consent": "true",
+                "consent_reference": "   ",
+            },
         )
 
     database.dispose()
     assert response.status_code == 422
+
+
+def test_real_upload_is_blocked_without_provider_keys(
+    settings_factory, tiny_video_bytes
+):
+    from fastapi.testclient import TestClient
+
+    from app.database import Database
+    from app.main import create_app
+
+    settings = settings_factory(
+        real_data_enabled=True,
+        openai_zdr_confirmed=True,
+        anthropic_zdr_confirmed=True,
+        institutional_authorization_id="ACTA-INSTITUCIONAL-1",
+    )
+    database = Database(settings.database_url)
+    with TestClient(create_app(settings=settings, database=database)) as gated_client:
+        login = gated_client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": "admin@siad.local",
+                "password": "Cambiar-Esta-Clave-2026!",
+            },
+        )
+        gated_client.headers["Authorization"] = (
+            f"Bearer {login.json()['access_token']}"
+        )
+        response = gated_client.post(
+            "/api/v1/videos",
+            files={"file": ("real.mp4", tiny_video_bytes, "video/mp4")},
+            data={
+                "data_kind": "real",
+                "explicit_consent": "true",
+                "consent_reference": "ACTA-1",
+            },
+        )
+
+    database.dispose()
+    assert response.status_code == 403
 
 
 def test_corrupt_or_disguised_video_is_rejected(operator_client):

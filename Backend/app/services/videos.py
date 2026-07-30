@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import BinaryIO
+import unicodedata
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from app.security.crypto import (
     EnvelopeCipher,
 )
 from app.services.audit import AuditService
+from app.services.readiness import AnalysisReadinessService, RealAnalysisNotReadyError
 
 
 class InvalidVideoError(ValueError):
@@ -35,6 +37,12 @@ class ConsentRequiredError(ValueError):
     pass
 
 
+def _normalize_consent_reference(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return unicodedata.normalize("NFKC", value).strip()
+
+
 def detect_video_media_type(head: bytes) -> str:
     if len(head) >= 12 and head[4:8] == b"ftyp":
         return "video/mp4"
@@ -51,11 +59,16 @@ class VideoService:
         chunk_cipher: ChunkCipher,
         envelope_cipher: EnvelopeCipher,
         audit: AuditService,
+        readiness: AnalysisReadinessService | None = None,
     ) -> None:
         self.settings = settings
         self.chunk_cipher = chunk_cipher
         self.envelope_cipher = envelope_cipher
         self.audit = audit
+        self.readiness = readiness or AnalysisReadinessService(
+            settings=settings,
+            beto_available=False,
+        )
         self.video_root = settings.storage_dir / "videos"
 
     def _validate_data_gate(
@@ -67,14 +80,14 @@ class VideoService:
     ) -> None:
         if data_kind is not DataKind.REAL:
             return
-        if not self.settings.real_data_ready:
-            raise RealDataBlockedError(
-                "Los testimonios reales están bloqueados hasta confirmar ZDR y autorización"
-            )
-        if not explicit_consent or not consent_reference:
+        if not explicit_consent or not _normalize_consent_reference(consent_reference):
             raise ConsentRequiredError(
                 "Cada testimonio real requiere consentimiento explícito y referencia"
             )
+        try:
+            self.readiness.require_real_ready()
+        except RealAnalysisNotReadyError as exc:
+            raise RealDataBlockedError(str(exc)) from exc
 
     def _encrypt_consent(
         self,
@@ -118,11 +131,14 @@ class VideoService:
         explicit_consent: bool = False,
         consent_reference: str | None = None,
         is_demo: bool = False,
+        now: datetime | None = None,
     ) -> Video:
+        normalized_consent_reference = _normalize_consent_reference(consent_reference)
+        reference_now = now or datetime.now(timezone.utc)
         self._validate_data_gate(
             data_kind,
             explicit_consent=explicit_consent,
-            consent_reference=consent_reference,
+            consent_reference=normalized_consent_reference,
         )
         source.seek(0)
         head = source.read(32)
@@ -147,8 +163,8 @@ class VideoService:
             raise InvalidVideoError("video is empty")
 
         consent: Consent | None = None
-        if data_kind is DataKind.REAL and consent_reference:
-            consent = self._encrypt_consent(session, user, consent_reference)
+        if data_kind is DataKind.REAL and normalized_consent_reference:
+            consent = self._encrypt_consent(session, user, normalized_consent_reference)
 
         suffix = ".webm" if media_type == "video/webm" else ".mp4"
         video = Video(
@@ -163,6 +179,11 @@ class VideoService:
             data_kind=data_kind.value,
             status="uploaded",
             is_demo=is_demo,
+            delete_after=(
+                reference_now + timedelta(days=self.settings.video_retention_days)
+                if data_kind is DataKind.REAL
+                else None
+            ),
         )
         session.add(video)
         for chunk in manifest.chunks:

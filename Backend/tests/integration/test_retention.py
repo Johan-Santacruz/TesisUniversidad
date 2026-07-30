@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
+
 from app.models import Video
+from app.schemas import DataKind
 
 
 def test_due_video_deletion_is_idempotent(operator_client, tiny_video_bytes):
@@ -57,3 +60,44 @@ def test_video_before_retention_deadline_is_preserved(
         ) == 0
 
     assert operator_client.get(f"/api/v1/videos/{video_id}/stream").status_code == 200
+
+
+def test_real_video_receives_retention_deadline_at_upload_time(
+    settings_factory, tiny_video_bytes
+):
+    from fastapi.testclient import TestClient
+
+    from app.database import Database
+    from app.main import create_app
+    from app.models import User
+
+    settings = settings_factory(
+        real_data_enabled=True,
+        openai_zdr_confirmed=True,
+        anthropic_zdr_confirmed=True,
+        institutional_authorization_id="ACTA-INSTITUCIONAL-1",
+        openai_api_key="test-openai-key",
+        anthropic_api_key="test-anthropic-key",
+    )
+    database = Database(settings.database_url)
+    upload_time = datetime(2026, 7, 29, 12)
+    with TestClient(create_app(settings=settings, database=database)) as application:
+        with database.session() as session:
+            user = session.query(User).filter_by(email="admin@siad.local").one()
+            uploaded_real = application.app.state.videos.create(
+                session,
+                user=user,
+                source=BytesIO(tiny_video_bytes),
+                data_kind=DataKind.REAL,
+                explicit_consent=True,
+                consent_reference="ACTA-1",
+                now=upload_time,
+            )
+            assert uploaded_real.data_kind == "real"
+
+        with database.session() as session:
+            stored = session.get(Video, uploaded_real.id)
+            assert stored is not None
+            assert stored.delete_after == upload_time + timedelta(days=7)
+
+    database.dispose()

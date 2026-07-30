@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 from functools import lru_cache
 from pathlib import Path
+import unicodedata
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -67,6 +68,15 @@ class Settings(BaseSettings):
         _decode_32_byte_key(value)
         return value
 
+    @field_validator("institutional_authorization_id", mode="before")
+    @classmethod
+    def normalize_institutional_authorization_id(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return unicodedata.normalize("NFKC", value).strip()
+        return value
+
     @property
     def encryption_key_bytes(self) -> bytes:
         return _decode_32_byte_key(self.encryption_master_key)
@@ -76,7 +86,15 @@ class Settings(BaseSettings):
         return _decode_32_byte_key(self.jwt_secret_key)
 
     @property
-    def real_data_ready(self) -> bool:
+    def openai_configured(self) -> bool:
+        return _secret_is_configured(self.openai_api_key)
+
+    @property
+    def anthropic_configured(self) -> bool:
+        return _secret_is_configured(self.anthropic_api_key)
+
+    @property
+    def real_data_controls_ready(self) -> bool:
         return all(
             (
                 self.real_data_enabled,
@@ -85,6 +103,17 @@ class Settings(BaseSettings):
                 bool(self.institutional_authorization_id),
             )
         )
+
+    @property
+    def real_data_ready(self) -> bool:
+        """Backward-compatible name for the non-secret real-data controls."""
+        return self.real_data_controls_ready
+
+
+def _secret_is_configured(value: SecretStr | None) -> bool:
+    if value is None:
+        return False
+    return bool(unicodedata.normalize("NFKC", value.get_secret_value()).strip())
 
 
 @lru_cache

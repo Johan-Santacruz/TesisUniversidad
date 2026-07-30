@@ -16,8 +16,9 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import CurrentUser, OperatorUser, get_session
 from app.models import Analysis, User, Video
-from app.schemas import AnalysisRead
+from app.schemas import AnalysisRead, AnalysisReadinessRead, UserRole
 from app.services.analysis import AnalysisService
+from app.services.readiness import AnalysisReadinessService
 
 
 router = APIRouter(tags=["analyses"])
@@ -25,6 +26,18 @@ router = APIRouter(tags=["analyses"])
 
 def get_analysis_service(request: Request) -> AnalysisService:
     return request.app.state.analysis
+
+
+def get_readiness_service(request: Request) -> AnalysisReadinessService:
+    return request.app.state.readiness
+
+
+@router.get("/analyses/readiness", response_model=AnalysisReadinessRead)
+def get_readiness(
+    user: CurrentUser,
+    service: Annotated[AnalysisReadinessService, Depends(get_readiness_service)],
+) -> AnalysisReadinessRead:
+    return service.check(UserRole(user.role))
 
 
 @router.post(
