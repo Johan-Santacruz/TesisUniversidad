@@ -1520,6 +1520,18 @@
   backdrop-filter: blur(12px);
 }
 
+.soft-editorial-shell .drop-zone button {
+  min-height: 44px;
+  border: 1px solid color-mix(in oklch, var(--azul) 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--paper-white) 78%, transparent);
+  color: var(--azul);
+}
+
+.soft-editorial-shell .drop-zone button:hover {
+  background: color-mix(in oklch, var(--azul) 8%, var(--paper-white));
+}
+
 .soft-editorial-shell .primary-action {
   min-height: 46px;
   border: 0;
@@ -1570,13 +1582,13 @@
   border: 1px dashed var(--ink-faded);
   background: color-mix(in oklch, var(--paper-white) 75%, transparent);
   text-align: center;
-  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+  transition: border-color 180ms ease, background 180ms ease, translate 180ms ease;
 }
 
 .drop-zone.is-dragging {
   border-color: var(--azul);
   background: color-mix(in oklch, var(--azul) 7%, var(--paper-white));
-  transform: translateY(-3px);
+  translate: 0 -3px;
 }
 
 .upload-glyph {
