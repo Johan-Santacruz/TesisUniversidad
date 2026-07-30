@@ -1,6 +1,11 @@
 import { motion, useReducedMotion } from "framer-motion"
 
 import type { components } from "../../api/generated"
+import {
+  narrativeChildTransition,
+  narrativeStageStagger,
+  narrativeStageTransition,
+} from "./motion"
 import { StatusBadge } from "./status-badge"
 
 
@@ -22,7 +27,7 @@ export function Timeline({
   selectedId: string | null
   onSelect: (event: TimelineEvent) => void
 }) {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useReducedMotion() ?? false
 
   return (
     <section className="timeline-section" aria-labelledby="timeline-title">
@@ -40,7 +45,7 @@ export function Timeline({
           aria-hidden="true"
           initial={reduceMotion ? false : { scaleX: 0 }}
           animate={{ scaleX: 1 }}
-          transition={{ duration: reduceMotion ? 0.01 : 0.8 }}
+          transition={narrativeStageTransition(reduceMotion)}
         >
           <span />
           <span />
@@ -55,7 +60,10 @@ export function Timeline({
             hidden: {},
             visible: {
               transition: {
-                staggerChildren: reduceMotion ? 0 : 0.08,
+                staggerChildren: narrativeStageStagger(
+                  events.length,
+                  reduceMotion,
+                ),
               },
             },
           }}
@@ -68,7 +76,7 @@ export function Timeline({
                 visible: {
                   opacity: 1,
                   y: 0,
-                  transition: { duration: reduceMotion ? 0.01 : 0.32 },
+                  transition: narrativeChildTransition(reduceMotion),
                 },
               }}
             >

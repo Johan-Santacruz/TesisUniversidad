@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { caseFixture } from "../../test/case-fixture"
@@ -76,5 +82,89 @@ describe("VerificationPanel motion", () => {
 
     expect(reveal).toHaveAttribute("data-motion-initial", "false")
     expect(reveal).toHaveAttribute("data-motion-duration", "0.01")
+  })
+})
+
+
+function deferred() {
+  let resolve!: () => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, reject, resolve }
+}
+
+
+function openUrgencyCorrection(onReview: () => Promise<void>) {
+  render(
+    <VerificationPanel
+      facts={caseFixture.facts}
+      role="validador"
+      onReview={onReview}
+    />,
+  )
+  const urgency = screen.getByText("Urgencia").closest("article")
+  expect(urgency).not.toBeNull()
+  const card = urgency as HTMLElement
+  fireEvent.click(
+    within(card).getByRole("button", { name: /necesito corregirlo/i }),
+  )
+  fireEvent.change(within(card).getByLabelText("Valor corregido"), {
+    target: { value: "Urgencia alta corregida" },
+  })
+  fireEvent.change(within(card).getByLabelText("Razón de la corrección"), {
+    target: { value: "Corrección humana conservada" },
+  })
+  return card
+}
+
+
+describe("VerificationPanel review errors", () => {
+  it("shows a rejected review beside the action and retains form values", async () => {
+    const request = deferred()
+    const card = openUrgencyCorrection(() => request.promise)
+    const submit = within(card).getByRole("button", {
+      name: "Guardar corrección",
+    })
+
+    fireEvent.click(submit)
+    request.reject(new Error("No se pudo guardar la revisión"))
+
+    expect(await within(card).findByRole("alert")).toHaveTextContent(
+      "No se pudo guardar la revisión",
+    )
+    expect(within(card).getByLabelText("Valor corregido")).toHaveValue(
+      "Urgencia alta corregida",
+    )
+    expect(within(card).getByLabelText("Razón de la corrección")).toHaveValue(
+      "Corrección humana conservada",
+    )
+    expect(submit).toBeEnabled()
+  })
+
+  it("prevents duplicate reviews while the first request is pending", async () => {
+    const request = deferred()
+    const onReview = vi.fn(() => request.promise)
+    const card = openUrgencyCorrection(onReview)
+    const form = within(card).getByLabelText("Valor corregido").closest("form")
+    const submit = within(card).getByRole("button", {
+      name: "Guardar corrección",
+    })
+    expect(form).not.toBeNull()
+
+    fireEvent.submit(form as HTMLFormElement)
+    fireEvent.submit(form as HTMLFormElement)
+
+    expect(onReview).toHaveBeenCalledOnce()
+    expect(submit).toBeDisabled()
+
+    request.resolve()
+    await waitFor(() => {
+      expect(
+        within(card).queryByLabelText("Valor corregido"),
+      ).not.toBeInTheDocument()
+    })
   })
 })

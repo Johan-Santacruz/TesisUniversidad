@@ -20,6 +20,40 @@ async function login(page: Page) {
 }
 
 
+async function sampleProgressArc(
+  page: Page,
+  sampleDelayMs: number,
+  finalDelayMs: number,
+) {
+  return page.evaluate(
+    async ({ finalDelay, sampleDelay }) => {
+      const wrapper = document.createElement("div")
+      const probe = document.createElement("div")
+      wrapper.className = "analysis-app"
+      probe.className = "progress-orbit"
+      probe.style.setProperty("--analysis-progress", "0%")
+      wrapper.append(probe)
+      document.body.append(wrapper)
+
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      probe.style.setProperty("--analysis-progress", "100%")
+      await new Promise((resolve) => setTimeout(resolve, sampleDelay))
+      const intermediate = Number.parseFloat(
+        getComputedStyle(probe).getPropertyValue("--analysis-progress"),
+      )
+      await new Promise((resolve) => setTimeout(resolve, finalDelay))
+      const final = Number.parseFloat(
+        getComputedStyle(probe).getPropertyValue("--analysis-progress"),
+      )
+      wrapper.remove()
+      return { final, intermediate }
+    },
+    { finalDelay: finalDelayMs, sampleDelay: sampleDelayMs },
+  )
+}
+
+
 async function openFictitiousCase(page: Page) {
   await expect(page.getByTestId("soft-editorial-upload")).toHaveAttribute(
     "data-visual-state",
@@ -32,10 +66,28 @@ async function openFictitiousCase(page: Page) {
     page.getByRole("heading", { name: "Escuchando el relato" }),
   ).toBeVisible({ timeout: 20_000 })
   await page.getByRole("button", { name: "Ruta", exact: true }).click()
+  await page.waitForTimeout(500)
   await expect(
     page.getByRole("heading", { name: "Línea de tiempo" }),
   ).toBeVisible()
   await expect(page.getByText("Recomendación preliminar")).toBeVisible()
+  const runningAnimations = await page
+    .locator(".narrative-stage-content")
+    .evaluate((element) =>
+      element
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.playState === "running")
+        .map((animation) => {
+          const effect = animation.effect as KeyframeEffect
+          const target = effect.target as HTMLElement | null
+          return {
+            className: target?.className ?? "",
+            currentTime: Number(animation.currentTime ?? 0),
+            duration: Number(effect.getComputedTiming().duration),
+            tagName: target?.tagName ?? "",
+          }
+        }))
+  expect(runningAnimations).toEqual([])
 }
 
 
@@ -108,17 +160,44 @@ test("carga un video sintético y publica las ocho etapas aunque falten proveedo
   page,
 }) => {
   await login(page)
+  const choose = page.getByRole("button", { name: "Elegir archivo" })
+  await expect(choose).toHaveClass(/primary-action/)
+  await expect(
+    page.getByRole("button", { name: "Analizar video ficticio" }),
+  ).toHaveCount(0)
   await page.getByLabel("Archivo de video ficticio").setInputFiles(
     "e2e/fixtures/tiny-fictitious.webm",
   )
-  await page.getByRole("button", { name: "Analizar video ficticio" }).click()
+  await expect(
+    page.getByRole("button", { name: "Cambiar archivo" }),
+  ).not.toHaveClass(/primary-action/)
+  const analyze = page.getByRole("button", {
+    name: "Analizar video ficticio",
+  })
+  await expect(analyze).toHaveClass(/primary-action/)
+  await analyze.click()
 
   await expect(
     page.getByRole("heading", { name: "Construyendo la lectura del caso" }),
   ).toBeVisible()
-  await expect(
-    page.getByRole("progressbar", { name: "Progreso del análisis" }),
-  ).toBeVisible()
+  const progress = page.getByRole("progressbar", {
+    name: "Progreso del análisis",
+  })
+  await expect(progress).toBeVisible()
+  await expect(progress).toHaveCSS(
+    "transition-property",
+    /--analysis-progress/,
+  )
+  await expect(progress).toHaveCSS("transition-duration", "0.45s")
+  const animatedArc = await sampleProgressArc(page, 100, 400)
+  expect(animatedArc.intermediate).toBeGreaterThan(0)
+  expect(animatedArc.intermediate).toBeLessThan(100)
+  expect(animatedArc.final).toBeCloseTo(100, 0)
+
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  const reducedArc = await sampleProgressArc(page, 20, 0)
+  expect(reducedArc.intermediate).toBeCloseTo(100, 0)
+  expect(reducedArc.final).toBeCloseTo(100, 0)
   await expect(page.getByText("8 de 8 etapas persistidas")).toBeVisible({
     timeout: 20_000,
   })

@@ -1,6 +1,11 @@
+import { useRef, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 
 import type { components } from "../../api/generated"
+import {
+  narrativeChildTransition,
+  narrativeStageStagger,
+} from "./motion"
 import { StatusBadge } from "./status-badge"
 
 
@@ -23,11 +28,33 @@ export function RoutesComparison({
   role: Role
   onApprove: () => Promise<void> | void
 }) {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useReducedMotion() ?? false
   const sources = new Map(caseData.sources.map((source) => [source.id, source]))
   const canValidate = role === "validador" || role === "admin"
   const isFinal = caseData.recommendation_status === "final"
   const canApprove = canValidate && caseData.critical_inconsistencies === 0 && !isFinal
+  const [approving, setApproving] = useState(false)
+  const [approvalError, setApprovalError] = useState("")
+  const approvingRef = useRef(false)
+
+  const approve = async () => {
+    if (!canApprove || approvingRef.current) return
+    approvingRef.current = true
+    setApproving(true)
+    setApprovalError("")
+    try {
+      await onApprove()
+    } catch (caught) {
+      setApprovalError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "No se pudo aprobar la orientación. Inténtalo de nuevo.",
+      )
+    } finally {
+      approvingRef.current = false
+      setApproving(false)
+    }
+  }
 
   return (
     <section className="routes-section" aria-labelledby="routes-title">
@@ -52,7 +79,10 @@ export function RoutesComparison({
           hidden: {},
           visible: {
             transition: {
-              staggerChildren: reduceMotion ? 0 : 0.1,
+              staggerChildren: narrativeStageStagger(
+                caseData.routes.length,
+                reduceMotion,
+              ),
             },
           },
         }}
@@ -67,7 +97,7 @@ export function RoutesComparison({
               visible: {
                 opacity: 1,
                 y: 0,
-                transition: { duration: reduceMotion ? 0.01 : 0.34 },
+                transition: narrativeChildTransition(reduceMotion),
               },
             }}
           >
@@ -129,13 +159,20 @@ export function RoutesComparison({
             </strong>
             <p>La aprobación programa la eliminación del video a siete días.</p>
           </div>
-          <button
-            type="button"
-            disabled={!canApprove}
-            onClick={() => void onApprove()}
-          >
-            Aprobar orientación final
-          </button>
+          <div className="approval-action">
+            <button
+              type="button"
+              disabled={!canApprove || approving}
+              onClick={() => void approve()}
+            >
+              {approving ? "Aprobando…" : "Aprobar orientación final"}
+            </button>
+            {approvalError ? (
+              <p className="action-error" role="alert">
+                {approvalError}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : (
         <p className="role-note">

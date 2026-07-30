@@ -156,7 +156,10 @@ describe("AnalysisWorkspace", () => {
     ).toHaveAttribute("data-visual-state", "ready")
     expect(
       screen.getByRole("button", { name: "Elegir archivo" }),
-    ).toBeVisible()
+    ).toHaveClass("primary-action")
+    expect(
+      screen.queryByRole("button", { name: "Analizar video ficticio" }),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Probar caso de demostración" }),
     ).toHaveClass("demo-link")
@@ -166,5 +169,29 @@ describe("AnalysisWorkspace", () => {
       }),
     )
     expect(onDemo).toHaveBeenCalledOnce()
+  })
+
+  it("promotes analysis only after a fictitious video is selected", () => {
+    render(
+      <UploadPanel busy={false} onUpload={vi.fn()} onDemo={vi.fn()} />,
+    )
+
+    fireEvent.change(
+      screen.getByLabelText("Archivo de video ficticio"),
+      {
+        target: {
+          files: [
+            new File(["video"], "declaracion.webm", { type: "video/webm" }),
+          ],
+        },
+      },
+    )
+
+    expect(
+      screen.getByRole("button", { name: "Cambiar archivo" }),
+    ).not.toHaveClass("primary-action")
+    expect(
+      screen.getByRole("button", { name: "Analizar video ficticio" }),
+    ).toHaveClass("primary-action")
   })
 })

@@ -1,6 +1,10 @@
 import { motion, useReducedMotion } from "framer-motion"
 
 import type { components } from "../../api/generated"
+import {
+  narrativeChildTransition,
+  narrativeStageStagger,
+} from "./motion"
 
 
 type Segment = components["schemas"]["TranscriptSegment"]
@@ -21,7 +25,7 @@ export function ListeningStage({
   activeSegmentId: string | null
   onSelect: (segment: Segment) => void
 }) {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useReducedMotion() ?? false
 
   return (
     <section className="listening-stage" aria-labelledby="listening-summary">
@@ -41,7 +45,10 @@ export function ListeningStage({
           hidden: {},
           visible: {
             transition: {
-              staggerChildren: reduceMotion ? 0 : 0.07,
+              staggerChildren: narrativeStageStagger(
+                segments.length,
+                reduceMotion,
+              ),
             },
           },
         }}
@@ -54,7 +61,7 @@ export function ListeningStage({
               visible: {
                 opacity: 1,
                 y: 0,
-                transition: { duration: reduceMotion ? 0.01 : 0.28 },
+                transition: narrativeChildTransition(reduceMotion),
               },
             }}
           >

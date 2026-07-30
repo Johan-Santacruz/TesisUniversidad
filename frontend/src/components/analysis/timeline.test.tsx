@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react"
-import { expect, it } from "vitest"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { expect, it, vi } from "vitest"
 
 import { caseFixture } from "../../test/case-fixture"
 import { RoutesComparison } from "./routes-comparison"
@@ -69,4 +69,71 @@ it("makes a missing institutional source visibly ungrounded", () => {
   expect(
     screen.getByText(/fuente no disponible.+requiere revisión/i),
   ).toBeVisible()
+})
+
+
+function approvableCase() {
+  return {
+    ...caseFixture,
+    critical_inconsistencies: 0,
+  }
+}
+
+
+function deferred() {
+  let resolve!: () => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, reject, resolve }
+}
+
+
+it("shows a rejected approval beside its action", async () => {
+  const request = deferred()
+  render(
+    <RoutesComparison
+      caseData={approvableCase()}
+      role="validador"
+      onApprove={() => request.promise}
+    />,
+  )
+  const approve = screen.getByRole("button", {
+    name: "Aprobar orientación final",
+  })
+
+  fireEvent.click(approve)
+  request.reject(new Error("No se pudo aprobar la orientación"))
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "No se pudo aprobar la orientación",
+  )
+  expect(approve).toBeEnabled()
+})
+
+
+it("prevents duplicate approvals while the first request is pending", async () => {
+  const request = deferred()
+  const onApprove = vi.fn(() => request.promise)
+  render(
+    <RoutesComparison
+      caseData={approvableCase()}
+      role="validador"
+      onApprove={onApprove}
+    />,
+  )
+  const approve = screen.getByRole("button", {
+    name: "Aprobar orientación final",
+  })
+
+  fireEvent.click(approve)
+  fireEvent.click(approve)
+
+  expect(onApprove).toHaveBeenCalledOnce()
+  expect(approve).toBeDisabled()
+
+  request.resolve()
+  await waitFor(() => expect(approve).toBeEnabled())
 })

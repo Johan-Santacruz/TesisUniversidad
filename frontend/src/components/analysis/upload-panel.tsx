@@ -72,8 +72,12 @@ export function UploadPanel({
           <span className="upload-glyph" aria-hidden="true">↑</span>
           <strong>{file ? file.name : "Arrastra un video ficticio"}</strong>
           <p>MP4, WebM o MOV · hasta 500 MB</p>
-          <button type="button" onClick={() => inputRef.current?.click()}>
-            Elegir archivo
+          <button
+            type="button"
+            className={file ? "file-picker-action" : "primary-action"}
+            onClick={() => inputRef.current?.click()}
+          >
+            {file ? "Cambiar archivo" : "Elegir archivo"}
           </button>
           <input
             ref={inputRef}
@@ -89,14 +93,16 @@ export function UploadPanel({
           variants={staggerItem}
           transition={motionTransition(reduceMotion)}
         >
-          <button
-            type="button"
-            className="primary-action"
-            disabled={!file || busy}
-            onClick={() => file && void onUpload(file)}
-          >
-            {busy ? "Iniciando análisis…" : "Analizar video ficticio"}
-          </button>
+          {file ? (
+            <button
+              type="button"
+              className="primary-action"
+              disabled={busy}
+              onClick={() => void onUpload(file)}
+            >
+              {busy ? "Iniciando análisis…" : "Analizar video ficticio"}
+            </button>
+          ) : null}
           <span>o</span>
           <button
             type="button"

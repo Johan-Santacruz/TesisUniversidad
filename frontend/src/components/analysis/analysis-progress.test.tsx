@@ -66,22 +66,35 @@ describe("AnalysisProgress", () => {
     expect(screen.getByText("2 de 8 etapas persistidas")).toBeVisible()
   })
 
-  it("distinguishes persisted failures from successful completion", () => {
+  it("shows failed and unavailable persisted states to sighted users", () => {
     render(
       <AnalysisProgress
         error=""
         events={[
           { id: 1, stage: "audio", state: "failed", payload: {} },
+          {
+            id: 2,
+            stage: "transcription",
+            state: "unavailable",
+            payload: {},
+          },
         ]}
       />,
     )
     const audioStage = screen.getByText("Audio").closest("li")
+    const transcriptionStage = screen.getByText("Transcripción").closest("li")
 
     expect(audioStage).not.toBeNull()
-    expect(audioStage).toHaveTextContent("Persistida, con error")
+    expect(transcriptionStage).not.toBeNull()
     expect(audioStage).toHaveClass("state-failed")
     expect(audioStage).not.toHaveClass("is-complete")
-    expect(within(audioStage as HTMLElement).getByText("Persistida")).toBeVisible()
+    expect(
+      within(audioStage as HTMLElement).getByText("Persistida con error"),
+    ).toBeVisible()
+    expect(transcriptionStage).toHaveClass("state-unavailable")
+    expect(
+      within(transcriptionStage as HTMLElement).getByText("No disponible"),
+    ).toBeVisible()
   })
 
   it("animates chapter entrances over 520ms", () => {

@@ -107,11 +107,15 @@ export function AnalysisProgress({
                     const isPersisted = Boolean(state)
                     const isComplete = state === "completed"
                     const isCurrent = stageId === currentStage
-                    const persistedStateDescription = state === "failed"
-                      ? ", con error"
+                    const statusLabel = state === "failed"
+                      ? "Persistida con error"
                       : state === "unavailable"
-                        ? ", no disponible"
-                        : ""
+                        ? "No disponible"
+                        : isPersisted
+                          ? "Persistida"
+                          : isCurrent
+                            ? "En curso"
+                            : "En espera"
                     return (
                       <li
                         key={stageId}
@@ -123,20 +127,7 @@ export function AnalysisProgress({
                       >
                         <span aria-hidden="true" />
                         <span>{stage?.label}</span>
-                        <small>
-                          <span>
-                            {isPersisted
-                              ? "Persistida"
-                              : isCurrent
-                                ? "En curso"
-                                : "En espera"}
-                          </span>
-                          {persistedStateDescription ? (
-                            <span className="visually-hidden">
-                              {persistedStateDescription}
-                            </span>
-                          ) : null}
-                        </small>
+                        <small>{statusLabel}</small>
                       </li>
                     )
                   })}

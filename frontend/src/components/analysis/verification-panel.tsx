@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useRef, useState, type FormEvent } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import type { components } from "../../api/generated"
@@ -36,11 +36,15 @@ function FactCard({
   const [reason, setReason] = useState("")
   const [reviewMode, setReviewMode] = useState<ReviewMode | null>(null)
   const [saving, setSaving] = useState(false)
+  const [reviewError, setReviewError] = useState("")
+  const savingRef = useRef(false)
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!reviewMode) return
+    if (!reviewMode || savingRef.current) return
+    savingRef.current = true
     setSaving(true)
+    setReviewError("")
     try {
       const reviewNeedsValue = reviewMode === "correct" || fact.value === null
       await onReview(fact.id, {
@@ -50,7 +54,14 @@ function FactCard({
       })
       setReason("")
       setReviewMode(null)
+    } catch (caught) {
+      setReviewError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "No se pudo guardar la revisión. Inténtalo de nuevo.",
+      )
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }
@@ -87,7 +98,10 @@ function FactCard({
                 type="button"
                 className="confirm-action"
                 aria-pressed={reviewMode === "confirm"}
-                onClick={() => setReviewMode("confirm")}
+                onClick={() => {
+                  setReviewError("")
+                  setReviewMode("confirm")
+                }}
               >
                 <span aria-hidden="true">✓</span> Esto es correcto
               </button>
@@ -96,7 +110,10 @@ function FactCard({
               type="button"
               className="correct-action"
               aria-pressed={reviewMode === "correct"}
-              onClick={() => setReviewMode("correct")}
+              onClick={() => {
+                setReviewError("")
+                setReviewMode("correct")
+              }}
             >
               <span aria-hidden="true">✎</span> Necesito corregirlo
             </button>
@@ -148,6 +165,7 @@ function FactCard({
                       onClick={() => {
                         setReviewMode(null)
                         setReason("")
+                        setReviewError("")
                       }}
                     >
                       Cancelar
@@ -160,6 +178,11 @@ function FactCard({
                           : "Guardar corrección"}
                     </button>
                   </div>
+                  {reviewError ? (
+                    <p className="action-error" role="alert">
+                      {reviewError}
+                    </p>
+                  ) : null}
                 </form>
               </motion.div>
             ) : null}

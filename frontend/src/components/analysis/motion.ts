@@ -25,6 +25,33 @@ export const staggerItem: Variants = {
   visible: { opacity: 1, y: 0, scale: 1 },
 }
 
+export const NARRATIVE_STAGE_PHASE_SECONDS = 0.22
+const NARRATIVE_CHILD_DURATION_SECONDS = 0.14
+
+
+export function narrativeChildTransition(
+  reduceMotion: boolean,
+): Transition {
+  return reduceMotion
+    ? { duration: 0.01 }
+    : {
+        duration: NARRATIVE_CHILD_DURATION_SECONDS,
+        ease: [0.16, 1, 0.3, 1],
+      }
+}
+
+
+export function narrativeStageStagger(
+  itemCount: number,
+  reduceMotion: boolean,
+) {
+  if (reduceMotion || itemCount <= 1) return 0
+  return (
+    NARRATIVE_STAGE_PHASE_SECONDS - NARRATIVE_CHILD_DURATION_SECONDS
+  ) / (itemCount - 1)
+}
+
+
 export function motionTransition(reduceMotion: boolean): Transition {
   return reduceMotion
     ? { duration: 0.01 }
@@ -34,5 +61,8 @@ export function motionTransition(reduceMotion: boolean): Transition {
 export function narrativeStageTransition(reduceMotion: boolean): Transition {
   return reduceMotion
     ? { duration: 0.01 }
-    : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
+    : {
+        duration: NARRATIVE_STAGE_PHASE_SECONDS,
+        ease: [0.16, 1, 0.3, 1],
+      }
 }
