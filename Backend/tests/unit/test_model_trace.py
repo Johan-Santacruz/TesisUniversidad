@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.ai.contracts import AnalysisStage, ModelInvocationReferences
 from app.database import Database
-from app.models import Analysis, Base, ModelInvocation, User, Video
+from app.models import Analysis, AnalysisEvent, Base, ModelInvocation, User, Video
 from app.services.analysis_state import StageRepository
 from app.services.model_trace import ModelInvocationTraceService
 
@@ -66,7 +66,7 @@ def test_invoke_encrypts_reference_ids_and_does_not_persist_result_body(
     analysis = _seed_analysis(database)
     service = ModelInvocationTraceService(database=database, cipher=cipher)
     stages = StageRepository(database=database, cipher=cipher)
-    stages.claim(analysis.id, AnalysisStage.PEOPLE_PLACES)
+    claim = stages.claim(analysis.id, AnalysisStage.PEOPLE_PLACES)
     private_result = "PRIVATE_RESULT_BODY_25A47D"
     result_payload = {"segment_text": private_result}
 
@@ -77,6 +77,7 @@ def test_invoke_encrypts_reference_ids_and_does_not_persist_result_body(
             provider="gpt",
             model="provider-model",
             prompt_version="facts-v1",
+            generation=claim.generation,
             attempt=1,
             input_segment_ids=["PRIVATE_SEGMENT_ID_91C3"],
             input_source_ids=["PRIVATE_SOURCE_ID_82B4"],
@@ -85,6 +86,8 @@ def test_invoke_encrypts_reference_ids_and_does_not_persist_result_body(
                 analysis.id,
                 AnalysisStage.PEOPLE_PLACES,
                 payload,
+                generation=claim.generation,
+                attempt=claim.attempt,
             ),
         )
 
@@ -137,6 +140,7 @@ def test_invoke_reduces_exception_messages_to_safe_class_codes(
                 provider="claude",
                 model="provider-model",
                 prompt_version="routes-v1",
+                generation=1,
                 attempt=2,
                 input_segment_ids=[],
                 input_source_ids=["source-public-id"],
@@ -154,5 +158,138 @@ def test_invoke_reduces_exception_messages_to_safe_class_codes(
         assert invocation.duration_ms is not None
         database.dispose()
         assert private_message.encode() not in database_path.read_bytes()
+    finally:
+        database.dispose()
+
+
+@pytest.mark.parametrize(
+    ("field_name", "private_value"),
+    [
+        ("provider", "PRIVATE TESTIMONY PROVIDER"),
+        ("model", "PRIVATE\nMODEL PAYLOAD"),
+        ("prompt_version", '{"source_payload":"PRIVATE"}'),
+    ],
+)
+def test_invoke_rejects_unsafe_plaintext_metadata(
+    cipher,
+    field_name: str,
+    private_value: str,
+):
+    database = Database("sqlite://")
+    database.create_schema()
+    analysis = _seed_analysis(database)
+    service = ModelInvocationTraceService(database=database, cipher=cipher)
+    values = {
+        "provider": "gpt",
+        "model": "provider-model",
+        "prompt_version": "facts-v1",
+    }
+    values[field_name] = private_value
+
+    try:
+        with pytest.raises(
+            ValueError,
+            match=f"{field_name} must be a safe identifier",
+        ):
+            service.invoke(
+                analysis_id=analysis.id,
+                stage=AnalysisStage.PEOPLE_PLACES,
+                generation=1,
+                attempt=1,
+                input_segment_ids=[],
+                input_source_ids=[],
+                operation=lambda: pytest.fail(
+                    "unsafe metadata must be rejected before invocation"
+                ),
+                result_event=lambda _: pytest.fail(
+                    "unsafe metadata must not create a result event"
+                ),
+                **values,
+            )
+
+        with database.session() as session:
+            assert session.scalar(select(ModelInvocation)) is None
+    finally:
+        database.dispose()
+
+
+def test_invoke_rejects_a_nonterminal_result_event(cipher):
+    database = Database("sqlite://")
+    database.create_schema()
+    analysis = _seed_analysis(database)
+    stages = StageRepository(database=database, cipher=cipher)
+    claim = stages.claim(analysis.id, AnalysisStage.PEOPLE_PLACES)
+    with database.session() as session:
+        running_event = session.scalar(
+            select(AnalysisEvent).where(
+                AnalysisEvent.analysis_id == analysis.id,
+                AnalysisEvent.stage == AnalysisStage.PEOPLE_PLACES.value,
+                AnalysisEvent.state == "running",
+            )
+        )
+    service = ModelInvocationTraceService(database=database, cipher=cipher)
+
+    try:
+        with pytest.raises(ValueError, match="terminal result event"):
+            service.invoke(
+                analysis_id=analysis.id,
+                stage=AnalysisStage.PEOPLE_PLACES,
+                provider="gpt",
+                model="provider-model",
+                prompt_version="facts-v1",
+                generation=claim.generation,
+                attempt=claim.attempt,
+                input_segment_ids=[],
+                input_source_ids=[],
+                operation=lambda: {"ok": True},
+                result_event=lambda _: running_event,
+            )
+    finally:
+        database.dispose()
+
+
+def test_invoke_rejects_a_terminal_event_from_an_older_execution(cipher):
+    database = Database("sqlite://")
+    database.create_schema()
+    analysis = _seed_analysis(database)
+    stages = StageRepository(database=database, cipher=cipher)
+    audio_claim = stages.claim(analysis.id, AnalysisStage.AUDIO)
+    stages.complete(
+        analysis.id,
+        AnalysisStage.AUDIO,
+        {"ok": True},
+        generation=audio_claim.generation,
+        attempt=audio_claim.attempt,
+    )
+    first_claim = stages.claim(analysis.id, AnalysisStage.TRANSCRIPTION)
+    older_event = stages.complete(
+        analysis.id,
+        AnalysisStage.TRANSCRIPTION,
+        {"generation": 1},
+        generation=first_claim.generation,
+        attempt=first_claim.attempt,
+    )
+    stages.invalidate_descendants(analysis.id, AnalysisStage.AUDIO)
+    current_claim = stages.claim(analysis.id, AnalysisStage.TRANSCRIPTION)
+    service = ModelInvocationTraceService(database=database, cipher=cipher)
+
+    try:
+        with pytest.raises(ValueError, match="execution identity"):
+            service.invoke(
+                analysis_id=analysis.id,
+                stage=AnalysisStage.TRANSCRIPTION,
+                provider="claude",
+                model="provider-model",
+                prompt_version="facts-v1",
+                generation=current_claim.generation,
+                attempt=current_claim.attempt,
+                input_segment_ids=[],
+                input_source_ids=[],
+                operation=lambda: {"generation": 2},
+                result_event=lambda _: older_event,
+            )
+        assert (audio_claim.generation, audio_claim.attempt) == (1, 1)
+        assert (first_claim.generation, first_claim.attempt) == (1, 1)
+        assert (current_claim.generation, current_claim.attempt) == (2, 2)
     finally:
         database.dispose()

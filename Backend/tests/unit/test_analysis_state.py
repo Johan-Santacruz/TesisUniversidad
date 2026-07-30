@@ -90,6 +90,8 @@ def test_claim_and_complete_reserve_monotonic_immutable_events(
             analysis.id,
             AnalysisStage.AUDIO,
             {"segment_text": private_payload},
+            generation=checkpoint.generation,
+            attempt=checkpoint.attempt,
         )
 
         assert (checkpoint.generation, checkpoint.attempt) == (1, 1)
@@ -131,13 +133,24 @@ def test_retry_advances_generation_without_deleting_prior_sse_events(cipher):
     repository = StageRepository(database=database, cipher=cipher)
 
     try:
-        repository.claim(analysis.id, AnalysisStage.AUDIO)
-        repository.complete(analysis.id, AnalysisStage.AUDIO, {"ok": True})
-        repository.claim(analysis.id, AnalysisStage.TRANSCRIPTION)
+        audio_claim = repository.claim(analysis.id, AnalysisStage.AUDIO)
+        repository.complete(
+            analysis.id,
+            AnalysisStage.AUDIO,
+            {"ok": True},
+            generation=audio_claim.generation,
+            attempt=audio_claim.attempt,
+        )
+        first_claim = repository.claim(
+            analysis.id,
+            AnalysisStage.TRANSCRIPTION,
+        )
         first_terminal = repository.complete(
             analysis.id,
             AnalysisStage.TRANSCRIPTION,
             {"artifact_id": "transcript-event-1"},
+            generation=first_claim.generation,
+            attempt=first_claim.attempt,
         )
 
         invalidated = repository.invalidate_descendants(
@@ -152,6 +165,8 @@ def test_retry_advances_generation_without_deleting_prior_sse_events(cipher):
             analysis.id,
             AnalysisStage.TRANSCRIPTION,
             {"artifact_id": "transcript-event-2"},
+            generation=retried.generation,
+            attempt=retried.attempt,
         )
 
         assert invalidated == [AnalysisStage.TRANSCRIPTION]
@@ -196,8 +211,14 @@ def test_first_invalid_returns_the_first_missing_or_nonterminal_stage(cipher):
 
     try:
         assert repository.first_invalid(analysis.id) is AnalysisStage.AUDIO
-        repository.claim(analysis.id, AnalysisStage.AUDIO)
-        repository.complete(analysis.id, AnalysisStage.AUDIO, {"ok": True})
+        claim = repository.claim(analysis.id, AnalysisStage.AUDIO)
+        repository.complete(
+            analysis.id,
+            AnalysisStage.AUDIO,
+            {"ok": True},
+            generation=claim.generation,
+            attempt=claim.attempt,
+        )
         assert (
             repository.first_invalid(analysis.id)
             is AnalysisStage.TRANSCRIPTION
@@ -213,11 +234,13 @@ def test_fail_records_only_a_safe_failure_code(cipher):
     repository = StageRepository(database=database, cipher=cipher)
 
     try:
-        repository.claim(analysis.id, AnalysisStage.SOURCES)
+        claim = repository.claim(analysis.id, AnalysisStage.SOURCES)
         event = repository.fail(
             analysis.id,
             AnalysisStage.SOURCES,
             "private_identifier",
+            generation=claim.generation,
+            attempt=claim.attempt,
         )
 
         with database.session() as session:
@@ -290,7 +313,7 @@ def test_concurrent_terminal_transitions_allow_exactly_one_winner(
     database = Database(f"sqlite:///{tmp_path / 'stage-race.db'}")
     database.create_schema()
     analysis = _seed_analysis(database)
-    StageRepository(database=database, cipher=cipher).claim(
+    claimed = StageRepository(database=database, cipher=cipher).claim(
         analysis.id,
         AnalysisStage.AUDIO,
     )
@@ -310,6 +333,8 @@ def test_concurrent_terminal_transitions_allow_exactly_one_winner(
                 analysis.id,
                 AnalysisStage.AUDIO,
                 {"winner": "completed"},
+                generation=claimed.generation,
+                attempt=claimed.attempt,
             )
         except Exception as exception:
             return exception
@@ -321,6 +346,8 @@ def test_concurrent_terminal_transitions_allow_exactly_one_winner(
                 analysis.id,
                 AnalysisStage.AUDIO,
                 "provider_error",
+                generation=claimed.generation,
+                attempt=claimed.attempt,
             )
         except Exception as exception:
             return exception
@@ -407,5 +434,71 @@ def test_concurrent_claims_create_one_running_attempt(
         assert len(events) == 1
         assert len(checkpoints) == 1
         assert (checkpoints[0].generation, checkpoints[0].attempt) == (1, 1)
+    finally:
+        database.dispose()
+
+
+@pytest.mark.parametrize("terminal_method", ["complete", "fail"])
+def test_stale_worker_cannot_finish_a_new_generation(
+    cipher,
+    terminal_method: str,
+):
+    database = Database("sqlite://")
+    database.create_schema()
+    analysis = _seed_analysis(database)
+    repository = StageRepository(database=database, cipher=cipher)
+
+    try:
+        audio_claim = repository.claim(analysis.id, AnalysisStage.AUDIO)
+        repository.complete(
+            analysis.id,
+            AnalysisStage.AUDIO,
+            {"ok": True},
+            generation=audio_claim.generation,
+            attempt=audio_claim.attempt,
+        )
+        stale_claim = repository.claim(
+            analysis.id,
+            AnalysisStage.TRANSCRIPTION,
+        )
+        stale_generation = stale_claim.generation
+        stale_attempt = stale_claim.attempt
+        repository.invalidate_descendants(
+            analysis.id,
+            AnalysisStage.AUDIO,
+        )
+        current_claim = repository.claim(
+            analysis.id,
+            AnalysisStage.TRANSCRIPTION,
+        )
+
+        with pytest.raises(ValueError, match="claimed execution"):
+            if terminal_method == "complete":
+                repository.complete(
+                    analysis.id,
+                    AnalysisStage.TRANSCRIPTION,
+                    {"stale": True},
+                    generation=stale_generation,
+                    attempt=stale_attempt,
+                )
+            else:
+                repository.fail(
+                    analysis.id,
+                    AnalysisStage.TRANSCRIPTION,
+                    "provider_error",
+                    generation=stale_generation,
+                    attempt=stale_attempt,
+                )
+
+        assert (current_claim.generation, current_claim.attempt) == (2, 2)
+        current_event = repository.complete(
+            analysis.id,
+            AnalysisStage.TRANSCRIPTION,
+            {"current": True},
+            generation=current_claim.generation,
+            attempt=current_claim.attempt,
+        )
+        assert (current_event.generation, current_event.attempt) == (2, 2)
+        assert (audio_claim.generation, audio_claim.attempt) == (1, 1)
     finally:
         database.dispose()

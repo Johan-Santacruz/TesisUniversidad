@@ -201,6 +201,8 @@ class StageRepository:
         *,
         analysis_id: str,
         stage: AnalysisStage,
+        generation: int,
+        attempt: int,
         state: str,
         failure_code: str | None,
     ) -> tuple[int, int, int]:
@@ -210,6 +212,8 @@ class StageRepository:
                 AnalysisStageRun.analysis_id == analysis_id,
                 AnalysisStageRun.stage == stage.value,
                 AnalysisStageRun.state == "running",
+                AnalysisStageRun.generation == generation,
+                AnalysisStageRun.attempt == attempt,
             )
             .values(
                 state=state,
@@ -225,7 +229,7 @@ class StageRepository:
         ).one_or_none()
         if transitioned is None:
             raise ValueError(
-                f"stage {stage.value} must be running before {state}"
+                f"stage {stage.value} does not match the claimed execution"
             )
         return (
             int(transitioned.id),
@@ -238,12 +242,17 @@ class StageRepository:
         analysis_id: str,
         stage: AnalysisStage,
         payload: dict[str, Any],
+        *,
+        generation: int,
+        attempt: int,
     ) -> AnalysisEvent:
         with self.database.session() as session:
             checkpoint_id, generation, attempt = self._begin_terminal_transition(
                 session,
                 analysis_id=analysis_id,
                 stage=stage,
+                generation=generation,
+                attempt=attempt,
                 state="completed",
                 failure_code=None,
             )
@@ -274,6 +283,9 @@ class StageRepository:
         analysis_id: str,
         stage: AnalysisStage,
         code: str,
+        *,
+        generation: int,
+        attempt: int,
     ) -> AnalysisEvent:
         failure_code = code if code in SAFE_FAILURE_CODES else "stage_error"
         with self.database.session() as session:
@@ -281,6 +293,8 @@ class StageRepository:
                 session,
                 analysis_id=analysis_id,
                 stage=stage,
+                generation=generation,
+                attempt=attempt,
                 state="failed",
                 failure_code=failure_code,
             )
