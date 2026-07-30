@@ -30,3 +30,9 @@ export function motionTransition(reduceMotion: boolean): Transition {
     ? { duration: 0.01 }
     : { duration: 0.52, ease: [0.16, 1, 0.3, 1] }
 }
+
+export function narrativeStageTransition(reduceMotion: boolean): Transition {
+  return reduceMotion
+    ? { duration: 0.01 }
+    : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
+}

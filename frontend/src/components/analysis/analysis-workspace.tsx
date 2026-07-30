@@ -12,7 +12,7 @@ import {
   NarrativeStageHeader,
   type NarrativeStage,
 } from "./narrative-stage"
-import { motionTransition, stageVariants } from "./motion"
+import { narrativeStageTransition, stageVariants } from "./motion"
 import { RouteStage } from "./route-stage"
 import { UploadPanel } from "./upload-panel"
 import { DocumentaryVideoRail } from "./video-panel"
@@ -278,7 +278,7 @@ export function AnalysisWorkspace({
               initial="enter"
               animate="center"
               exit="exit"
-              transition={motionTransition(reduceMotion)}
+              transition={narrativeStageTransition(reduceMotion)}
             >
               {narrativeStage === "listening" ? (
                 <ListeningStage

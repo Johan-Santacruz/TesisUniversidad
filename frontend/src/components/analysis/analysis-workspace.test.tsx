@@ -3,11 +3,22 @@ import { describe, expect, it, vi } from "vitest"
 
 import { caseFixture } from "../../test/case-fixture"
 import { AnalysisWorkspace } from "./analysis-workspace"
+import { narrativeStageTransition } from "./motion"
 import { VerificationPanel } from "./verification-panel"
 import { UploadPanel } from "./upload-panel"
 
 
 describe("AnalysisWorkspace", () => {
+  it.each([
+    { reduceMotion: false, duration: 0.22, mode: "normal" },
+    { reduceMotion: true, duration: 0.01, mode: "reduced" },
+  ])("uses a $duration second $mode stage phase", ({
+    reduceMotion,
+    duration,
+  }) => {
+    expect(narrativeStageTransition(reduceMotion).duration).toBe(duration)
+  })
+
   it("seeks the video to the selected timeline event", async () => {
     render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
     const video = screen.getByTestId("case-video") as HTMLVideoElement
