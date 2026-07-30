@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import CurrentUser, OperatorUser, get_session
 from app.models import Analysis, User, Video
 from app.schemas import AnalysisRead, AnalysisReadinessRead, UserRole
-from app.services.analysis import AnalysisService
+from app.services.analysis import AnalysisAlreadyExistsError, AnalysisService
 from app.services.readiness import AnalysisReadinessService
 
 
@@ -57,7 +57,13 @@ def start_analysis(
         raise HTTPException(status_code=404, detail="Video no encontrado")
     if operator.role != "admin" and video.owner_id != operator.id:
         raise HTTPException(status_code=403, detail="Sin acceso a este video")
-    analysis = service.start(session, video=video, user=operator)
+    try:
+        analysis = service.start(session, video=video, user=operator)
+    except AnalysisAlreadyExistsError:
+        raise HTTPException(
+            status_code=409,
+            detail="El video ya tiene un análisis durable",
+        )
     session.commit()
     background_tasks.add_task(service.run, analysis.id)
     return AnalysisRead(

@@ -8,7 +8,8 @@ import time
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.ai.beto import BetoAdapter
@@ -45,6 +46,10 @@ PEOPLE_PLACE_KEYS = {"people", "current_location", "origin_location", "places"}
 
 
 class NoAudioError(ValueError):
+    pass
+
+
+class AnalysisAlreadyExistsError(ValueError):
     pass
 
 
@@ -102,14 +107,27 @@ class AnalysisService:
         self.retry_attempts = retry_attempts
 
     def start(self, session: Session, *, video: Video, user: User) -> Analysis:
+        existing = session.scalar(
+            select(Analysis).where(Analysis.video_id == video.id)
+        )
+        if existing is not None:
+            raise AnalysisAlreadyExistsError(
+                "video already has a durable analysis"
+            )
         analysis = Analysis(
             id=str(uuid4()),
             video_id=video.id,
             requested_by_id=user.id,
             status="queued",
         )
-        session.add(analysis)
-        session.flush()
+        try:
+            with session.begin_nested():
+                session.add(analysis)
+                session.flush()
+        except IntegrityError as exception:
+            raise AnalysisAlreadyExistsError(
+                "video already has a durable analysis"
+            ) from exception
         return analysis
 
     def _append_event(
@@ -124,12 +142,17 @@ class AnalysisService:
             analysis = session.get(Analysis, analysis_id)
             if analysis is None:
                 raise KeyError(analysis_id)
-            current = session.scalar(
-                select(func.max(AnalysisEvent.sequence)).where(
-                    AnalysisEvent.analysis_id == analysis_id
+            next_sequence = session.scalar(
+                update(Analysis)
+                .where(Analysis.id == analysis_id)
+                .values(
+                    next_event_sequence=Analysis.next_event_sequence + 1,
                 )
+                .returning(Analysis.next_event_sequence)
             )
-            sequence = int(current or 0) + 1
+            if next_sequence is None:
+                raise KeyError(analysis_id)
+            sequence = int(next_sequence) - 1
             record_id = f"{analysis_id}:{sequence}"
             encrypted = self.cipher.encrypt_json(
                 record_id,
