@@ -6,6 +6,7 @@ import { AnalysisWorkspace } from "./analysis-workspace"
 import { narrativeStageTransition } from "./motion"
 import { VerificationPanel } from "./verification-panel"
 import { UploadPanel } from "./upload-panel"
+import { DocumentaryVideoRail } from "./video-panel"
 
 
 describe("AnalysisWorkspace", () => {
@@ -61,6 +62,28 @@ describe("AnalysisWorkspace", () => {
     fireEvent.click(activeFragment)
 
     expect(activeFragment).toHaveAttribute("aria-current", "true")
+  })
+
+  it("marks the active documentary rail fragment as current", () => {
+    render(
+      <DocumentaryVideoRail
+        source={null}
+        segments={caseFixture.segments}
+        activeSegmentId="segment-1"
+        onSegmentSelect={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByRole("button", {
+        name: /0:00.*la familia ficticia salió de el tambo/i,
+      }),
+    ).toHaveAttribute("aria-current", "true")
+    expect(
+      screen.getByRole("button", {
+        name: /0:18.*la familia llegó a popayán/i,
+      }),
+    ).not.toHaveAttribute("aria-current")
   })
 
   it("shows each signal with its verification state and review action", () => {

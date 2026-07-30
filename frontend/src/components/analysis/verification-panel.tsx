@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import type { components } from "../../api/generated"
 import { StatusBadge } from "./status-badge"
@@ -29,6 +29,7 @@ function FactCard({
   selected: boolean
   onReview: (factId: string, payload: FactReview) => Promise<void> | void
 }) {
+  const reduceMotion = useReducedMotion() ?? false
   const [value, setValue] = useState(
     fact.value === null ? "" : displayValue(fact.value),
   )
@@ -104,9 +105,17 @@ function FactCard({
             {reviewMode ? (
               <motion.div
                 className="fact-review-reveal"
-                initial={{ opacity: 0, height: 0 }}
+                initial={reduceMotion ? false : { opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
+                exit={
+                  reduceMotion
+                    ? { opacity: 1, height: "auto" }
+                    : { opacity: 0, height: 0 }
+                }
+                transition={{
+                  duration: reduceMotion ? 0.01 : 0.22,
+                  ease: reduceMotion ? "linear" : "easeOut",
+                }}
               >
                 <form onSubmit={submit} className="fact-review-form">
                   {reviewMode === "correct" || fact.value === null ? (

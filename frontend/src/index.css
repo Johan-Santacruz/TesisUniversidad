@@ -2230,7 +2230,7 @@
   grid-template-columns: 46px 1fr;
   gap: 0.45rem;
   border: 1px solid var(--rule);
-  border-radius: 0.75rem;
+  border-radius: 15px;
   background: color-mix(in oklch, var(--paper-white) 90%, transparent);
   color: var(--ink-soft);
   cursor: pointer;
@@ -2294,7 +2294,7 @@
   align-items: start;
   gap: 1rem;
   border: 1px solid var(--rule);
-  border-radius: 0.85rem;
+  border-radius: 15px;
   background: var(--paper-white);
   color: var(--ink);
   cursor: pointer;
@@ -2927,7 +2927,7 @@
   min-width: 0;
   padding: 1.25rem;
   border: 1px solid color-mix(in oklch, var(--rule) 82%, white);
-  border-radius: 1rem;
+  border-radius: 18px;
   background: var(--paper-white);
   box-shadow: 0 8px 24px color-mix(in oklch, var(--ink) 4%, transparent);
   transition:
@@ -2952,7 +2952,15 @@
 .route-journey li > p { margin: 0.35rem 0; color: var(--ink-soft); font-size: 0.68rem; line-height: 1.5; }
 .grounded-claim { margin-top: 0.7rem; padding: 0.65rem; border-left: 2px solid var(--azul); background: var(--paper-deep); }
 .grounded-claim p { margin: 0 0 0.4rem; color: var(--ink); font-family: "Libre Caslon Text", Georgia, serif; font-size: 0.68rem; line-height: 1.45; }
-.grounded-claim a { display: block; color: var(--azul); font-size: 0.63rem; font-weight: 600; }
+.grounded-claim a {
+  display: flex;
+  min-height: 44px;
+  padding: 0.45rem 0;
+  align-items: center;
+  color: var(--azul);
+  font-size: 0.63rem;
+  font-weight: 600;
+}
 .grounded-claim span,
 .grounded-claim strong { display: block; margin-top: 0.3rem; color: var(--ink-faded); font-size: 0.58rem; }
 .grounded-claim strong { color: var(--rojo); }
@@ -3096,7 +3104,7 @@
 .route-stage .route-journey {
   border: 1px solid color-mix(in oklch, var(--rule) 82%, white);
   border-top-width: 5px;
-  border-radius: 1rem;
+  border-radius: 18px;
   background: var(--paper-white);
 }
 
