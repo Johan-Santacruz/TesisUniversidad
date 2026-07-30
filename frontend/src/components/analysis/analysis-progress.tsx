@@ -2,7 +2,7 @@ import type { CSSProperties } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 
 import type { AnalysisEvent, AnalysisStage } from "../../hooks/use-analysis-events"
-import { staggerContainer, staggerItem } from "./motion"
+import { motionTransition, staggerContainer, staggerItem } from "./motion"
 
 
 const stages: Array<{ id: AnalysisStage; label: string }> = [
@@ -34,7 +34,7 @@ export function AnalysisProgress({
   events: AnalysisEvent[]
   error: string
 }) {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useReducedMotion() ?? false
   const states = new Map(events.map((event) => [event.stage, event.state]))
   const completedStages = Math.min(events.length, stages.length)
   const percent = Math.round((completedStages / stages.length) * 100)
@@ -92,7 +92,11 @@ export function AnalysisProgress({
           animate="visible"
         >
           {chapters.map((chapter) => (
-            <motion.li key={chapter.number} variants={staggerItem}>
+            <motion.li
+              key={chapter.number}
+              variants={staggerItem}
+              transition={motionTransition(reduceMotion)}
+            >
               <span>{chapter.number}</span>
               <div>
                 <strong>{chapter.title}</strong>
