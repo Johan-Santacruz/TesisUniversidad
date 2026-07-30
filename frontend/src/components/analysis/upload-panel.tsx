@@ -1,4 +1,11 @@
+import { motion, useReducedMotion } from "framer-motion"
 import { useRef, useState, type DragEvent } from "react"
+
+import {
+  motionTransition,
+  staggerContainer,
+  staggerItem,
+} from "./motion"
 
 
 export function UploadPanel({
@@ -15,6 +22,7 @@ export function UploadPanel({
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
+  const reduceMotion = useReducedMotion() ?? false
 
   const choose = (selected: File | undefined) => {
     if (selected) setFile(selected)
@@ -26,19 +34,33 @@ export function UploadPanel({
   }
 
   return (
-    <section
-      className="analysis-prelude upload-prelude"
+    <motion.section
+      className="analysis-prelude upload-prelude soft-editorial-shell"
+      data-testid="soft-editorial-upload"
+      data-visual-state={
+        busy ? "busy" : dragging ? "dragging" : file ? "selected" : "ready"
+      }
+      initial={reduceMotion ? false : "hidden"}
+      animate="visible"
+      variants={staggerContainer}
       aria-labelledby="upload-title"
     >
-      <aside className="intake-rail" aria-labelledby="intake-title">
+      <motion.aside
+        className="intake-rail"
+        aria-labelledby="intake-title"
+        variants={staggerItem}
+        transition={motionTransition(reduceMotion)}
+      >
         <p className="eyebrow">Nuevo análisis</p>
         <h2 id="intake-title">Tu declaración</h2>
         <p>
           Selecciona un video ficticio o abre el caso preparado para la
           demostración.
         </p>
-        <div
+        <motion.div
           className={dragging ? "drop-zone is-dragging" : "drop-zone"}
+          variants={staggerItem}
+          transition={motionTransition(reduceMotion)}
           onDragEnter={(event) => {
             event.preventDefault()
             setDragging(true)
@@ -61,8 +83,12 @@ export function UploadPanel({
             accept="video/mp4,video/webm,video/quicktime"
             onChange={(event) => choose(event.target.files?.[0])}
           />
-        </div>
-        <div className="upload-actions">
+        </motion.div>
+        <motion.div
+          className="upload-actions"
+          variants={staggerItem}
+          transition={motionTransition(reduceMotion)}
+        >
           <button
             type="button"
             className="primary-action"
@@ -74,19 +100,27 @@ export function UploadPanel({
           <span>o</span>
           <button
             type="button"
-            className="demo-action"
+            className="demo-link"
             disabled={busy}
             onClick={() => void onDemo()}
           >
-            Usar caso ficticio de demostración
+            Probar caso de demostración
           </button>
-        </div>
+        </motion.div>
         {error ? <p className="workspace-error" role="alert">{error}</p> : null}
-      </aside>
+      </motion.aside>
 
-      <article className="narrative-sheet welcome-sheet">
+      <motion.article
+        className="narrative-sheet welcome-sheet"
+        variants={staggerItem}
+        transition={motionTransition(reduceMotion)}
+      >
         <span className="welcome-sheet-number" aria-hidden="true">01</span>
-        <div className="welcome-sheet-copy">
+        <motion.div
+          className="welcome-sheet-copy"
+          variants={staggerItem}
+          transition={motionTransition(reduceMotion)}
+        >
           <p className="eyebrow">Antes de comenzar</p>
           <h1 id="upload-title">
             Tu relato se convertirá en un camino que podrás revisar.
@@ -101,7 +135,7 @@ export function UploadPanel({
             verás cómo el sistema escucha, encuentra señales y construye cada
             paso de la ruta.
           </p>
-        </div>
+        </motion.div>
 
         <ol className="welcome-steps" aria-label="Etapas del análisis">
           <li>
@@ -131,7 +165,7 @@ export function UploadPanel({
             </p>
           </div>
         </div>
-      </article>
-    </section>
+      </motion.article>
+    </motion.section>
   )
 }

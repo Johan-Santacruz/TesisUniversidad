@@ -96,9 +96,18 @@ describe("AnalysisWorkspace", () => {
     )
 
     expect(screen.getByText("Testimonios reales bloqueados")).toBeVisible()
+    expect(
+      screen.getByTestId("soft-editorial-upload"),
+    ).toHaveAttribute("data-visual-state", "ready")
+    expect(
+      screen.getByRole("button", { name: "Elegir archivo" }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: "Probar caso de demostración" }),
+    ).toHaveClass("demo-link")
     fireEvent.click(
       screen.getByRole("button", {
-        name: /usar caso ficticio de demostración/i,
+        name: "Probar caso de demostración",
       }),
     )
     expect(onDemo).toHaveBeenCalledOnce()
