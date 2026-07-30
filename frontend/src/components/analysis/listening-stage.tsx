@@ -1,3 +1,5 @@
+import { motion, useReducedMotion } from "framer-motion"
+
 import type { components } from "../../api/generated"
 
 
@@ -19,6 +21,8 @@ export function ListeningStage({
   activeSegmentId: string | null
   onSelect: (segment: Segment) => void
 }) {
+  const reduceMotion = useReducedMotion()
+
   return (
     <section className="listening-stage" aria-labelledby="listening-summary">
       <div className="stage-section-heading">
@@ -30,22 +34,46 @@ export function ListeningStage({
         </div>
         <p>Selecciona un fragmento para revisar el momento exacto.</p>
       </div>
-      <ol>
+      <motion.ol
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: {
+            transition: {
+              staggerChildren: reduceMotion ? 0 : 0.07,
+            },
+          },
+        }}
+      >
         {segments.map((segment, index) => (
-          <li key={segment.id}>
+          <motion.li
+            key={segment.id}
+            variants={{
+              hidden: { opacity: 0, y: 10 },
+              visible: {
+                opacity: 1,
+                y: 0,
+                transition: { duration: reduceMotion ? 0.01 : 0.28 },
+              },
+            }}
+          >
             <button
               type="button"
               className={segment.id === activeSegmentId ? "is-active" : ""}
               aria-pressed={segment.id === activeSegmentId}
+              aria-current={
+                segment.id === activeSegmentId ? "true" : undefined
+              }
               onClick={() => onSelect(segment)}
             >
               <span>{String(index + 1).padStart(2, "0")}</span>
               <blockquote>{segment.text}</blockquote>
               <time>{timestamp(segment.start_ms)}</time>
             </button>
-          </li>
+          </motion.li>
         ))}
-      </ol>
+      </motion.ol>
     </section>
   )
 }

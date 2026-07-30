@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 
 import type { components } from "../../api/generated"
 import { StatusBadge } from "./status-badge"
@@ -99,52 +100,61 @@ function FactCard({
               <span aria-hidden="true">✎</span> Necesito corregirlo
             </button>
           </div>
-          {reviewMode ? (
-            <form onSubmit={submit} className="fact-review-form">
-              {reviewMode === "correct" || fact.value === null ? (
-                <label>
-                  {reviewMode === "confirm"
-                    ? "Valor confirmado"
-                    : "Valor corregido"}
-                  <input
-                    value={value}
-                    onChange={(event) => setValue(event.target.value)}
-                    required
-                  />
-                </label>
-              ) : null}
-              <label>
-                {reviewMode === "confirm"
-                  ? "Razón de la confirmación"
-                  : "Razón de la corrección"}
-                <textarea
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  minLength={5}
-                  required
-                />
-              </label>
-              <div className="fact-review-submit">
-                <button
-                  type="button"
-                  className="secondary-action"
-                  onClick={() => {
-                    setReviewMode(null)
-                    setReason("")
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" disabled={saving}>
-                  {saving
-                    ? "Guardando…"
-                    : reviewMode === "confirm"
-                      ? "Confirmar lectura"
-                      : "Guardar corrección"}
-                </button>
-              </div>
-            </form>
-          ) : null}
+          <AnimatePresence initial={false}>
+            {reviewMode ? (
+              <motion.div
+                className="fact-review-reveal"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <form onSubmit={submit} className="fact-review-form">
+                  {reviewMode === "correct" || fact.value === null ? (
+                    <label>
+                      {reviewMode === "confirm"
+                        ? "Valor confirmado"
+                        : "Valor corregido"}
+                      <input
+                        value={value}
+                        onChange={(event) => setValue(event.target.value)}
+                        required
+                      />
+                    </label>
+                  ) : null}
+                  <label>
+                    {reviewMode === "confirm"
+                      ? "Razón de la confirmación"
+                      : "Razón de la corrección"}
+                    <textarea
+                      value={reason}
+                      onChange={(event) => setReason(event.target.value)}
+                      minLength={5}
+                      required
+                    />
+                  </label>
+                  <div className="fact-review-submit">
+                    <button
+                      type="button"
+                      className="secondary-action"
+                      onClick={() => {
+                        setReviewMode(null)
+                        setReason("")
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    <button type="submit" disabled={saving}>
+                      {saving
+                        ? "Guardando…"
+                        : reviewMode === "confirm"
+                          ? "Confirmar lectura"
+                          : "Guardar corrección"}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </>
       ) : null}
     </article>

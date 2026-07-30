@@ -1,3 +1,5 @@
+import { motion, useReducedMotion } from "framer-motion"
+
 import type { components } from "../../api/generated"
 import { StatusBadge } from "./status-badge"
 
@@ -21,6 +23,7 @@ export function RoutesComparison({
   role: Role
   onApprove: () => Promise<void> | void
 }) {
+  const reduceMotion = useReducedMotion()
   const sources = new Map(caseData.sources.map((source) => [source.id, source]))
   const canValidate = role === "validador" || role === "admin"
   const isFinal = caseData.recommendation_status === "final"
@@ -41,12 +44,32 @@ export function RoutesComparison({
         Los tipos de ruta son fijos; sus pasos y fuentes responden a la lectura
         del caso. Confirme siempre disponibilidad y requisitos con la entidad.
       </p>
-      <div className="route-grid">
+      <motion.div
+        className="route-grid"
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: {
+            transition: {
+              staggerChildren: reduceMotion ? 0 : 0.1,
+            },
+          },
+        }}
+      >
         {caseData.routes.map((route) => (
-          <article
+          <motion.article
             key={route.id}
             className={`route-journey route-${route.route_type}`}
             data-testid="route-journey"
+            variants={{
+              hidden: { opacity: 0, y: 14 },
+              visible: {
+                opacity: 1,
+                y: 0,
+                transition: { duration: reduceMotion ? 0.01 : 0.34 },
+              },
+            }}
           >
             <span className="route-number">{routeNumbers[route.route_type]}</span>
             <h3>{route.title}</h3>
@@ -93,9 +116,9 @@ export function RoutesComparison({
                 </li>
               )}
             </ol>
-          </article>
+          </motion.article>
         ))}
-      </div>
+      </motion.div>
       {canValidate ? (
         <div className="approval-bar">
           <div>

@@ -55,6 +55,9 @@ export const DocumentaryVideoRail = forwardRef<
             key={segment.id}
             className={segment.id === activeSegmentId ? "is-active" : ""}
             aria-pressed={segment.id === activeSegmentId}
+            aria-current={
+              segment.id === activeSegmentId ? "true" : undefined
+            }
             onClick={() => onSegmentSelect(segment)}
           >
             <time>{timestamp(segment.start_ms)}</time>

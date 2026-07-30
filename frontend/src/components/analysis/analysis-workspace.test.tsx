@@ -52,6 +52,17 @@ describe("AnalysisWorkspace", () => {
     ).toHaveAttribute("aria-pressed", "true")
   })
 
+  it("marks the selected transcript fragment as the current context", () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    const activeFragment = screen.getByRole("button", {
+      name: /0:00.*la familia ficticia salió de el tambo/i,
+    })
+
+    fireEvent.click(activeFragment)
+
+    expect(activeFragment).toHaveAttribute("aria-current", "true")
+  })
+
   it("shows each signal with its verification state and review action", () => {
     render(
       <VerificationPanel

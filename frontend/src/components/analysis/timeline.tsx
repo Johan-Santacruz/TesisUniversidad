@@ -46,26 +46,40 @@ export function Timeline({
           <span />
           <span />
         </motion.div>
-        <ol
+        <motion.ol
           className="timeline-events"
           aria-label="Momentos vinculados al video"
+          initial={reduceMotion ? false : "hidden"}
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: {
+              transition: {
+                staggerChildren: reduceMotion ? 0 : 0.08,
+              },
+            },
+          }}
         >
           {events.map((event, index) => (
             <motion.li
               key={event.id}
-              initial={reduceMotion ? false : { y: 12 }}
-              animate={{ y: 0 }}
-              transition={{
-                delay: reduceMotion ? 0 : index * 0.08,
-                duration: reduceMotion ? 0.01 : 0.32,
+              variants={{
+                hidden: { opacity: 0, y: 12 },
+                visible: {
+                  opacity: 1,
+                  y: 0,
+                  transition: { duration: reduceMotion ? 0.01 : 0.32 },
+                },
               }}
             >
-              <button
+              <motion.button
                 type="button"
                 className={selectedId === event.id ? "timeline-node is-selected" : "timeline-node"}
                 onClick={() => onSelect(event)}
                 aria-pressed={selectedId === event.id}
                 aria-label={`${event.title}, minuto ${timestamp(event.start_ms)}`}
+                animate={{ y: selectedId === event.id ? -4 : 0 }}
+                transition={{ duration: reduceMotion ? 0.01 : 0.2 }}
               >
                 <span className="timeline-time">{timestamp(event.start_ms)}</span>
                 <span className="timeline-copy">
@@ -78,10 +92,10 @@ export function Timeline({
                     origin={event.origin}
                   />
                 </span>
-              </button>
+              </motion.button>
             </motion.li>
           ))}
-        </ol>
+        </motion.ol>
       </div>
     </section>
   )

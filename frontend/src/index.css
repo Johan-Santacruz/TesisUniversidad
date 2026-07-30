@@ -2235,6 +2235,10 @@
   color: var(--ink-soft);
   cursor: pointer;
   text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .documentary-fragments button::before {
@@ -2250,8 +2254,11 @@
 
 .documentary-fragments button.is-active {
   border-color: var(--azul);
+  background: color-mix(in oklch, var(--azul) 5%, var(--paper-white));
   color: var(--ink);
-  box-shadow: inset 3px 0 0 var(--azul);
+  box-shadow:
+    inset 3px 0 0 var(--azul),
+    0 8px 22px color-mix(in oklch, var(--azul) 8%, transparent);
 }
 
 .documentary-fragments time {
@@ -2262,7 +2269,7 @@
 
 .documentary-fragments button span {
   font-family: "Newsreader", "Libre Caslon Text", Georgia, serif;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.45;
 }
 
@@ -2292,11 +2299,19 @@
   color: var(--ink);
   cursor: pointer;
   text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
+.listening-stage button:hover,
 .listening-stage button.is-active {
   border-color: var(--azul);
-  box-shadow: inset 4px 0 0 var(--azul);
+  background: color-mix(in oklch, var(--azul) 4%, var(--paper-white));
+  box-shadow:
+    inset 4px 0 0 var(--azul),
+    0 10px 26px color-mix(in oklch, var(--azul) 7%, transparent);
 }
 
 .listening-stage button > span {
@@ -2471,7 +2486,7 @@
 .timeline-node {
   display: grid;
   width: 100%;
-  min-height: 132px;
+  min-height: 116px;
   padding: 0;
   grid-template-columns: 58px 1fr;
   border: 0;
@@ -2485,8 +2500,9 @@
   align-self: start;
   min-height: 34px;
   padding: 0.55rem 0.3rem;
-  border: 1px solid var(--ink);
-  background: var(--paper);
+  border: 0;
+  border-top: 2px solid var(--ink);
+  background: transparent;
   font-family: ui-monospace, monospace;
   font-size: 0.64rem;
   text-align: center;
@@ -2496,15 +2512,24 @@
   display: grid;
   min-width: 0;
   padding: 1rem 1.1rem;
-  border: 1px solid var(--rule);
-  background: var(--paper-white);
-  box-shadow: 4px 4px 0 color-mix(in oklch, var(--rule) 45%, transparent);
-  transition: border-color 160ms ease, transform 160ms ease;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: transparent;
+  box-shadow: none;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
 }
 .timeline-node:hover .timeline-copy,
 .timeline-node.is-selected .timeline-copy {
-  border-color: var(--ink);
-  transform: translateX(3px);
+  border-color: var(--azul);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--azul) 6%, transparent),
+    transparent 78%
+  );
+  transform: translateY(-2px);
 }
 .timeline-kicker { color: var(--ink-faded); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; }
 .timeline-copy > strong { margin: 0.35rem 0; font-family: "Libre Caslon Text", Georgia, serif; font-size: 1.1rem; }
@@ -2741,11 +2766,11 @@
 
 .evidence-grid .fact-card {
   min-width: 0;
-  padding: 1rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.9rem;
+  padding: 1.1rem;
+  border: 1px solid color-mix(in oklch, var(--rule) 76%, white);
+  border-radius: 1rem;
   background: var(--paper-white);
-  box-shadow: 0 8px 22px color-mix(in oklch, var(--ink) 5%, transparent);
+  box-shadow: 0 10px 28px color-mix(in oklch, var(--ink) 5%, transparent);
 }
 
 .evidence-grid .fact-card.is-contextual {
@@ -2755,8 +2780,13 @@
 
 .evidence-grid .fact-card-heading h4 {
   font-family: "Newsreader", "Libre Caslon Text", Georgia, serif;
-  font-size: 1.05rem;
+  font-size: 1.125rem;
   font-weight: 600;
+}
+
+.evidence-grid .fact-value {
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 .fact-review-actions {
@@ -2806,6 +2836,45 @@
 .fact-review-form input,
 .fact-review-form textarea {
   width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid color-mix(in oklch, var(--rule) 78%, white);
+  border-radius: 0.7rem;
+  background: color-mix(in oklch, var(--paper-deep) 58%, white);
+  color: var(--ink);
+  font: inherit;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.fact-review-form textarea {
+  min-height: 6.5rem;
+  resize: vertical;
+}
+
+.fact-review-form input:focus,
+.fact-review-form textarea:focus {
+  border-color: var(--azul);
+  background: var(--paper-white);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--azul) 12%, transparent);
+  outline: none;
+}
+
+.fact-review-form label {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.fact-review-form label + label {
+  margin-top: 0.75rem;
+}
+
+.fact-review-reveal {
+  overflow: hidden;
 }
 
 .fact-review-form button {
@@ -2817,6 +2886,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
+  margin-top: 0.85rem;
 }
 
 .fact-review-form .secondary-action {
@@ -2850,21 +2920,30 @@
 .route-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem;
 }
 .route-journey {
   position: relative;
   min-width: 0;
   padding: 1.25rem;
-  border: 1px solid var(--rule);
-  border-right: 0;
+  border: 1px solid color-mix(in oklch, var(--rule) 82%, white);
+  border-radius: 1rem;
   background: var(--paper-white);
+  box-shadow: 0 8px 24px color-mix(in oklch, var(--ink) 4%, transparent);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
-.route-journey:last-child { border-right: 1px solid var(--rule); }
+.route-journey:hover,
+.route-journey:focus-within {
+  border-color: color-mix(in oklch, var(--azul) 42%, var(--rule));
+  box-shadow: 0 18px 38px color-mix(in oklch, var(--ink) 11%, transparent);
+}
 .route-emergency { border-top: 5px solid var(--amarillo); }
 .route-housing_stabilization { border-top: 5px solid var(--azul); }
 .route-return_relocation { border-top: 5px solid var(--rojo); }
 .route-number { color: var(--ink-faded); font-family: "Libre Caslon Text", Georgia, serif; font-size: 0.75rem; }
-.route-journey > h3 { margin: 0.45rem 0; font-family: "Libre Caslon Text", Georgia, serif; font-size: 1.25rem; }
+.route-journey > h3 { margin: 0.45rem 0; font-family: "Libre Caslon Text", Georgia, serif; font-size: 1.125rem; }
 .route-journey > p { min-height: 3.6rem; color: var(--ink-soft); font-size: 0.72rem; line-height: 1.55; }
 .route-journey > ol { display: grid; gap: 1rem; margin: 1.25rem 0 0; padding: 1rem 0 0; border-top: 1px solid var(--rule); list-style: none; }
 .route-journey > ol > li { position: relative; padding-left: 1.1rem; }
@@ -2888,7 +2967,24 @@
 }
 .approval-bar strong { font-family: "Libre Caslon Text", Georgia, serif; }
 .approval-bar p { margin: 0.3rem 0 0; color: var(--ink-faded); font-size: 0.66rem; }
-.approval-bar button { padding: 0.7rem 1rem; background: var(--ink); color: var(--paper); }
+.approval-bar button {
+  min-height: 48px;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid var(--azul);
+  border-radius: 0.7rem;
+  background: var(--azul);
+  box-shadow: 0 10px 24px color-mix(in oklch, var(--azul) 18%, transparent);
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+}
+.approval-bar button:disabled {
+  border-color: var(--rule);
+  background: var(--paper-deep);
+  box-shadow: none;
+  color: var(--ink-faded);
+  cursor: not-allowed;
+}
 .role-note { margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--ink-faded); font-size: 0.7rem; }
 
 .route-stage {
@@ -2964,17 +3060,23 @@
   display: grid;
   min-height: 11rem;
   padding: 1rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.85rem;
-  background: var(--paper-white);
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
 .route-stage .timeline-node:hover .timeline-copy,
 .route-stage .timeline-node.is-selected .timeline-copy {
   border-color: var(--azul);
-  box-shadow: inset 0 4px 0 var(--azul);
-  transform: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--azul) 7%, transparent),
+    transparent 82%
+  );
+  box-shadow: none;
+  transform: translateY(-2px);
 }
 
 .route-stage .routes-section {
@@ -2992,10 +3094,15 @@
 }
 
 .route-stage .route-journey {
-  border: 1px solid var(--rule);
-  border-radius: 0.9rem;
+  border: 1px solid color-mix(in oklch, var(--rule) 82%, white);
+  border-top-width: 5px;
+  border-radius: 1rem;
   background: var(--paper-white);
 }
+
+.route-stage .route-emergency { border-top-color: var(--amarillo); }
+.route-stage .route-housing_stabilization { border-top-color: var(--azul); }
+.route-stage .route-return_relocation { border-top-color: var(--rojo); }
 
 .route-stage .approval-bar button {
   min-height: 44px;
