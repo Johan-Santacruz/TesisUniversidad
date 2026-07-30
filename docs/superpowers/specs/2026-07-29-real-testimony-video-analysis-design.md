@@ -136,6 +136,7 @@ Determina si el flujo real puede empezar:
 - Anthropic configurado;
 - ZDR y autorización institucional confirmados;
 - FFmpeg disponible;
+- FFprobe disponible;
 - BETO disponible o razón no sensible de indisponibilidad.
 
 Solo expone booleanos y límites operativos. Nunca devuelve nombres de variables,
@@ -158,8 +159,11 @@ No interpreta el contenido del testimonio.
 
 ### 3. `MediaPipeline`
 
-Entrega el audio a transcripción sin reconstruir un archivo de video plano en
-disco. El video se descifra por bloques hacia un pipe de FFmpeg.
+Entrega el audio a transcripción descifrando el video por bloques hacia un pipe
+de FFmpeg. Si un contenedor MP4 validado exige acceso aleatorio, se permite un
+archivo temporal limitado al proceso, con directorio `0700` y archivo `0600`,
+fuera del almacenamiento de la aplicación y eliminado obligatoriamente en
+`finally`. Nunca se conserva una copia plana del video como dato de negocio.
 
 El audio se normaliza a mono y 16 kHz. Cuando exceda el límite aceptado por el
 proveedor, se divide en fragmentos de audio en memoria, conservando el
@@ -408,10 +412,12 @@ GET /api/v1/analyses/readiness
 Su respuesta incluirá:
 
 - `real_analysis_ready`;
+- `can_upload`;
 - `openai_configured`;
 - `anthropic_configured`;
 - `beto_available`;
 - `ffmpeg_available`;
+- `ffprobe_available`;
 - `accepted_media_types`;
 - `max_video_bytes`;
 - `video_retention_days`.
