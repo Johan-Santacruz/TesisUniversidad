@@ -7,12 +7,14 @@ export type NarrativeStage = "listening" | "evidence" | "route"
 export const NARRATIVE_STAGES: Array<{
   id: NarrativeStage
   number: string
+  shortTitle: "Escuchar" | "Señales" | "Ruta"
   title: string
   description: string
 }> = [
   {
     id: "listening",
     number: "01",
+    shortTitle: "Escuchar",
     title: "Escuchando el relato",
     description:
       "Revisa cómo el testimonio quedó organizado en fragmentos vinculados al video.",
@@ -20,6 +22,7 @@ export const NARRATIVE_STAGES: Array<{
   {
     id: "evidence",
     number: "02",
+    shortTitle: "Señales",
     title: "Ordenando lo importante",
     description:
       "Confirma las señales, los hechos y la clasificación encontrados en el relato.",
@@ -27,6 +30,7 @@ export const NARRATIVE_STAGES: Array<{
   {
     id: "route",
     number: "03",
+    shortTitle: "Ruta",
     title: "Trazando la ruta",
     description:
       "Recorre la cronología y compara las rutas institucionales sustentadas.",
@@ -60,10 +64,10 @@ export function NarrativeStageHeader({
               type="button"
               className={item.id === stage ? "is-current" : ""}
               aria-current={item.id === stage ? "step" : undefined}
-              aria-label={`Ir a ${item.title}`}
               onClick={() => onStageChange(item.id)}
             >
-              <span aria-hidden="true" />
+              <span className="narrative-stage-marker" aria-hidden="true" />
+              <span className="narrative-stage-label">{item.shortTitle}</span>
             </button>
           ))}
         </nav>

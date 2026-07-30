@@ -1347,9 +1347,11 @@
   min-width: 0;
   padding: clamp(1.5rem, 3vw, 2.75rem);
   border: 1px solid color-mix(in oklch, var(--rule) 82%, white);
-  border-radius: 1.25rem;
+  border-radius: 24px;
   background: color-mix(in oklch, var(--paper-white) 96%, transparent);
-  box-shadow: 0 20px 60px color-mix(in oklch, var(--ink) 9%, transparent);
+  box-shadow:
+    0 24px 64px color-mix(in oklch, var(--ink) 8%, transparent),
+    0 3px 12px color-mix(in oklch, var(--ink) 4%, transparent);
 }
 
 .narrative-stage-meta,
@@ -1376,50 +1378,69 @@
 
 .narrative-stage-meta nav {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.15rem;
-}
-
-.narrative-stage-meta nav::before {
-  position: absolute;
-  right: 14px;
-  left: 14px;
-  height: 1px;
-  background: var(--rule);
-  content: "";
+  display: grid;
+  min-width: min(21rem, 50%);
+  padding: 0.3rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  border: 1px solid color-mix(in oklch, var(--rule) 88%, white);
+  border-radius: 24px;
+  background: color-mix(in oklch, var(--paper-deep) 74%, white);
+  box-shadow:
+    inset 0 1px 2px color-mix(in oklch, var(--ink) 5%, transparent),
+    0 8px 22px color-mix(in oklch, var(--ink) 5%, transparent);
 }
 
 .narrative-stage-meta nav button {
   position: relative;
-  z-index: 1;
-  display: grid;
-  width: 28px;
+  display: flex;
   min-height: 44px;
-  place-items: center;
-  padding: 0;
+  padding: 0.6rem 0.8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   border: 0;
+  border-radius: 20px;
   background: transparent;
+  color: var(--ink-soft);
   cursor: pointer;
+  font-family: "Manrope", "Public Sans", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition:
+    background 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
 }
 
-.narrative-stage-meta nav button span {
-  width: 10px;
-  height: 10px;
-  border: 1px solid var(--ink);
+.narrative-stage-meta nav .narrative-stage-marker {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--paper-white);
-  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  background: color-mix(in oklch, var(--ink-soft) 52%, transparent);
+  transition: background 180ms ease, transform 180ms ease;
 }
 
-.narrative-stage-meta nav button:hover span,
-.narrative-stage-meta nav button:focus-visible span {
-  transform: scale(1.25);
+.narrative-stage-meta nav button:hover,
+.narrative-stage-meta nav button:focus-visible {
+  color: var(--ink);
+  transform: translateY(-1px);
 }
 
-.narrative-stage-meta nav button.is-current span {
-  border-color: var(--azul);
+.narrative-stage-meta nav button.is-current {
+  background: color-mix(in oklch, var(--paper-white) 94%, #fff8eb);
+  box-shadow:
+    0 5px 14px color-mix(in oklch, var(--ink) 10%, transparent),
+    inset 0 0 0 1px color-mix(in oklch, white 80%, transparent);
+  color: var(--azul);
+  transform: translateY(-2px);
+}
+
+.narrative-stage-meta nav button.is-current .narrative-stage-marker {
   background: var(--azul);
+  transform: scale(1.25);
 }
 
 .narrative-stage-title-row h1 {
@@ -1449,24 +1470,13 @@
   line-height: 1.6;
 }
 
-@keyframes narrative-stage-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes narrative-rule-in {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
 
 .narrative-stage-content {
-  animation: narrative-stage-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  min-width: 0;
 }
 
 .narrative-stage-actions {
@@ -2149,7 +2159,14 @@
   top: 88px;
   min-width: 0;
   max-height: calc(100svh - 106px);
+  padding: 1rem;
   overflow-y: auto;
+  border: 1px solid color-mix(in oklch, var(--rule) 80%, white);
+  border-radius: 20px;
+  background: color-mix(in oklch, var(--paper-white) 92%, transparent);
+  box-shadow:
+    0 18px 44px color-mix(in oklch, var(--ink) 7%, transparent),
+    0 2px 8px color-mix(in oklch, var(--ink) 4%, transparent);
   scrollbar-width: thin;
 }
 
@@ -3128,7 +3145,17 @@
 
   .narrative-sheet {
     padding: 1rem;
-    border-radius: 1rem;
+    border-radius: 20px;
+  }
+
+  .narrative-stage-meta {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .narrative-stage-meta nav {
+    width: 100%;
+    min-width: 0;
   }
 
   .narrative-stage-meta p span {

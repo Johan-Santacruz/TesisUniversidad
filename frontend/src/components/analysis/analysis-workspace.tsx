@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import { apiClient } from "../../api/client"
 import type { components } from "../../api/generated"
@@ -7,9 +8,11 @@ import { AnalysisProgress } from "./analysis-progress"
 import { EvidenceStage, riskLabelForFacts } from "./evidence-stage"
 import { ListeningStage } from "./listening-stage"
 import {
+  NARRATIVE_STAGES,
   NarrativeStageHeader,
   type NarrativeStage,
 } from "./narrative-stage"
+import { motionTransition, stageVariants } from "./motion"
 import { RouteStage } from "./route-stage"
 import { UploadPanel } from "./upload-panel"
 import { DocumentaryVideoRail } from "./video-panel"
@@ -36,11 +39,13 @@ export function AnalysisWorkspace({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [narrativeStage, setNarrativeStage] = useState<NarrativeStage>("listening")
+  const [stageDirection, setStageDirection] = useState(1)
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null)
   const [videoSource, setVideoSource] = useState<string | null>(null)
   const [loadRemoteVideo, setLoadRemoteVideo] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const reduceMotion = useReducedMotion() ?? false
   const stream = useAnalysisEvents(eventsUrl)
 
   useEffect(() => {
@@ -105,6 +110,15 @@ export function AnalysisWorkspace({
       { method: "POST" },
     )
     setEventsUrl(analysis.events_url)
+  }
+
+  const changeStage = (next: NarrativeStage) => {
+    const currentIndex = NARRATIVE_STAGES.findIndex(
+      ({ id }) => id === narrativeStage,
+    )
+    const nextIndex = NARRATIVE_STAGES.findIndex(({ id }) => id === next)
+    setStageDirection(nextIndex >= currentIndex ? 1 : -1)
+    setNarrativeStage(next)
   }
 
   const useDemo = async () => {
@@ -244,7 +258,7 @@ export function AnalysisWorkspace({
         <main className="narrative-sheet" aria-live="polite">
           <NarrativeStageHeader
             stage={narrativeStage}
-            onStageChange={setNarrativeStage}
+            onStageChange={changeStage}
             aside={
               narrativeStage === "evidence"
                 ? (
@@ -255,39 +269,50 @@ export function AnalysisWorkspace({
                 : undefined
             }
           />
-          <div key={narrativeStage} className="narrative-stage-content">
-            {narrativeStage === "listening" ? (
-              <ListeningStage
-                segments={caseData.segments}
-                activeSegmentId={activeSegment?.id ?? null}
-                onSelect={selectSegment}
-              />
-            ) : null}
-            {narrativeStage === "evidence" ? (
-              <EvidenceStage
-                classification={caseData.classification}
-                facts={caseData.facts}
-                role={role}
-                selectedStartMs={activeSegment?.start_ms}
-                onReview={review}
-              />
-            ) : null}
-            {narrativeStage === "route" ? (
-              <RouteStage
-                caseData={caseData}
-                role={role}
-                selectedId={selectedEvent?.id ?? null}
-                onTimelineSelect={selectEvent}
-                onApprove={approve}
-              />
-            ) : null}
-          </div>
+          <AnimatePresence mode="wait" initial={false} custom={stageDirection}>
+            <motion.div
+              key={narrativeStage}
+              className="narrative-stage-content"
+              custom={stageDirection}
+              variants={stageVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={motionTransition(reduceMotion)}
+            >
+              {narrativeStage === "listening" ? (
+                <ListeningStage
+                  segments={caseData.segments}
+                  activeSegmentId={activeSegment?.id ?? null}
+                  onSelect={selectSegment}
+                />
+              ) : null}
+              {narrativeStage === "evidence" ? (
+                <EvidenceStage
+                  classification={caseData.classification}
+                  facts={caseData.facts}
+                  role={role}
+                  selectedStartMs={activeSegment?.start_ms}
+                  onReview={review}
+                />
+              ) : null}
+              {narrativeStage === "route" ? (
+                <RouteStage
+                  caseData={caseData}
+                  role={role}
+                  selectedId={selectedEvent?.id ?? null}
+                  onTimelineSelect={selectEvent}
+                  onApprove={approve}
+                />
+              ) : null}
+            </motion.div>
+          </AnimatePresence>
           <footer className="narrative-stage-actions">
             <p>Los cambios quedan guardados en el caso.</p>
             {narrativeStage !== "route" ? (
               <button
                 type="button"
-                onClick={() => setNarrativeStage(
+                onClick={() => changeStage(
                   narrativeStage === "listening" ? "evidence" : "route",
                 )}
               >

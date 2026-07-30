@@ -8,17 +8,27 @@ import { UploadPanel } from "./upload-panel"
 
 
 describe("AnalysisWorkspace", () => {
-  it("seeks the video to the selected timeline event", () => {
+  it("seeks the video to the selected timeline event", async () => {
     render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
     const video = screen.getByTestId("case-video") as HTMLVideoElement
 
+    expect(
+      screen.getByRole("button", { name: "Escuchar" }),
+    ).toHaveAttribute("aria-current", "step")
+    expect(
+      screen.getByRole("button", { name: "Señales" }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: "Ruta" }),
+    ).toBeVisible()
+
     fireEvent.click(
       screen.getByRole("button", {
-        name: /ir a trazando la ruta/i,
+        name: "Ruta",
       }),
     )
     fireEvent.click(
-      screen.getByRole("button", {
+      await screen.findByRole("button", {
         name: /desplazamiento hacia popayán/i,
       }),
     )
