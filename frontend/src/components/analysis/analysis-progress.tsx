@@ -1,6 +1,8 @@
+import type { CSSProperties } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 
 import type { AnalysisEvent, AnalysisStage } from "../../hooks/use-analysis-events"
+import { staggerContainer, staggerItem } from "./motion"
 
 
 const stages: Array<{ id: AnalysisStage; label: string }> = [
@@ -34,7 +36,9 @@ export function AnalysisProgress({
 }) {
   const reduceMotion = useReducedMotion()
   const states = new Map(events.map((event) => [event.stage, event.state]))
-  const complete = events.length
+  const completedStages = Math.min(events.length, stages.length)
+  const percent = Math.round((completedStages / stages.length) * 100)
+  const currentStage = error ? undefined : stages[completedStages]?.id
 
   return (
     <section className="analysis-prelude" aria-labelledby="progress-title">
@@ -52,21 +56,43 @@ export function AnalysisProgress({
       <div className="narrative-sheet analysis-progress">
         <p className="eyebrow">Procesamiento cifrado</p>
         <h1 id="progress-title">Construyendo la lectura del caso</h1>
-        <p aria-live="polite" className={error ? "progress-message is-error" : "progress-message"}>
-          {error
-            ? error
-            : `${Math.min(complete, stages.length)} de ${stages.length} etapas persistidas`}
-        </p>
-        <div className="progress-rule" aria-hidden="true">
-          <motion.span
-            initial={reduceMotion ? false : { scaleX: 0 }}
-            animate={{ scaleX: Math.min(1, complete / stages.length) }}
-            transition={{ duration: reduceMotion ? 0.01 : 0.45 }}
-          />
+        <div className="progress-summary">
+          <div
+            className="progress-orbit"
+            role="progressbar"
+            aria-label="Progreso del análisis"
+            aria-valuemin={0}
+            aria-valuemax={stages.length}
+            aria-valuenow={completedStages}
+            style={{ "--analysis-progress": `${percent}%` } as CSSProperties}
+          >
+            <motion.strong
+              key={percent}
+              initial={reduceMotion ? false : { opacity: 0.5, scale: 0.82 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: reduceMotion ? 0.01 : 0.42 }}
+            >
+              {percent}%
+            </motion.strong>
+            <span>{completedStages} de {stages.length}</span>
+          </div>
+          <p
+            aria-live="polite"
+            className={error ? "progress-message is-error" : "progress-message"}
+          >
+            {error
+              ? error
+              : `${completedStages} de ${stages.length} etapas persistidas`}
+          </p>
         </div>
-        <ol className="progress-chapters">
+        <motion.ol
+          className="progress-chapters"
+          variants={staggerContainer}
+          initial={reduceMotion ? false : "hidden"}
+          animate="visible"
+        >
           {chapters.map((chapter) => (
-            <li key={chapter.number}>
+            <motion.li key={chapter.number} variants={staggerItem}>
               <span>{chapter.number}</span>
               <div>
                 <strong>{chapter.title}</strong>
@@ -74,22 +100,47 @@ export function AnalysisProgress({
                   {chapter.stages.map((stageId) => {
                     const stage = stages.find((item) => item.id === stageId)
                     const state = states.get(stageId)
+                    const isPersisted = Boolean(state)
+                    const isComplete = state === "completed"
+                    const isCurrent = stageId === currentStage
+                    const persistedStateDescription = state === "failed"
+                      ? ", con error"
+                      : state === "unavailable"
+                        ? ", no disponible"
+                        : ""
                     return (
                       <li
                         key={stageId}
-                        className={state ? `is-complete state-${state}` : ""}
+                        className={[
+                          isComplete ? "is-complete" : "",
+                          isPersisted ? `state-${state}` : "",
+                          isCurrent ? "is-current" : "",
+                        ].filter(Boolean).join(" ")}
                       >
                         <span aria-hidden="true" />
                         <span>{stage?.label}</span>
-                        <small>{state ? "Persistida" : "En espera"}</small>
+                        <small>
+                          <span>
+                            {isPersisted
+                              ? "Persistida"
+                              : isCurrent
+                                ? "En curso"
+                                : "En espera"}
+                          </span>
+                          {persistedStateDescription ? (
+                            <span className="visually-hidden">
+                              {persistedStateDescription}
+                            </span>
+                          ) : null}
+                        </small>
                       </li>
                     )
                   })}
                 </ul>
               </div>
-            </li>
+            </motion.li>
           ))}
-        </ol>
+        </motion.ol>
       </div>
     </section>
   )

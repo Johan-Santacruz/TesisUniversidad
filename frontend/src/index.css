@@ -1672,41 +1672,66 @@
   color: var(--ink-soft);
 }
 
-.progress-rule {
-  height: 4px;
-  overflow: hidden;
-  background: var(--paper-deep);
+.progress-summary {
+  display: grid;
+  margin: clamp(1.5rem, 3vw, 2.25rem) 0;
+  grid-template-columns: 8.25rem minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(1rem, 2.5vw, 2rem);
 }
-.progress-rule span {
+
+.progress-orbit {
+  --analysis-progress: 0%;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: 8.25rem;
+  aspect-ratio: 1;
+  place-content: center;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -90deg,
+    var(--azul) 0 var(--analysis-progress),
+    color-mix(in oklch, var(--paper-deep) 86%, white)
+      var(--analysis-progress) 100%
+  );
+  box-shadow: 0 18px 36px color-mix(in oklch, var(--ink) 10%, transparent);
+  text-align: center;
+}
+
+.progress-orbit::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0.55rem;
+  border: 1px solid color-mix(in oklch, var(--rule) 74%, white);
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      circle at 38% 30%,
+      var(--paper-white),
+      color-mix(in oklch, var(--paper-deep) 72%, white)
+    );
+  content: "";
+}
+
+.progress-orbit strong {
   display: block;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, var(--amarillo) 0 50%, var(--azul) 50% 75%, var(--rojo) 75%);
-  transform-origin: left;
+  color: var(--ink);
+  font-family: "Newsreader", "Libre Caslon Text", Georgia, serif;
+  font-size: 2.25rem;
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
 }
 
-.analysis-progress ol {
-  display: grid;
-  margin: 2rem 0 0;
-  padding: 0;
-  grid-template-columns: repeat(4, 1fr);
-  list-style: none;
-}
-
-.analysis-progress li {
-  display: grid;
-  min-height: 126px;
-  padding: 1rem;
-  border: 1px solid var(--rule);
-  border-right: 0;
+.progress-orbit > span {
+  margin-top: 0.45rem;
   color: var(--ink-faded);
+  font-family: ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-.analysis-progress li:nth-child(4n) { border-right: 1px solid var(--rule); }
-.analysis-progress li:nth-child(n + 5) { border-top: 0; }
-.analysis-progress li.is-complete { background: var(--paper-white); color: var(--ink); }
-.analysis-progress li > span { font-family: "Libre Caslon Text", Georgia, serif; font-size: 0.75rem; }
-.analysis-progress li strong { align-self: end; font-family: "Libre Caslon Text", Georgia, serif; }
-.analysis-progress li small { color: var(--ink-faded); font-size: 0.66rem; }
 
 .analysis-prelude {
   display: grid;
@@ -1972,7 +1997,7 @@
 
 .upload-sheet > p:not(.eyebrow, .workspace-error),
 .analysis-prelude .progress-message {
-  margin: 0.7rem 0 1.5rem;
+  margin: 0;
   color: var(--ink-soft);
   line-height: 1.6;
 }
@@ -2010,27 +2035,40 @@
 
 .analysis-progress .progress-chapters {
   display: grid;
-  margin: 2rem 0 0;
+  margin: 0;
   padding: 0;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(15rem, 100%), 1fr)
+  );
   gap: 1rem;
   list-style: none;
 }
 
 .analysis-progress .progress-chapters > li {
   display: grid;
-  min-height: 0;
-  padding: 1rem;
-  grid-template-columns: 42px 1fr;
-  gap: 0.8rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.85rem;
+  min-height: 12rem;
+  padding: 1.15rem;
+  grid-template-columns: 2.25rem 1fr;
+  align-content: start;
+  gap: 0.9rem;
+  border: 1px solid color-mix(in oklch, var(--rule) 78%, white);
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--paper-white) 92%, transparent);
+  box-shadow: 0 12px 30px color-mix(in oklch, var(--ink) 6%, transparent);
   color: var(--ink);
 }
 
 .analysis-progress .progress-chapters > li > span {
   color: var(--azul);
   font-family: "Newsreader", "Libre Caslon Text", Georgia, serif;
+  font-size: 0.85rem;
+}
+
+.analysis-progress .progress-chapters > li strong {
+  font-family: "Newsreader", "Libre Caslon Text", Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 600;
 }
 
 .analysis-progress .progress-chapters ul {
@@ -2044,11 +2082,12 @@
 .analysis-progress .progress-chapters ul li {
   display: grid;
   min-height: 0;
-  padding: 0;
+  padding: 0.35rem 0;
   grid-template-columns: 10px 1fr auto;
   align-items: center;
   gap: 0.5rem;
   border: 0;
+  background: transparent;
   color: var(--ink-faded);
 }
 
@@ -2066,6 +2105,33 @@
 
 .analysis-progress .progress-chapters ul li.is-complete > span:first-child {
   background: currentColor;
+}
+
+.analysis-progress .progress-chapters ul li.is-current {
+  color: var(--azul);
+}
+
+.analysis-progress .progress-chapters ul li.is-current > span:first-child {
+  background: color-mix(in oklch, var(--azul) 30%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--azul) 12%, transparent);
+}
+
+.analysis-progress .progress-chapters ul li.state-failed {
+  color: var(--rojo);
+}
+
+.analysis-progress .progress-chapters ul li.state-failed > span:first-child {
+  background: transparent;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--rojo) 10%, transparent);
+}
+
+.analysis-progress .progress-chapters ul li.state-unavailable {
+  color: var(--ink-faded);
+}
+
+.analysis-progress .progress-chapters ul li.state-unavailable > span:first-child {
+  border-style: dashed;
+  background: transparent;
 }
 
 .narrative-workspace-grid {
