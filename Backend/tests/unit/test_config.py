@@ -47,6 +47,33 @@ def test_real_controls_reject_blank_keys_and_authorization(settings_factory):
     assert settings.real_data_controls_ready is False
 
 
+def test_blank_provider_keys_do_not_construct_clients(settings_factory, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.database import Database
+    from app.main import create_app
+
+    constructed: list[str] = []
+
+    def record_openai_construction(**_: object) -> object:
+        constructed.append("openai")
+        return object()
+
+    def record_anthropic_construction(**_: object) -> object:
+        constructed.append("anthropic")
+        return object()
+
+    monkeypatch.setattr("openai.OpenAI", record_openai_construction)
+    monkeypatch.setattr("anthropic.Anthropic", record_anthropic_construction)
+    settings = settings_factory(openai_api_key="", anthropic_api_key=" ")
+    database = Database(settings.database_url)
+
+    with TestClient(create_app(settings=settings, database=database)):
+        assert constructed == []
+
+    database.dispose()
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

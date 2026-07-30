@@ -69,13 +69,13 @@ def create_app(
         )
         openai_client = None
         anthropic_client = None
-        if app_settings.openai_api_key is not None:
+        if app_settings.openai_configured:
             from openai import OpenAI
 
             openai_client = OpenAI(
                 api_key=app_settings.openai_api_key.get_secret_value()
             )
-        if app_settings.anthropic_api_key is not None:
+        if app_settings.anthropic_configured:
             from anthropic import Anthropic
 
             anthropic_client = Anthropic(
