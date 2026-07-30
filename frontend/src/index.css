@@ -3220,6 +3220,10 @@
     padding-top: 0.75rem;
   }
 
+  .analysis-prelude {
+    gap: 1rem;
+  }
+
   .prelude-document ol {
     grid-template-columns: 1fr;
   }
@@ -3228,8 +3232,20 @@
     grid-template-columns: 1fr;
   }
 
+  .soft-editorial-shell {
+    border-radius: 18px;
+    box-shadow: 0 12px 32px color-mix(in oklch, var(--ink) 7%, transparent);
+  }
+
+  .soft-editorial-shell .drop-zone {
+    border-radius: 14px;
+    backdrop-filter: none;
+  }
+
   .intake-rail {
     order: 2;
+    border-radius: 14px;
+    box-shadow: 0 8px 22px color-mix(in oklch, var(--ink) 5%, transparent);
   }
 
   .welcome-sheet {
@@ -3260,7 +3276,39 @@
 
   .narrative-sheet {
     padding: 1rem;
-    border-radius: 20px;
+    border-radius: 16px;
+    box-shadow: 0 10px 28px color-mix(in oklch, var(--ink) 6%, transparent);
+  }
+
+  .progress-summary {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .progress-orbit {
+    box-shadow: 0 8px 20px color-mix(in oklch, var(--ink) 6%, transparent);
+  }
+
+  .analysis-progress .progress-chapters > li {
+    border-radius: 12px;
+    box-shadow: 0 6px 18px color-mix(in oklch, var(--ink) 4%, transparent);
+  }
+
+  .documentary-rail {
+    padding: 0.75rem;
+    border-radius: 14px;
+    box-shadow: 0 8px 22px color-mix(in oklch, var(--ink) 5%, transparent);
+  }
+
+  .documentary-video,
+  .evidence-grid .fact-card,
+  .route-stage .route-journey {
+    border-radius: 12px;
+  }
+
+  .evidence-grid .fact-card,
+  .route-stage .route-journey {
+    box-shadow: 0 6px 18px color-mix(in oklch, var(--ink) 4%, transparent);
   }
 
   .narrative-stage-meta {
@@ -3270,7 +3318,21 @@
 
   .narrative-stage-meta nav {
     width: 100%;
+    max-width: 100%;
     min-width: 0;
+    border-radius: 16px;
+  }
+
+  .narrative-stage-meta nav button {
+    min-width: 0;
+    padding-inline: 0.35rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+  }
+
+  .narrative-stage-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .narrative-stage-meta p span {
@@ -3287,6 +3349,7 @@
 
   .stage-section-heading,
   .narrative-stage-actions,
+  .fact-review-submit,
   .upload-actions {
     align-items: stretch;
     flex-direction: column;
@@ -3297,7 +3360,10 @@
     text-align: left;
   }
 
-  .narrative-stage-actions button {
+  .narrative-stage-actions button,
+  .fact-review-submit button,
+  .approval-bar button,
+  .upload-actions button {
     width: 100%;
   }
 
@@ -3329,20 +3395,31 @@
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .narrative-stage-content,
-  .narrative-title-rule,
-  .intake-rail,
-  .welcome-sheet,
-  .welcome-title-rule,
-  .welcome-steps li {
-    animation: none;
-  }
-  *,
-  *::before,
-  *::after {
+  .analysis-app *,
+  .analysis-app *::before,
+  .analysis-app *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .analysis-app *,
+  .analysis-app *::before,
+  .analysis-app *::after {
+    animation-delay: 0ms !important;
+    transition-delay: 0ms !important;
+    transform: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .analysis-app .narrative-stage-content,
+  .analysis-app .narrative-title-rule,
+  .analysis-app .intake-rail,
+  .analysis-app .welcome-sheet,
+  .analysis-app .welcome-title-rule,
+  .analysis-app .welcome-steps li {
+    animation: none !important;
   }
 }

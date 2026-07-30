@@ -21,13 +21,17 @@ async function login(page: Page) {
 
 
 async function openFictitiousCase(page: Page) {
+  await expect(page.getByTestId("soft-editorial-upload")).toHaveAttribute(
+    "data-visual-state",
+    "ready",
+  )
   await page.getByRole("button", {
-    name: "Usar caso ficticio de demostración",
+    name: "Probar caso de demostración",
   }).click()
   await expect(
     page.getByRole("heading", { name: "Escuchando el relato" }),
   ).toBeVisible({ timeout: 20_000 })
-  await page.getByRole("button", { name: "Ir a Trazando la ruta" }).click()
+  await page.getByRole("button", { name: "Ruta", exact: true }).click()
   await expect(
     page.getByRole("heading", { name: "Línea de tiempo" }),
   ).toBeVisible()
@@ -59,6 +63,10 @@ for (const viewport of viewports) {
       "opacity",
       "1",
     )
+    await expect(page.getByTestId("route-journey").last()).toHaveCSS(
+      "opacity",
+      "1",
+    )
 
     const accessibility = await new AxeBuilder({ page }).analyze()
     expect(
@@ -82,7 +90,8 @@ test("respeta movimiento reducido y mantiene la verificación operable", async (
   await login(page)
   await openFictitiousCase(page)
   await page.getByRole("button", {
-    name: "Ir a Ordenando lo importante",
+    name: "Señales",
+    exact: true,
   }).click()
 
   await expect(
@@ -107,6 +116,9 @@ test("carga un video sintético y publica las ocho etapas aunque falten proveedo
   await expect(
     page.getByRole("heading", { name: "Construyendo la lectura del caso" }),
   ).toBeVisible()
+  await expect(
+    page.getByRole("progressbar", { name: "Progreso del análisis" }),
+  ).toBeVisible()
   await expect(page.getByText("8 de 8 etapas persistidas")).toBeVisible({
     timeout: 20_000,
   })
@@ -120,7 +132,8 @@ test("un validador confirma hechos críticos y aprueba la orientación", async (
   await login(page)
   await openFictitiousCase(page)
   await page.getByRole("button", {
-    name: "Ir a Ordenando lo importante",
+    name: "Señales",
+    exact: true,
   }).click()
 
   const urgency = page.locator(".fact-card").filter({ hasText: "Urgencia" })
@@ -142,7 +155,7 @@ test("un validador confirma hechos críticos y aprueba la orientación", async (
   await children.getByRole("button", { name: "Confirmar lectura" }).click()
   await expect(children.getByText("Confirmado")).toBeVisible()
 
-  await page.getByRole("button", { name: "Ir a Trazando la ruta" }).click()
+  await page.getByRole("button", { name: "Ruta", exact: true }).click()
   const approve = page.getByRole("button", {
     name: "Aprobar orientación final",
   })
