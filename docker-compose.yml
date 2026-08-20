@@ -38,6 +38,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    expose:
+      # Puerta interna del túnel. No se publica al anfitrión: solo la alcanzan
+      # los contenedores de esta red, y cloudflared es uno de ellos.
+      - "8080"
     environment:
       SENDA_DOMINIO: ${SENDA_DOMINIO}
     volumes:
