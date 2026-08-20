@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -12,7 +13,15 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-database_url = config.attributes.get("database_url")
+# El orden importa: lo que pasa el programa manda sobre el entorno, y el
+# entorno sobre el .ini. Sin el escalón del entorno, `alembic upgrade head` en
+# un contenedor migraba la ruta relativa del .ini —./data/senda.db— mientras la
+# aplicación abría la del volumen: dos bases distintas, y la aplicación
+# negándose a arrancar por una migración que sí se había ejecutado.
+database_url = (
+    config.attributes.get("database_url")
+    or os.environ.get("SENDA_DATABASE_URL")
+)
 if database_url is not None:
     config.set_main_option("sqlalchemy.url", database_url)
 
