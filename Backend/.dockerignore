@@ -1,0 +1,15 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+tests
+.env
+.env.backup-*
+# La base y el video cifrado del servidor viven en un volumen, no en la imagen.
+data
+# Los pesos de BETO se montan como volumen: 840 MB dentro de la imagen la
+# harían intransportable y habría que reconstruirla para cambiarlos.
+ml-artifacts

@@ -1,0 +1,56 @@
+# Tres servicios: la API, el frontend estático y Caddy delante de ambos.
+# Caddy es quien obtiene y renueva el certificado de senda.casa por su cuenta;
+# por eso los puertos 80 y 443 son suyos y nadie más los expone.
+services:
+  api:
+    build:
+      context: ./Backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Dentro de la red de Docker todo es HTTP; el TLS lo termina Caddy.
+      SENDA_DATABASE_URL: sqlite:////datos/senda.db
+      SENDA_STORAGE_DIR: /datos/storage
+      SENDA_FRONTEND_ORIGIN: https://${SENDA_DOMINIO}
+    volumes:
+      # La base y los testimonios cifrados sobreviven a cada despliegue.
+      - datos:/datos
+      # Los pesos de BETO se copian una vez al servidor y se montan de sólo
+      # lectura: nada de lo que corre aquí tiene por qué modificarlos.
+      - ./Backend/ml-artifacts:/app/ml-artifacts:ro
+    expose:
+      - "8000"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # Vacío a propósito: el frontend llama a /api del mismo origen y Caddy
+        # lo reparte. Así no hay CORS ni una URL absoluta que se quede vieja.
+        VITE_API_URL: ""
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SENDA_DOMINIO: ${SENDA_DOMINIO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Los certificados persisten: sin esto, cada reinicio pide uno nuevo y
+      # Let's Encrypt limita a cinco por semana y dominio.
+      - caddy-datos:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  datos:
+  caddy-datos:
+  caddy-config:

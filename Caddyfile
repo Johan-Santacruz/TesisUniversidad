@@ -1,0 +1,33 @@
+# Caddy pide y renueva el certificado de Let's Encrypt solo, con que el
+# dominio apunte a esta máquina y los puertos 80 y 443 estén abiertos.
+{$SENDA_DOMINIO} {
+	encode gzip
+
+	# La API va primero: una ruta más específica gana a la del sitio.
+	handle /api/* {
+		reverse_proxy api:8000 {
+			# El análisis emite eventos por SSE. Sin desactivar el búfer, el
+			# proxy los retiene y la pantalla de progreso se queda quieta
+			# hasta que termina todo.
+			flush_interval -1
+		}
+	}
+
+	handle /health {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
+
+	# El testimonio no debe quedar en la caché de nadie por el camino.
+	header /api/* Cache-Control "no-store"
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+}
