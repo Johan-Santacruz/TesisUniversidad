@@ -54,6 +54,21 @@ services:
       - api
       - web
 
+  # El túnel sale desde aquí hacia Cloudflare, así que no necesita ningún
+  # puerto abierto de entrada. Existe porque el anfitrión del proveedor se
+  # queda con el 80 y el 443, y sin ellos Caddy no puede emitir certificado.
+  #
+  # Va en un perfil: sin token, `docker compose up -d` no debe intentar
+  # levantarlo ni fallar por ello. Se arranca con:
+  #   docker compose --profile tunel up -d
+  tunel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["tunel"]
+    command: tunnel --no-autoupdate run --token ${SENDA_TUNNEL_TOKEN}
+    depends_on:
+      - proxy
+
 volumes:
   datos:
   caddy-datos:
