@@ -1,36 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SIAD_PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SIAD_BACKEND="$SIAD_PROJECT_ROOT/Backend"
-SIAD_FRONTEND="$SIAD_PROJECT_ROOT/frontend"
-SIAD_OPENAPI_KEY=RUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUU=
-SIAD_OPENAPI_JWT=SkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSko=
+SENDA_PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SENDA_BACKEND="$SENDA_PROJECT_ROOT/Backend"
+SENDA_FRONTEND="$SENDA_PROJECT_ROOT/frontend"
+SENDA_OPENAPI_KEY=RUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUU=
+SENDA_OPENAPI_JWT=SkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSko=
 
-export SIAD_SIAD_ENV=test
-export SIAD_ENCRYPTION_MASTER_KEY="$SIAD_OPENAPI_KEY"
-export SIAD_JWT_SECRET_KEY="$SIAD_OPENAPI_JWT"
-export PYTHONPATH="$SIAD_BACKEND"
+export SENDA_SENDA_ENV=test
+export SENDA_ENCRYPTION_MASTER_KEY="$SENDA_OPENAPI_KEY"
+export SENDA_JWT_SECRET_KEY="$SENDA_OPENAPI_JWT"
+export PYTHONPATH="$SENDA_BACKEND"
 
 if [[ "${1:-}" == "--check" ]]; then
-  SIAD_CONTRACT_TMP="$(mktemp -d "${TMPDIR:-/tmp}/siad-contracts.XXXXXX")"
-  trap 'rm -rf "$SIAD_CONTRACT_TMP"' EXIT
-  "$SIAD_BACKEND/.venv/bin/python" "$SIAD_BACKEND/scripts/export_openapi.py" \
-    --output "$SIAD_CONTRACT_TMP/openapi.json"
+  SENDA_CONTRACT_TMP="$(mktemp -d "${TMPDIR:-/tmp}/senda-contracts.XXXXXX")"
+  trap 'rm -rf "$SENDA_CONTRACT_TMP"' EXIT
+  "$SENDA_BACKEND/.venv/bin/python" "$SENDA_BACKEND/scripts/export_openapi.py" \
+    --output "$SENDA_CONTRACT_TMP/openapi.json"
   (
-    cd "$SIAD_FRONTEND"
-    npx openapi-typescript "$SIAD_CONTRACT_TMP/openapi.json" \
-      -o "$SIAD_CONTRACT_TMP/generated.ts"
+    cd "$SENDA_FRONTEND"
+    npx openapi-typescript "$SENDA_CONTRACT_TMP/openapi.json" \
+      -o "$SENDA_CONTRACT_TMP/generated.ts"
   )
-  cmp "$SIAD_CONTRACT_TMP/openapi.json" "$SIAD_BACKEND/openapi.json"
-  cmp "$SIAD_CONTRACT_TMP/generated.ts" "$SIAD_FRONTEND/src/api/generated.ts"
+  cmp "$SENDA_CONTRACT_TMP/openapi.json" "$SENDA_BACKEND/openapi.json"
+  cmp "$SENDA_CONTRACT_TMP/generated.ts" "$SENDA_FRONTEND/src/api/generated.ts"
   echo "Contratos sincronizados"
   exit 0
 fi
 
-"$SIAD_BACKEND/.venv/bin/python" "$SIAD_BACKEND/scripts/export_openapi.py" \
-  --output "$SIAD_BACKEND/openapi.json"
+"$SENDA_BACKEND/.venv/bin/python" "$SENDA_BACKEND/scripts/export_openapi.py" \
+  --output "$SENDA_BACKEND/openapi.json"
 (
-  cd "$SIAD_FRONTEND"
+  cd "$SENDA_FRONTEND"
   npm run contracts
 )

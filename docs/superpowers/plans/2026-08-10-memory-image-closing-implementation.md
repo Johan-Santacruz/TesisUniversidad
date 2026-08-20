@@ -4,17 +4,18 @@
 
 **Goal:** Add a reviewed, encrypted, case-specific memory image and produce an optional MP4 derivative with a seven-second institutional closing card while preserving the original video.
 
-**Architecture:** A pure visual-context builder minimizes reconciled case data, an OpenAI adapter generates one landscape image composed for a 16:9 safe crop, and a `MemoryImageService` owns generation and review state. Images are encrypted as file assets; approved images are cropped to the 16:9 video frame and rendered with FFmpeg into a new encrypted `Video` derivative linked through `RenderedVideo`. The existing analysis remains authoritative and completes even when image generation fails.
+**Architecture:** A pure visual-context builder minimizes reconciled case data, an OpenAI adapter generates one native 16:9 image, and a `MemoryImageService` owns generation and review state. Images are encrypted as file assets; approved images are rendered with FFmpeg into a new encrypted `Video` derivative linked through `RenderedVideo`. The existing analysis remains authoritative and completes even when image generation fails.
 
-**Tech Stack:** Python 3.12, FastAPI, SQLAlchemy 2, Alembic, OpenAI Python SDK, AES-256-GCM, FFmpeg/FFprobe, React 19, TypeScript, Vitest, Testing Library.
+**Tech Stack:** Python 3.12, FastAPI, SQLAlchemy 2, Alembic, OpenAI Python SDK, AES-256-GCM, Pillow, FFmpeg/FFprobe, React 19, TypeScript, Vitest, Testing Library.
 
 ## Global Constraints
 
 - The generator receives only a structured, minimized summary; never the video, full transcript, names, or testimony quotations.
-- The provider source is 1536×1024 and must preserve a centered 16:9 safe area; SIAD displays and renders that safe area at 16:9. The scene is documentary and symbolic, with no explicit violence, identifiable faces, generated text, logos, flags, or shields.
+- The provider source is native 1536×864 (16:9). The scene is documentary and symbolic, with no explicit violence, identifiable faces, generated text, logos, flags, or shields.
 - Only validators and administrators may approve, reject, or regenerate an image.
 - The original video is immutable and remains the evidentiary source.
 - The derivative adds exactly seven seconds and labels the image as representative rather than evidentiary.
+- Pillow renders the exact disclosure into a PNG overlay because the target FFmpeg build does not provide `drawtext`; generated model text is never used.
 - Image-provider or render failures never change an otherwise complete analysis to `partial` or `failed`.
 - Image bytes, prompt context, prompt text, decision details, and derivative video bytes are encrypted at rest.
 - The demo path performs no paid provider call.
@@ -63,7 +64,7 @@
 Add assertions that defaults are exactly:
 
 ```python
-assert settings.openai_image_model == "gpt-image-1"
+assert settings.openai_image_model == "gpt-image-2"
 assert settings.memory_image_max_bytes == 10 * 1024 * 1024
 assert settings.memory_image_prompt_version == "memory-image-v1"
 assert settings.memory_closing_seconds == 7
@@ -159,9 +160,9 @@ Use a fake client whose `images.generate` returns one `b64_json`. Verify this ex
 
 ```python
 client.images.generate(
-    model="gpt-image-1",
+    model="gpt-image-2",
     prompt=prompt,
-    size="1536x1024",
+    size="1536x864",
     quality="high",
     output_format="png",
 )
@@ -253,7 +254,7 @@ git commit -m "feat: store generated images encrypted"
 
 - [ ] **Step 1: Create the demo bitmap asset**
 
-Generate one original 1536×1024 PNG with a rural Colombian path transitioning toward a distant urban horizon, restrained documentary color, no visible faces, no text, no logos, no weapons, and generous dark negative space along the lower third. Inspect it visually and store it at the exact path above.
+Generate one original 1536×864 PNG with a rural Colombian path transitioning toward a distant urban horizon, restrained documentary color, no visible faces, no text, no logos, no weapons, and generous dark negative space along the lower third. Inspect it visually and store it at the exact path above.
 
 - [ ] **Step 2: Write failing service-state tests**
 
@@ -379,8 +380,10 @@ git commit -m "feat: review case memory images"
 
 **Files:**
 - Create: `Backend/app/services/memory_video.py`
+- Modify: `Backend/pyproject.toml`
 - Modify: `Backend/app/services/videos.py`
 - Modify: `Backend/app/services/memory_images.py`
+- Modify: `Backend/app/schemas.py`
 - Modify: `Backend/app/services/cases.py`
 - Modify: `Backend/app/api/cases.py`
 - Modify: `Backend/app/main.py`
@@ -410,13 +413,13 @@ Run: `cd Backend && PYTHONPATH=. .venv/bin/pytest tests/unit/test_memory_video.p
 
 Expected: FAIL because `MemoryVideoRenderer` does not exist.
 
-- [ ] **Step 3: Implement renderer using argument arrays, not shell interpolation**
+- [ ] **Step 3: Implement the disclosure overlay and renderer using argument arrays, not shell interpolation**
 
-Materialize original chunks and the image in a `TemporaryDirectory(prefix="siad-memory-render-")` with mode `0o700`. Write the disclosure to a UTF-8 `disclosure.txt` inside that directory and pass its absolute path through FFmpeg's `drawtext` `textfile` option. Normalize original and closing audio to stereo 48 kHz and concatenate seven seconds of silent closing audio. Encode H.264/AAC with `-movflags +faststart`, validate the output with `MediaValidator`, copy it into the supplied binary target, then remove all temporary files in `finally`.
+Add `Pillow>=11,<13` to backend dependencies. Render the exact disclosure into a transparent 16:9 PNG overlay with Pillow using `ImageFont.load_default(size=...)`, white text, a translucent dark panel, safe margins, and deterministic line wrapping. Materialize original chunks, generated image, and overlay in a `TemporaryDirectory(prefix="siad-memory-render-")` with mode `0o700`. Composite the overlay through FFmpeg's `overlay` filter, normalize original and closing audio to stereo 48 kHz, and concatenate seven seconds of silent closing audio. Encode H.264/AAC with `-movflags +faststart`, validate the output with `MediaValidator`, copy it into the supplied binary target, then remove all temporary files in `finally`.
 
 - [ ] **Step 4: Write failing derivative persistence and Range tests**
 
-After image approval, assert one `RenderedVideo` is `ready`, points to a distinct `Video` row with status `derived`, and leaves the original bytes unchanged. Assert full and partial requests to `/rendered-video/stream` return 200/206 with correct `Content-Range`. Assert an operator who does not own the case gets 403.
+After image approval, assert one `RenderedVideo` is `ready`, points to a distinct `Video` row with status `derived`, and leaves the original bytes unchanged. Assert full and partial requests to `/rendered-video/stream` return 200/206 with correct `Content-Range`. Assert an operator who does not own the case gets 403. Force one render failure, then assert an authorized `POST /rendered-video/retry` performs `failed -> rendering -> ready` idempotently while an operator is forbidden.
 
 - [ ] **Step 5: Add `VideoService.create_derived`**
 
@@ -426,7 +429,7 @@ Extract the common encrypted-video persistence from `create` into a private help
 
 After committing the `approved` image decision, render outside a database transaction into `tempfile.SpooledTemporaryFile`. In a new session, persist the derived `Video`, link it through `RenderedVideo`, and mark `ready`. Fixed failure code: `memory_video_render_failed`. Repeated approval or render requests must return the existing ready derivative instead of creating another.
 
-Add `rendered_video_url` to `MemoryImageRead` only when the linked row is ready.
+Add `render_status` to `MemoryImageRead` for the active linked render and add `rendered_video_url` only when that row is ready. Expose `POST /cases/{case_id}/rendered-video/retry` to `ValidatorUser`; it retries only the active approved image and returns the current `MemoryImageRead` without weakening the second-decision `409` contract.
 
 - [ ] **Step 7: Run tests and commit**
 
@@ -435,21 +438,31 @@ Run: `cd Backend && PYTHONPATH=. .venv/bin/pytest tests/unit/test_memory_video.p
 Expected: PASS.
 
 ```bash
-git add Backend/app/services/memory_video.py Backend/app/services/videos.py Backend/app/services/memory_images.py Backend/app/services/cases.py Backend/app/api/cases.py Backend/app/main.py Backend/tests/unit/test_memory_video.py Backend/tests/integration/test_memory_image_api.py
+git add Backend/pyproject.toml Backend/app/services/memory_video.py Backend/app/services/videos.py Backend/app/services/memory_images.py Backend/app/schemas.py Backend/app/services/cases.py Backend/app/api/cases.py Backend/app/main.py Backend/tests/unit/test_memory_video.py Backend/tests/integration/test_memory_image_api.py
 git commit -m "feat: render approved memory image closing"
 ```
 
 ### Task 7: Retention and total deletion
 
 **Files:**
+- Modify: `Backend/alembic/versions/0004_memory_image_closing.py`
+- Modify: `Backend/app/database.py`
+- Modify: `Backend/app/entities.py`
+- Modify: `Backend/app/main.py`
+- Modify: `Backend/app/services/assets.py`
+- Modify: `Backend/app/services/videos.py`
+- Modify: `Backend/app/services/memory_images.py`
 - Modify: `Backend/app/services/cases.py`
 - Modify: `Backend/app/services/retention.py`
+- Create: `Backend/app/services/purges.py`
+- Create: `Backend/tests/unit/test_purges.py`
+- Modify: `Backend/tests/unit/test_database.py`
 - Modify: `Backend/tests/integration/test_case_deletion.py`
 - Modify: `Backend/tests/integration/test_retention.py`
 
 **Interfaces:**
 - Consumes: `MemoryImage`, `RenderedVideo`, linked derived `Video` and encrypted image path.
-- Produces: complete resource cleanup with only the existing non-sensitive tombstone retained.
+- Produces: an atomic deletion claim and durable encrypted purge outbox, with only the existing non-sensitive tombstone retained after successful cleanup.
 
 - [ ] **Step 1: Extend deletion tests and confirm failure**
 
@@ -461,16 +474,22 @@ Expected: FAIL because closing resources survive.
 
 - [ ] **Step 2: Implement explicit cleanup ordering**
 
-Collect all paths and sensitive IDs before deleting rows. Delete rendered-video links before linked `Video` rows, delete memory-image rows, commit database changes through the existing session context, then unlink encrypted files and remove only their now-empty UUID directories. Add the derived video deadline when the case is approved after a derivative already exists, and copy the original deadline when the derivative is created after case approval.
+Atomically claim the case for deletion so generation, regeneration and render claims cannot start afterward. Lock and collect all active resources; make image/render finalizers compensate if their row disappears during an in-flight race by committing a purge job before attempting filesystem cleanup. Before deleting rows, add encrypted purge-outbox entries containing each expected resource UUID and canonical internal descriptor. Delete rendered-video links before linked `Video` rows, delete memory-image rows, and commit through the existing session context.
+
+Process purge entries idempotently with an atomic per-job lease after the root commit. Open storage/video/UUID directories using descriptor-relative operations with `O_NOFOLLOW`; validate every filename and expected UUID; delete each outbox row only after filesystem success so failures, invalid ciphertext and abandoned leases remain recoverable without blocking later jobs. Retry pending work at application startup and during retention.
+
+Replace per-session SQLAlchemy commit/rollback listeners for pending video storage with a custom SIAD `Session` that dispatches callbacks exactly once for every root `commit()`, `rollback()` or `close()`, catches `BaseException`, ignores savepoint completion, and never mistakes an explicit commit followed by a later exception for a rollback of committed data. Persist compensation after the root transaction releases its lock, retry SQLite `busy/locked` errors until the encrypted intent commits, and propagate an unrecoverable enqueue failure. Partial encryption and empty-video cleanup must also go through the descriptor-safe durable purge service rather than `shutil.rmtree`.
+
+Add the derived video deadline when the case is approved after a derivative already exists, and copy the original deadline when the derivative is created after case approval. When retention expires a derivative, make the rendered link non-ready and do not expose its URL.
 
 - [ ] **Step 3: Run tests and commit**
 
-Run: `cd Backend && PYTHONPATH=. .venv/bin/pytest tests/integration/test_case_deletion.py tests/integration/test_retention.py -q`
+Run: `cd Backend && PYTHONPATH=. .venv/bin/pytest tests/unit/test_purges.py tests/integration/test_case_deletion.py tests/integration/test_retention.py -q`
 
 Expected: PASS.
 
 ```bash
-git add Backend/app/services/cases.py Backend/app/services/retention.py Backend/tests/integration/test_case_deletion.py Backend/tests/integration/test_retention.py
+git add Backend/alembic/versions/0004_memory_image_closing.py Backend/app/database.py Backend/app/entities.py Backend/app/main.py Backend/app/services/assets.py Backend/app/services/videos.py Backend/app/services/memory_images.py Backend/app/services/cases.py Backend/app/services/retention.py Backend/app/services/purges.py Backend/tests/unit/test_purges.py Backend/tests/unit/test_database.py Backend/tests/integration/test_case_deletion.py Backend/tests/integration/test_retention.py
 git commit -m "fix: delete memory closing resources with cases"
 ```
 
@@ -488,7 +507,7 @@ git commit -m "fix: delete memory closing resources with cases"
 
 **Interfaces:**
 - Consumes: generated `MemoryImageRead`, current role, image URL, derivative URL.
-- Produces callbacks `onRegenerate()`, `onDecision(action)`, `onVideoModeChange(mode)`.
+- Produces callbacks `onRegenerate()`, `onDecision(action)`, `onRetryRender()`, `onVideoModeChange(mode)`.
 
 - [ ] **Step 1: Write failing component tests**
 
@@ -499,6 +518,8 @@ Test all states and exact Spanish copy:
 - `failed`: fixed recovery message and validator `Generar otra` action;
 - `rejected`: states that the case continues without a closing image;
 - `approved` without derivative: `Preparando versión con cierre…`;
+- `approved` with failed render: fixed recovery copy and validator/admin action `Reintentar cierre`;
+- `approved` with expired render: explains that the derivative is unavailable under the retention policy and keeps the original video selected;
 - `approved` with derivative: buttons `Testimonio original` and `Versión con cierre de memoria` switch the video source;
 - status changes are announced through `role="status"`;
 - image alt text is `Imagen representativa del cierre de memoria del caso` and does not narrate the alleged events.
@@ -515,7 +536,7 @@ Render a `<figure>` with the institutional disclosure outside the image. Disable
 
 - [ ] **Step 4: Integrate API state and protected blobs**
 
-In `AnalysisWorkspace`, download `memory_image.image_url` through `apiClient.download`, create/revoke its object URL, and refresh `CaseRead` after regenerate or decision. Maintain `videoMode: "original" | "memory"`; when memory mode is selected, download `rendered_video_url` and provide that object URL to `DocumentaryVideoRail`. Reset to original whenever the derivative URL disappears.
+In `AnalysisWorkspace`, download `memory_image.image_url` through `apiClient.download`, create/revoke its object URL, and refresh `CaseRead` after regenerate, decision, or render retry. Maintain `videoMode: "original" | "memory"`; when memory mode is selected, download `rendered_video_url` and provide that object URL to `DocumentaryVideoRail`. Reset to original whenever the derivative URL disappears.
 
 Pass the panel through `RouteStage` after `RoutesComparison`, preserving existing route approval behavior.
 
@@ -548,7 +569,7 @@ git commit -m "feat: review memory image closing in workspace"
 
 - [ ] **Step 1: Add delivery-contract assertions**
 
-Assert OpenAPI contains the four memory-closing routes, `CaseRead.memory_image`, all memory-image states, and binary response schemas for image and rendered-video streams.
+Assert OpenAPI contains the five memory-closing routes, `CaseRead.memory_image`, all memory-image/render states, and binary response schemas for image and rendered-video streams.
 
 - [ ] **Step 2: Generate contracts**
 

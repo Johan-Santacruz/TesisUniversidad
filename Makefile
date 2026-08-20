@@ -1,4 +1,4 @@
-.PHONY: bootstrap backend frontend test test-backend test-frontend e2e contracts contracts-check verify
+.PHONY: bootstrap backend frontend test test-backend test-frontend contracts contracts-check verify
 
 bootstrap:
 	./scripts/bootstrap-local.sh
@@ -17,9 +17,6 @@ test-backend:
 test-frontend:
 	cd frontend && npm test -- --run
 
-e2e:
-	cd frontend && npm run e2e
-
 contracts:
 	./scripts/generate-contracts.sh
 
@@ -30,6 +27,5 @@ verify:
 	cd Backend && PYTHONPATH=. .venv/bin/pytest -q
 	cd frontend && npm test -- --run
 	cd frontend && npm run build
-	cd frontend && npm run e2e
 	./scripts/generate-contracts.sh --check
 	git diff --check

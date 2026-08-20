@@ -51,7 +51,15 @@ Combina singularidad visual, trazabilidad y control ético. Es la alternativa se
 
 ## Dirección visual y contenido permitido
 
-La imagen será 16:9, sobria, de apariencia fotográfica documental y con una capa poética contenida. Podrá incluir paisajes, caminos, puertas, objetos cotidianos, vegetación, arquitectura genérica y figuras humanas lejanas o no identificables. La composición reservará una zona tranquila para la leyenda superpuesta por SIAD durante el render.
+La imagen será 16:9, sobria y **dibujada a mano**: trazo contenido, paleta limitada, textura de papel y acuarela tenue. La ilustración se elige sobre la fotografía por una razón ética, no estética: un dibujo declara por sí mismo que es una representación, mientras que una imagen fotorrealista invita a leerse como registro de los hechos. Podrá incluir paisajes, caminos, puertas, objetos cotidianos, vegetación y arquitectura genérica. La composición reservará una zona tranquila en la parte inferior para la leyenda superpuesta por SIAD durante el render.
+
+El prompt se arma con la clasificación real del caso, no con una plantilla única:
+
+- cada una de las cinco **categorías** documentadas tiene su propia escena, que nombra lo que queda —territorio, casa, camino— y nunca el hecho;
+- cada una de las diez **subcategorías** aporta un matiz que afina esa escena sin mostrar a nadie;
+- el **lugar** se reduce a una de cinco regiones naturales del país. El municipio o la dirección se leen dentro del constructor y no salen de él; sólo viaja el cubo regional. Un lugar que no se puede mapear cae en un paisaje neutro en vez de inventar una región.
+
+Escena, matiz y temas se derivan de la taxonomía y se validan contra ella, así que no son texto libre: un valor privado no puede entrar al prompt por esos campos.
 
 Cada prompt impondrá estas restricciones:
 
@@ -96,6 +104,8 @@ Expone una operación `generate(prompt) -> GeneratedImage`. Encapsula autenticac
 
 Cifra imagen y video derivado antes de escribirlos. Solo acepta rutas internas calculadas a partir de identificadores UUID. La lectura exige autenticación y autorización sobre el caso.
 
+El borrado crea, en la misma transacción de base de datos, una cola cifrada de purga con el identificador esperado y el descriptor interno de cada recurso. Un procesador idempotente y con reclamación atómica elimina el archivo mediante descriptores de directorio que no siguen symlinks, y retira la entrada solo después del éxito; los fallos quedan disponibles para reintento al iniciar la aplicación y en cada ejecución de retención. La reclamación de borrado impide nuevas generaciones. Los finalizadores de imagen o render que pierdan su fila primero confirman una entrada compensatoria en esa misma cola —reintentando bloqueos transitorios de base de datos— y después intentan procesarla. Una sesión de base de datos controlada por SIAD despacha los callbacks exactamente una vez en el commit o rollback raíz, incluidos commit, rollback, cierre y cancelación explícitos.
+
 ### Renderizador
 
 Materializa temporalmente el original descifrado y la imagen aprobada en un directorio aislado, invoca FFmpeg sin interpolación de shell, valida el MP4 resultante y lo cifra antes de eliminar los temporales. El audio original no se modifica; durante la placa final se añadirá silencio.
@@ -112,6 +122,7 @@ La generación inicial se ejecuta como una operación no crítica después de `r
 - `POST /cases/{case_id}/memory-image/regenerate`: crea una nueva generación y deja la anterior como historial.
 - `POST /cases/{case_id}/memory-image/decision`: aprueba o rechaza la generación activa.
 - `GET /cases/{case_id}/rendered-video/stream`: reproduce el derivado cuando esté listo y admite solicitudes HTTP Range.
+- `POST /cases/{case_id}/rendered-video/retry`: permite a validadores y administradores reintentar, de forma idempotente, el render fallido de la imagen aprobada activa.
 
 La generación automática inicial no necesita un endpoint público. Solo validadores y administradores podrán decidir o regenerar. Toda acción quedará en auditoría.
 
@@ -122,6 +133,7 @@ Se añadirá una sección `Cierre de memoria` dentro del espacio del caso, despu
 - la imagen 16:9 o un estado de generación/fallo;
 - la advertencia de que es una representación generada y no evidencia;
 - acciones `Aprobar`, `Generar otra` y `Descartar` según rol y estado;
+- una acción `Reintentar cierre` para validadores y administradores cuando falle el render de una imagen ya aprobada;
 - los accesos separados al video original y al derivado cuando esté listo.
 
 La imagen tendrá texto alternativo que describa su función, no una interpretación de los hechos. Los estados se anunciarán con una región de estado accesible. Ningún control dependerá exclusivamente del color.
