@@ -73,7 +73,7 @@ describe("VerificationPanel motion", () => {
 
     fireEvent.click(
       within(urgency as HTMLElement).getByRole("button", {
-        name: /esto es correcto/i,
+        name: /elegir el valor/i,
       }),
     )
     const reveal = within(urgency as HTMLElement)
@@ -97,10 +97,19 @@ function deferred() {
 }
 
 
+// Corregir sólo tiene sentido sobre una señal que ya trae valor.
+const senalConValor = {
+  ...caseFixture.facts[0],
+  id: "fact-editable",
+  label: "Urgencia",
+  value: "media",
+  verification_status: "pending" as const,
+}
+
 function openUrgencyCorrection(onReview: () => Promise<void>) {
   render(
     <VerificationPanel
-      facts={caseFixture.facts}
+      facts={[senalConValor]}
       role="validador"
       onReview={onReview}
     />,

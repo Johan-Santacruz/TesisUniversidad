@@ -4,16 +4,16 @@ import { describe, expect, it, vi } from "vitest"
 import { caseFixture } from "../../test/case-fixture"
 import { ListeningStage } from "./listening-stage"
 import { RoutesComparison } from "./routes-comparison"
-import { Timeline } from "./timeline"
 
 
 vi.mock("framer-motion", async () => {
   const React = await import("react")
 
-  function motionElement(tag: "article" | "button" | "div" | "li" | "ol") {
+  function motionElement(tag: "article" | "button" | "div" | "img" | "li" | "ol") {
     return function MotionElement({
       children,
       animate: _animate,
+      exit: _exit,
       initial: _initial,
       transition,
       variants,
@@ -48,10 +48,12 @@ vi.mock("framer-motion", async () => {
   }
 
   return {
+    AnimatePresence: ({ children }: { children?: React.ReactNode }) => children,
     motion: {
       article: motionElement("article"),
       button: motionElement("button"),
       div: motionElement("div"),
+      img: motionElement("img"),
       li: motionElement("li"),
       ol: motionElement("ol"),
     },
@@ -82,8 +84,13 @@ describe("narrative child motion", () => {
     const { container } = render(
       <ListeningStage
         segments={segments}
+        timeline={[]}
+        facts={[]}
+        playing={false}
         activeSegmentId={null}
+        activeEventId={null}
         onSelect={vi.fn()}
+        onSelectEvent={vi.fn()}
       />,
     )
     const list = container.querySelector(".listening-stage > ol")
@@ -95,27 +102,34 @@ describe("narrative child motion", () => {
     expect(completion).toBeLessThanOrEqual(0.22)
   })
 
-  it("settles the complete timeline during the 220ms parent enter phase", () => {
-    const events = Array.from({ length: 7 }, (_, index) => ({
+  it("lays the story moments out in a readable sequence", () => {
+    const events = Array.from({ length: 8 }, (_, index) => ({
       ...caseFixture.timeline[index % caseFixture.timeline.length],
-      id: `event-${index}`,
+      id: `moment-${index}`,
       title: `Momento ${index}`,
     }))
 
-    render(
-      <Timeline events={events} selectedId={null} onSelect={vi.fn()} />,
+    const { container } = render(
+      <ListeningStage
+        segments={caseFixture.segments}
+        timeline={events}
+        facts={[]}
+        playing={false}
+        activeSegmentId={null}
+        activeEventId={null}
+        onSelect={vi.fn()}
+        onSelectEvent={vi.fn()}
+      />,
     )
-    const rail = screen.getByTestId("tricolor-rail")
-    const list = screen.getByRole("list", {
-      name: "Momentos vinculados al video",
-    })
-    const items = within(list).getAllByRole("listitem")
-    const completion = entranceCompletion(list, items)
+    const list = container.querySelector(".listening-stage > ol") as HTMLElement
+    const stagger = Number(list.dataset.motionStagger)
 
-    expect(Number(rail.dataset.motionDuration)).toBeGreaterThan(0)
-    expect(Number(rail.dataset.motionDuration)).toBeLessThanOrEqual(0.22)
-    expect(completion).toBeGreaterThan(0)
-    expect(completion).toBeLessThanOrEqual(0.22)
+    // Una cronología debe verse formarse: por debajo de ~40ms entre hitos el
+    // ojo no distingue la secuencia y la animación deja de explicar nada.
+    expect(stagger).toBeGreaterThanOrEqual(0.04)
+    // Y sin obligar a esperar: la cascada completa se cierra dentro de 1.5s.
+    expect(entranceCompletion(list, within(list).getAllByRole("listitem")))
+      .toBeLessThanOrEqual(1.5)
   })
 
   it("settles every route card during the 220ms parent enter phase", () => {

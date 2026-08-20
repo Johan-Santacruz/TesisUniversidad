@@ -31,9 +31,9 @@ export const NARRATIVE_STAGES: Array<{
     id: "route",
     number: "03",
     shortTitle: "Ruta",
-    title: "Trazando la ruta",
+    title: "Rutas institucionales",
     description:
-      "Recorre la cronología y compara las rutas institucionales sustentadas.",
+      "Elige una ruta y recorre sus paradas para ver los pasos y sus fuentes.",
   },
 ]
 
@@ -53,10 +53,6 @@ export function NarrativeStageHeader({
   return (
     <header className="narrative-stage-header">
       <div className="narrative-stage-meta">
-        <p>
-          <strong>{current.number} / 03</strong>
-          <span>Del relato a la ruta</span>
-        </p>
         <nav aria-label="Etapas del análisis">
           {NARRATIVE_STAGES.map((item) => (
             <button

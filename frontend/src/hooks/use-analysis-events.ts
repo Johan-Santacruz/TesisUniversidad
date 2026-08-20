@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { apiClient } from "../api/client"
 import type { components } from "../api/generated"
@@ -60,6 +60,9 @@ export async function consumeAnalysisStream(
 export function useAnalysisEvents(eventsUrl: string | null) {
   const [events, setEvents] = useState<AnalysisEvent[]>([])
   const [error, setError] = useState("")
+  // Cambiar este número relanza el efecto sin tocar la URL, que es lo que
+  // permite reintentar sin recargar la página.
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!eventsUrl) return
@@ -103,12 +106,17 @@ export function useAnalysisEvents(eventsUrl: string | null) {
     return () => {
       active = false
     }
-  }, [eventsUrl])
+  }, [eventsUrl, attempt])
 
   const routeEvent = events.find((event) => event.stage === "routes")
   const caseId = typeof routeEvent?.payload.case_id === "string"
     ? routeEvent.payload.case_id
     : null
 
-  return { events, error, caseId }
+  const retry = useCallback(() => {
+    setError("")
+    setAttempt((current) => current + 1)
+  }, [])
+
+  return { events, error, caseId, retry }
 }

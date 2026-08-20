@@ -11,11 +11,12 @@ import {
   type RefAttributes,
 } from "react"
 import HTMLFlipBook from "react-pageflip"
+import { DeskSurface } from "../../components/desk-surface"
 import { Link } from "react-router-dom"
 import {
   BOOK_PAGES,
   type FlipbookPageItem,
-} from "../components/book/flipbook-pages"
+} from "./flipbook-pages"
 
 type TurnDirection = "next" | "previous"
 type BookPhase = "closed" | "opening" | "open" | "closing"
@@ -77,14 +78,57 @@ const HORIZONTAL_WHEEL_THRESHOLD = 18
 const WHEEL_COOLDOWN_MS = 520
 const OPEN_BOOK_PAGES = BOOK_PAGES.slice(1)
 
+// Una vez que la persona pasó una página, el gesto ya está aprendido: la
+// pista no vuelve a aparecer en visitas siguientes.
+const HINT_STORAGE_KEY = "senda:libro-gesto-visto"
+
+function readHintSeen() {
+  try {
+    return window.localStorage.getItem(HINT_STORAGE_KEY) === "1"
+  } catch {
+    return false // modo privado / almacenamiento bloqueado
+  }
+}
+
 function cx(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(" ")
 }
 
-function BookHeader({ currentPage }: { currentPage: FlipbookPageItem }) {
+// El pliego abierto mide 2 × 590 de ancho por 780 de alto: 1.5128. El
+// contenedor venía calculado con 1.7, así que pedía más ancho del que la
+// altura podía sostener y el libro se salía por abajo.
+// 80vh deja arriba la banda de la barra flotante y abajo el pie de la pista,
+// sin que el pliego vuelva a rebasar el alto de la ventana.
+// El ancho del pliego lo manda la ALTURA de la ventana, no un máximo fijo.
+// La barra flotante comparte esta misma expresión para que ambos coincidan
+// en cualquier tamaño de pantalla y no sólo por casualidad en uno.
+const BOOK_WIDTH = "w-[min(94vw,1340px,calc(min(82vh,880px)*1.5128))]"
+const BOOK_BOX = `h-[min(82vh,880px)] ${BOOK_WIDTH}`
+// Una sola tapa es media hoja: 590/780 = 0.7564.
+const COVER_BOX =
+  "h-[min(82vh,880px)] w-[min(78vw,670px,calc(min(82vh,880px)*0.7564))]"
+
+function BookHeader({
+  currentPage,
+  progressIndex,
+  totalPages,
+}: {
+  currentPage: FlipbookPageItem
+  progressIndex: number
+  totalPages: number
+}) {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-6 pt-6 md:px-10 md:pt-8">
-      <div className="mx-auto flex max-w-[1380px] items-center justify-between gap-6">
+    <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 md:px-8 md:pt-5">
+      <div
+        className={cx(
+          "mx-auto flex items-center justify-between gap-6 rounded-full border border-ink/8 bg-paper/95 px-5 py-2.5 md:px-7",
+          BOOK_WIDTH
+        )}
+        style={{
+          boxShadow:
+            "0 12px 30px rgb(12 9 6 / 34%), 0 2px 6px rgb(12 9 6 / 20%), inset 0 1px 0 rgb(255 255 255 / 62%)",
+        }}
+      >
         <div className="flex min-w-0 items-baseline gap-3" aria-live="polite">
           <span className="font-sans text-[10px] uppercase tracking-[0.14em] text-ink-faded">
             {currentPage.eyebrow}
@@ -94,6 +138,13 @@ function BookHeader({ currentPage }: { currentPage: FlipbookPageItem }) {
             Los que caminan todavía
           </span>
         </div>
+
+        {/* El listón vive en la misma banda que el título: como una sola línea
+            devuelve al pliego los ~40px verticales que antes ocupaba solo. */}
+        <BookProgressRibbon
+          progressIndex={progressIndex}
+          totalPages={totalPages}
+        />
 
         <Link
           to="/conversar"
@@ -110,6 +161,7 @@ function BookHeader({ currentPage }: { currentPage: FlipbookPageItem }) {
   )
 }
 
+// Siempre va dentro de la barra de papel, así que se resuelve en tinta.
 function BookProgressRibbon({
   progressIndex,
   totalPages,
@@ -119,7 +171,7 @@ function BookProgressRibbon({
 }) {
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 -top-8 z-40 flex items-center justify-center gap-4 md:-top-9"
+      className="pointer-events-none flex shrink-0 items-center gap-4"
       aria-hidden="true"
     >
       <div className="flex items-center gap-1.5">
@@ -144,10 +196,154 @@ function BookProgressRibbon({
   )
 }
 
-function ClosedBookView({ onOpen }: { onOpen: () => void }) {
+// La invitación a pasar la página no es un botón: es la esquina del papel
+// levantándose sola, como cuando alguien va a dar vuelta a una hoja. Vive
+// encima del flipbook pero con pointer-events-none, porque el objetivo real
+// de arrastre es la esquina de react-pageflip que queda debajo.
+function PageTurnHint({ still }: { still: boolean }) {
+  const fold = 44
+
   return (
     <motion.div
-      className="relative h-[min(81vh,860px)] w-[min(78vw,650px,calc(min(81vh,860px)*0.85))] min-w-[300px] md:w-[min(48vw,650px,calc(min(81vh,860px)*0.85))]"
+      className="pointer-events-none absolute inset-0 z-30"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.45, ease: "easeOut" } }}
+      transition={{ duration: 0.9, delay: 1.5, ease: "easeOut" }}
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 64 64"
+        className="absolute bottom-0 right-0 h-[124px] w-[124px] overflow-visible"
+      >
+        <defs>
+          {/* Sombra que proyecta la hoja levantada sobre la página de abajo:
+              floja en el vértice y firme junto al pliegue, para que el par
+              hueco+solapa no se lea como un cuadrado macizo. */}
+          <linearGradient id="book-hint-gap" x1="1" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="rgb(24 20 16 / 10%)" />
+            <stop offset="52%" stopColor="rgb(24 20 16 / 26%)" />
+            <stop offset="100%" stopColor="rgb(24 20 16 / 38%)" />
+          </linearGradient>
+          <linearGradient id="book-hint-flap" x1="1" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="rgb(255 253 248)" />
+            <stop offset="55%" stopColor="rgb(243 237 223)" />
+            <stop offset="100%" stopColor="rgb(214 201 174)" />
+          </linearGradient>
+        </defs>
+
+        {/* framer-motion normaliza los SVG a transform-box: fill-box y
+            transform-origin 50% 50%, así que el vértice se pide en
+            porcentaje de la caja del trazo, no en coordenadas del viewBox. */}
+        <motion.g
+          style={{ transformOrigin: "100% 100%", transformBox: "fill-box" }}
+          initial={{ scale: still ? 1 : 0.3, opacity: still ? 1 : 0 }}
+          animate={
+            still
+              ? { scale: 1, opacity: 1 }
+              : { scale: [0.3, 1, 1, 0.3], opacity: [0, 1, 1, 0] }
+          }
+          transition={
+            still
+              ? { duration: 0 }
+              : {
+                  duration: 2.6,
+                  times: [0, 0.34, 0.62, 1],
+                  ease: [0.4, 0, 0.25, 1],
+                  repeat: Infinity,
+                  repeatDelay: 1.4,
+                }
+          }
+        >
+          {/* Hueco que deja el papel al despegarse. */}
+          <path
+            d={`M64,${64 - fold} L64,64 L${64 - fold},64 Z`}
+            fill="url(#book-hint-gap)"
+          />
+          {/* Hoja doblada hacia adentro: reflejo del vértice sobre la diagonal. */}
+          <path
+            d={`M64,${64 - fold} L${64 - fold},64 L${64 - fold},${64 - fold} Z`}
+            fill="url(#book-hint-flap)"
+            stroke="rgb(24 20 16 / 12%)"
+            strokeWidth="0.4"
+            style={{ filter: "drop-shadow(2px 2px 3px rgb(24 20 16 / 34%))" }}
+          />
+        </motion.g>
+      </svg>
+    </motion.div>
+  )
+}
+
+// Se apoya en la misma microtipografía del listón de progreso para que lea
+// como parte del aparato editorial del libro y no como un tooltip.
+function PageTurnCaption({
+  still,
+  onTable,
+}: {
+  still: boolean
+  onTable: boolean
+}) {
+  const ruleClass = onTable ? "h-px bg-paper/28" : "h-px bg-ink/20"
+
+  return (
+    <motion.p
+      className={cx(
+        "pointer-events-none absolute inset-x-0 -bottom-8 z-30 flex items-center justify-center gap-3 font-sans text-[10px] uppercase tracking-[0.14em] md:-bottom-9",
+        onTable ? "text-paper/58" : "text-ink-faded"
+      )}
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.45, ease: "easeOut" } }}
+      transition={{ duration: 0.9, delay: 1.7, ease: "easeOut" }}
+      aria-hidden="true"
+    >
+      <motion.span
+        className={ruleClass}
+        initial={{ width: still ? 28 : 8 }}
+        animate={still ? { width: 28 } : { width: [8, 28, 28, 8] }}
+        transition={
+          still
+            ? { duration: 0 }
+            : {
+                duration: 2.6,
+                times: [0, 0.34, 0.62, 1],
+                ease: [0.4, 0, 0.25, 1],
+                repeat: Infinity,
+                repeatDelay: 1.4,
+              }
+        }
+      />
+      Arrastra la esquina · o usa ← →
+      <motion.span
+        className={ruleClass}
+        initial={{ width: still ? 28 : 8 }}
+        animate={still ? { width: 28 } : { width: [8, 28, 28, 8] }}
+        transition={
+          still
+            ? { duration: 0 }
+            : {
+                duration: 2.6,
+                times: [0, 0.34, 0.62, 1],
+                ease: [0.4, 0, 0.25, 1],
+                repeat: Infinity,
+                repeatDelay: 1.4,
+              }
+        }
+      />
+    </motion.p>
+  )
+}
+
+function ClosedBookView({
+  onOpen,
+  still,
+}: {
+  onOpen: () => void
+  still: boolean
+}) {
+  return (
+    <motion.div
+      className={cx("relative min-w-[300px]", COVER_BOX)}
       initial={{
         opacity: 0,
         rotateX: 5,
@@ -249,6 +445,29 @@ function ClosedBookView({ onOpen }: { onOpen: () => void }) {
               Una lectura sobre desplazamiento, derechos y la posibilidad de
               volver a orientarse.
             </p>
+
+            {/* El filete que crece hace de latido: señala que la cubierta es
+                una puerta, sin recurrir a un botón dentro del botón. */}
+            <p className="mt-6 flex items-center gap-2.5 font-sans text-[10px] uppercase tracking-[0.14em] text-paper/58 transition-colors group-hover:text-paper/86">
+              <motion.span
+                aria-hidden="true"
+                className="h-px bg-paper/45"
+                initial={{ width: still ? 30 : 10 }}
+                animate={still ? { width: 30 } : { width: [10, 30, 30, 10] }}
+                transition={
+                  still
+                    ? { duration: 0 }
+                    : {
+                        duration: 2.6,
+                        times: [0, 0.34, 0.62, 1],
+                        ease: [0.4, 0, 0.25, 1],
+                        repeat: Infinity,
+                        repeatDelay: 1.4,
+                      }
+                }
+              />
+              Abrir el libro
+            </p>
           </div>
         </div>
       </motion.button>
@@ -260,7 +479,7 @@ function OpeningBookView() {
   return (
     <motion.div
       key="opening-book"
-      className="relative h-[min(81vh,860px)] w-[min(96vw,1320px,calc(min(81vh,860px)*1.7))]"
+      className={cx("relative", BOOK_BOX)}
       initial={{
         opacity: 1,
         x: "-25%",
@@ -486,7 +705,7 @@ function ClosingBookView() {
   return (
     <motion.div
       key="closing-book"
-      className="relative h-[min(81vh,860px)] w-[min(96vw,1320px,calc(min(81vh,860px)*1.7))]"
+      className={cx("relative", BOOK_BOX)}
       initial={{
         opacity: 1,
         x: "0%",
@@ -727,6 +946,8 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
   const prefersReducedMotion = useReducedMotion()
   const [bookPhase, setBookPhase] = useState<BookPhase>("open")
   const [openPageIndex, setOpenPageIndex] = useState(0)
+  const [hintSeen, setHintSeen] = useState(readHintSeen)
+  const hintSeenRef = useRef(false)
   const flipBookRef = useRef<FlipBookRef>(null)
   const openPageIndexRef = useRef(0)
   const isTurningRef = useRef(false)
@@ -740,6 +961,24 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
   const currentPage = bookPhase === "closed" || bookPhase === "closing"
     ? BOOK_PAGES[0]
     : OPEN_BOOK_PAGES[openPageIndex] ?? OPEN_BOOK_PAGES[0]
+
+  // De fondo del login el libro es textura bajo un velo pálido: ahí la mesa
+  // sobra y oscurecería el formulario.
+  const onTable = !backgroundMode
+  const showHint = onTable && bookPhase === "open" && !hintSeen
+
+  const dismissHint = useCallback(() => {
+    if (hintSeenRef.current) return
+    hintSeenRef.current = true
+
+    try {
+      window.localStorage.setItem(HINT_STORAGE_KEY, "1")
+    } catch {
+      // Sin almacenamiento la pista simplemente reaparece en la próxima visita.
+    }
+
+    setHintSeen(true)
+  }, [])
 
   const releaseTurnLock = useCallback(() => {
     if (turnUnlockTimerRef.current) {
@@ -769,6 +1008,9 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
     openPageIndexRef.current = 0
     lastWheelAtRef.current = Date.now()
     setOpenPageIndex(0)
+    // La apertura ya hizo el trabajo dramático; la doble página entra con la
+    // transición corta en vez de encadenar un segundo intro de un segundo.
+    isInitialLoadRef.current = false
 
     if (prefersReducedMotion) {
       setBookPhase("open")
@@ -911,16 +1153,30 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
   }, [requestTurn])
 
   return (
-    <main className="relative h-screen overflow-hidden bg-paper px-4 pb-6 pt-[6.25rem] text-ink md:px-8 md:pb-8 md:pt-[7.5rem]">
-      <BookHeader currentPage={currentPage} />
+    <main
+      className={cx(
+        "relative h-screen overflow-hidden px-4 pb-16 pt-[5.25rem] text-ink md:px-8 md:pb-[4.5rem] md:pt-[5.5rem]",
+        onTable ? "bg-[oklch(0.29_0.04_58)]" : "bg-paper"
+      )}
+    >
+      {onTable ? <DeskSurface /> : null}
+      <BookHeader
+        currentPage={currentPage}
+        progressIndex={progressIndex}
+        totalPages={BOOK_PAGES.length}
+      />
 
       <section
-        className="relative mx-auto flex h-full max-w-[1380px] -translate-y-7 items-center justify-center md:-translate-y-10"
+        className="relative z-10 mx-auto flex h-full max-w-[1380px] items-center justify-center"
         style={{ perspective: "1500px" }}
       >
         <AnimatePresence mode="wait">
           {bookPhase === "closed" ? (
-            <ClosedBookView key="closed-view" onOpen={openBook} />
+            <ClosedBookView
+              key="closed-view"
+              onOpen={openBook}
+              still={Boolean(prefersReducedMotion)}
+            />
           ) : null}
 
           {bookPhase === "opening" ? (
@@ -934,7 +1190,7 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
           {bookPhase === "open" ? (
             <motion.div
               key="open-book"
-              className="relative h-[min(81vh,860px)] w-[min(96vw,1320px,calc(min(81vh,860px)*1.7))]"
+              className={cx("relative", BOOK_BOX)}
               initial={
                 backgroundMode
                   ? false
@@ -972,13 +1228,36 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
               }
               style={{
                 transformStyle: "preserve-3d",
-                filter: "drop-shadow(0 42px 76px rgba(24,20,16,0.28))",
+                filter: onTable
+                  ? "drop-shadow(0 26px 44px rgba(10,7,4,0.52)) drop-shadow(0 3px 8px rgba(10,7,4,0.4))"
+                  : "drop-shadow(0 42px 76px rgba(24,20,16,0.28))",
               }}
             >
-              <BookProgressRibbon
-                progressIndex={progressIndex}
-                totalPages={BOOK_PAGES.length}
-              />
+              {/* Sombra de contacto: es lo que asienta el libro sobre la
+                  madera en vez de dejarlo flotando. */}
+              {onTable ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-8 -bottom-3 -z-10 h-8 rounded-[50%] blur-xl"
+                  style={{ background: "oklch(0.12 0.02 45 / 62%)" }}
+                />
+              ) : null}
+
+              <AnimatePresence>
+                {showHint ? (
+                  <PageTurnHint
+                    key="turn-hint"
+                    still={Boolean(prefersReducedMotion)}
+                  />
+                ) : null}
+                {showHint ? (
+                  <PageTurnCaption
+                    key="turn-caption"
+                    still={Boolean(prefersReducedMotion)}
+                    onTable={onTable}
+                  />
+                ) : null}
+              </AnimatePresence>
 
               <div
                 aria-hidden="true"
@@ -1002,14 +1281,19 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
                   zIndex: 0,
                 }}
               />
+              {/* Espejo exacto del canto derecho. Antes era sólo un degradado
+                  oscuro —pensado para el fondo claro de papel— que sobre la
+                  madera desaparecía: se veía bloque de hojas a la derecha y
+                  nada a la izquierda, y el libro parecía correrse de eje. */}
               <div
                 aria-hidden="true"
-                className="absolute -left-3 bottom-5 top-5 w-4 rounded-l-sm"
+                className="absolute -left-4 bottom-3 top-4 w-4 rounded-l-sm border-l border-ink/10"
                 style={{
                   background:
-                    "linear-gradient(90deg, rgba(24,20,16,0.26), rgba(24,20,16,0.08), transparent)",
-                  transform: "translateZ(-6px)",
-                  zIndex: 1,
+                    "linear-gradient(270deg, rgba(248,244,230,0.92), rgba(146,130,98,0.46))",
+                  transform: "rotateY(72deg) translateZ(-10px)",
+                  transformOrigin: "right center",
+                  zIndex: 0,
                 }}
               />
 
@@ -1042,6 +1326,13 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
                 onFlip={(event) => {
                   const nextIndex = Number(event.data)
                   if (Number.isNaN(nextIndex)) return
+                  // react-pageflip también emite "flip" al montarse, con la
+                  // página de arranque. Sólo un cambio real de índice cuenta
+                  // como gesto aprendido; si no, la pista se autodescartaría
+                  // en la primera carga y quedaría marcada para siempre.
+                  if (nextIndex !== openPageIndexRef.current) {
+                    dismissHint()
+                  }
                   openPageIndexRef.current = nextIndex
                   setOpenPageIndex(nextIndex)
                 }}

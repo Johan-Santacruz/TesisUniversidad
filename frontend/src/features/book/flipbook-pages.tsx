@@ -4,7 +4,7 @@ import { type ComponentType, type ReactNode } from "react"
 import {
   BOOK_CONVERSATION_TRANSCRIPT,
   BOOK_SYSTEM_STEPS,
-} from "../../data/book-content"
+} from "./book-content"
 
 type PageTheme = "paper" | "ink" | "image"
 
@@ -39,6 +39,49 @@ const fadeOnly = {
 const imageSettle = {
   hidden: { opacity: 0, scale: 1.045 },
   shown: { opacity: 1, scale: 1 },
+}
+
+// El titular sube desde detrás de su propia máscara. Es el gesto clásico de
+// portada editorial y sustituye al fadeUp genérico en las cabeceras.
+const maskRise = {
+  hidden: { y: "108%" },
+  shown: { y: "0%" },
+}
+
+// La máscara recorta a ras de la caja de texto, así que las descendentes (g,
+// j, y) y las cursivas se comerían un pelo: se compensa con holgura abajo.
+const MASK = "overflow-hidden pb-[0.16em] -mb-[0.16em]"
+
+// Una línea por máscara, escalonadas. Para titulares partidos a mano donde
+// interesa que cada renglón entre por separado.
+function LineReveal({
+  lines,
+  className,
+  delay = 0,
+}: {
+  lines: ReactNode[]
+  className?: string
+  delay?: number
+}) {
+  return (
+    <span className={className}>
+      {lines.map((line, index) => (
+        <span key={index} className={cx("block", MASK)}>
+          <motion.span
+            className="block"
+            variants={maskRise}
+            transition={{
+              duration: 0.82,
+              delay: delay + index * 0.1,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            {line}
+          </motion.span>
+        </span>
+      ))}
+    </span>
+  )
 }
 
 function PageShell({
@@ -102,16 +145,18 @@ function PageShell({
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <div className="max-w-[26rem]">
-          <motion.h2
-            variants={fadeUp}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className={cx(
-              "font-serif text-[clamp(2.1rem,4.5vh,3.45rem)] leading-[0.96] text-balance",
-              isDark ? "text-paper" : "text-ink"
-            )}
-          >
-            {title}
-          </motion.h2>
+          <div className={MASK}>
+            <motion.h2
+              variants={maskRise}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+              className={cx(
+                "font-serif text-[clamp(2.1rem,4.5vh,3.45rem)] leading-[0.96] text-balance",
+                isDark ? "text-paper" : "text-ink"
+              )}
+            >
+              {title}
+            </motion.h2>
+          </div>
           {subtitle ? (
             <motion.p
               variants={fadeUp}
@@ -259,11 +304,13 @@ function PrologueFlipPage() {
             transition={{ duration: 0.55, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
             className="border-t border-rule pt-4 md:border-t-0 md:pt-0"
           >
-            <h2 className="font-serif text-[clamp(2.1rem,4.5vh,3.45rem)] leading-[0.96] text-ink text-balance">
+            {/* Esta cabecera vive en media columna de media hoja: se le pone
+                techo aparte para que no se coma el alto de los párrafos. */}
+            <h2 className="font-serif text-[clamp(1.65rem,3.5vh,2.5rem)] leading-[0.98] text-ink text-balance">
               Primero,{" "}
               <span className="italic text-ink-faded">la historia.</span>
             </h2>
-            <p className="mt-3 font-serif text-[clamp(1rem,2.08vh,1.16rem)] leading-snug text-ink-soft text-pretty">
+            <p className="mt-2.5 font-serif text-[clamp(0.9rem,1.85vh,1.04rem)] leading-snug text-ink-soft text-pretty">
               Antes de hablar de tecnología, el libro vuelve a la escena
               humana: una persona perdió casa, rutina y certeza.
             </p>
@@ -272,14 +319,16 @@ function PrologueFlipPage() {
           <motion.div
             variants={fadeUp}
             transition={{ duration: 0.55, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="grid min-h-0 content-start gap-4 border-t border-rule pt-4"
+            className="grid min-h-0 content-start gap-3 border-t border-rule pt-4"
           >
-            <p className="font-serif text-lg leading-relaxed text-ink text-pretty">
+            {/* Escalan con el alto de la página: a 590px de ancho de hoja el
+                texto fijo se desbordaba por debajo del folio. */}
+            <p className="font-serif text-[clamp(0.88rem,1.8vh,1.02rem)] leading-[1.45] text-ink text-pretty">
               El desplazamiento no termina al llegar a otro lugar. Continúa
               en los papeles perdidos, en oficinas desconocidas y en el
               miedo a no saber cómo pedir ayuda.
             </p>
-            <p className="font-serif text-base leading-relaxed text-ink-soft text-pretty">
+            <p className="font-serif text-[clamp(0.82rem,1.65vh,0.94rem)] leading-[1.45] text-ink-soft text-pretty">
               Desde ahí nace este sistema: una conversación que ordena
               información, explica derechos y prepara mejor el encuentro
               con las instituciones.
@@ -526,7 +575,7 @@ function ToolStepsFlipPage() {
       }
       footer="Del relato a la orientación"
     >
-      <div className="mt-6 grid min-h-0 flex-1 grid-rows-[0.45fr_1fr] gap-5">
+      <div className="mt-5 grid min-h-0 flex-1 grid-rows-[0.36fr_1fr] gap-4">
         <motion.figure
           variants={fadeOnly}
           initial="hidden"
@@ -546,7 +595,7 @@ function ToolStepsFlipPage() {
           </figcaption>
         </motion.figure>
 
-        <ol className="grid min-h-0 grid-cols-2 gap-x-5 gap-y-4">
+        <ol className="grid min-h-0 grid-cols-2 gap-x-5 gap-y-3">
           {BOOK_SYSTEM_STEPS.map((step, index) => (
             <motion.li
               key={step.n}
@@ -565,11 +614,13 @@ function ToolStepsFlipPage() {
                 <span className="font-mono text-[10px] text-ink-faded">
                   {step.n}
                 </span>
-                <h3 className="font-serif text-2xl leading-none text-ink">
+                <h3 className="font-serif text-[clamp(1.1rem,2.45vh,1.5rem)] leading-none text-ink">
                   {step.title}
                 </h3>
               </div>
-              <p className="mt-2 font-serif text-[15px] leading-snug text-ink-soft text-pretty">
+              {/* Cuatro bloques en media hoja: el cuerpo fijo de 15px hacía
+                  que "Acompañar" se saliera por el borde inferior. */}
+              <p className="mt-1.5 font-serif text-[clamp(0.78rem,1.6vh,0.92rem)] leading-[1.4] text-ink-soft text-pretty">
                 {step.body}
               </p>
             </motion.li>
@@ -580,8 +631,14 @@ function ToolStepsFlipPage() {
   )
 }
 
+// En el transcript los índices pares son de la persona y los impares del
+// sistema. La selección anterior —[0,1,3,5,7]— se quedaba con un turno de ella
+// y cuatro seguidos de él: la página se llamaba "Una voz, una respuesta" pero
+// leía como un monólogo, y encima el quinto turno no cabía sobre el pie.
+// Este corte alterna y cierra el arco: ella pide, él orienta, ella advierte
+// que no tiene papeles, él resuelve con lo que sí conserva.
 const conversationTurns = BOOK_CONVERSATION_TRANSCRIPT.filter((_, index) =>
-  [0, 1, 3, 5, 7].includes(index)
+  [0, 1, 4, 5].includes(index)
 )
 
 const turnAccent = {
@@ -652,7 +709,7 @@ function ConversationFlipPage() {
       subtitle="Una conversación breve muestra cómo el relato se convierte en orientación sin exigir lenguaje jurídico."
       footer="Caso compuesto, datos protegidos"
     >
-      <ol className="mt-5 min-h-0 flex-1 space-y-3">
+      <ol className="mt-4 min-h-0 flex-1 space-y-2">
         {conversationTurns.map((turn, index) => (
           <motion.li
             key={`${turn.label}-${index}`}
@@ -666,15 +723,15 @@ function ConversationFlipPage() {
               ease: [0.22, 1, 0.36, 1],
             }}
             className={cx(
-              "grid grid-cols-[3.3rem_1fr] gap-4 border-l-2 pl-4",
+              "grid grid-cols-[2.1rem_1fr] gap-3 border-l-2 pl-3.5",
               turn.accent ? turnAccent[turn.accent] : "border-rule"
             )}
           >
-            <div className="pt-1 font-mono text-[10px] uppercase text-ink-faded">
+            <div className="pt-0.5 font-mono text-[10px] uppercase text-ink-faded">
               {String(index + 1).padStart(2, "0")}
             </div>
             <div>
-              <p className="mb-1 font-sans text-[10px] uppercase text-ink-faded">
+              <p className="mb-0.5 font-sans text-[10px] uppercase text-ink-faded">
                 {turn.who === "persona" ? "Persona" : "Sistema"}
               </p>
               <WordReveal
@@ -682,10 +739,11 @@ function ConversationFlipPage() {
                 wordDuration={turn.who === "persona" ? 0.26 : 0.34}
                 stagger={turn.who === "persona" ? 0.032 : 0.05}
                 className={cx(
-                  "font-serif leading-snug text-pretty",
+                  // Cinco turnos tienen que caber sobre el pie de página.
+                  "font-serif leading-[1.38] text-pretty",
                   turn.who === "persona"
-                    ? "text-[1.02rem] text-ink"
-                    : "text-base italic text-ink-soft"
+                    ? "text-[clamp(0.84rem,1.72vh,0.98rem)] text-ink"
+                    : "text-[clamp(0.8rem,1.65vh,0.93rem)] italic text-ink-soft"
                 )}
               />
             </div>
@@ -722,15 +780,17 @@ function TrustFlipPage() {
           whileInView="shown"
           viewport={pageViewport}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="relative min-h-0 overflow-hidden border border-rule bg-paper-deep"
+          className="relative min-h-[7.5rem] overflow-hidden border border-rule bg-paper-deep"
         >
           <img
             src="/images/justicia.jpg"
             alt="Persona revisando documentos de acceso a la justicia"
             className="h-full w-full object-cover object-center duotone-ink"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-paper/82 via-paper/18 to-transparent" />
-          <figcaption className="absolute bottom-4 left-4 right-5 max-w-sm font-serif text-lg italic leading-snug text-ink">
+          {/* El velo iba a paper/82 y el pie en tinta caía sobre medios tonos
+              de la foto: ilegible. Ahora es casi opaco donde se apoya. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-paper via-paper/72 via-40% to-transparent" />
+          <figcaption className="absolute bottom-3 left-4 right-5 max-w-sm font-serif text-[clamp(0.86rem,1.72vh,1rem)] italic leading-snug text-ink">
             La interfaz no decide por la persona: prepara mejor la conversación
             que vendrá después.
           </figcaption>
@@ -778,15 +838,38 @@ function ColophonFlipPage() {
       viewport={pageViewport}
       className="relative flex h-full min-h-full flex-col overflow-hidden bg-ink p-6 text-paper md:p-8"
     >
+      {/* Antes iba cover-andes.jpg: es cuadrada y su mitad superior es niebla
+          sin detalle, que en una página vertical quedaba como un gris muerto.
+          Esta es vertical y muestra justo lo que dice el texto. */}
       <motion.img
-        variants={fadeOnly}
-        transition={{ duration: 1.1, ease: "easeOut" }}
-        src="/images/cover-andes.jpg"
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover object-[center_58%] opacity-55 duotone-ink"
-        aria-hidden="true"
+        variants={{
+          hidden: { opacity: 0, scale: 1.12 },
+          shown: { opacity: 1, scale: 1 },
+        }}
+        transition={{
+          opacity: { duration: 1.2, ease: "easeOut" },
+          scale: { duration: 16, ease: "linear" },
+        }}
+        src="/images/mosaic-desplazamiento/07-ruta-institucional-v3.jpg"
+        alt="Una funcionaria acompaña a una mujer mientras revisan juntas la ruta de atención en una tableta"
+        className="absolute inset-0 h-full w-full object-cover object-[62%_center] duotone-ink"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/74 to-ink/38" />
+      {/* El texto vive en la mitad inferior: ahí el velo es casi opaco y
+          arriba se abre para que la fotografía respire. */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to top, oklch(0.19 0.018 60) 0%, oklch(0.19 0.018 60 / 94%) 30%, oklch(0.19 0.018 60 / 62%) 55%, oklch(0.19 0.018 60 / 22%) 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-x-0 top-0 h-28"
+        style={{
+          background:
+            "linear-gradient(to bottom, oklch(0.19 0.018 60 / 72%), transparent)",
+        }}
+      />
 
       <div
         aria-hidden="true"
@@ -811,18 +894,20 @@ function ColophonFlipPage() {
       </motion.header>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col justify-end">
-        <motion.h2
-          variants={fadeUp}
-          transition={{ duration: 0.6, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-md font-serif text-[clamp(2.1rem,4.5vh,3.45rem)] leading-[0.96] text-paper text-balance"
-        >
-          Este libro{" "}
-          <span className="italic text-paper/64">no se cierra.</span>
-        </motion.h2>
+        <LineReveal
+          className="block max-w-md font-serif text-[clamp(2rem,4.4vh,3.2rem)] leading-[0.98] text-paper"
+          delay={0.12}
+          lines={[
+            "Este libro",
+            <span key="cierra" className="italic text-paper/68">
+              no se cierra.
+            </span>,
+          ]}
+        />
         <motion.p
           variants={fadeUp}
-          transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-4 max-w-md font-serif text-xl leading-snug text-paper/84 text-pretty"
+          transition={{ duration: 0.6, delay: 0.42, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-4 max-w-md font-serif text-[clamp(0.95rem,2vh,1.14rem)] leading-relaxed text-paper/86 text-pretty"
         >
           El recorrido termina donde debería empezar la atención: con una
           persona mejor orientada y una institución obligada a escuchar con
@@ -831,15 +916,26 @@ function ColophonFlipPage() {
 
         <motion.div
           variants={fadeUp}
-          transition={{ duration: 0.6, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.6, delay: 0.58, ease: [0.22, 1, 0.36, 1] }}
         >
+          {/* isolate + el relleno primero en el DOM: los hermanos con position
+              relative pintan encima sin necesidad de z-index negativos. */}
           <Link
             to="/conversar"
-            className="group mt-8 flex min-h-16 items-center justify-between border-y border-paper/30 py-5 font-serif text-3xl text-paper transition-colors hover:text-amarillo focus:outline-none focus:ring-2 focus:ring-paper/70"
+            className="group relative isolate mt-6 flex items-center justify-between gap-4 overflow-hidden rounded-full border border-paper/40 px-6 py-4 font-serif text-[clamp(1rem,2.2vh,1.3rem)] text-paper transition-colors hover:border-amarillo focus:outline-none focus-visible:ring-2 focus-visible:ring-paper/70"
           >
-            <span>Iniciar una conversación</span>
-            <span className="font-sans text-[10px] uppercase text-paper/56 transition-colors group-hover:text-amarillo">
-              Ir
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 origin-left scale-x-0 bg-amarillo transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-100"
+            />
+            <span className="relative transition-colors duration-300 group-hover:text-ink">
+              Iniciar una conversación
+            </span>
+            <span
+              aria-hidden="true"
+              className="relative transition-all duration-300 group-hover:translate-x-1 group-hover:text-ink"
+            >
+              →
             </span>
           </Link>
         </motion.div>

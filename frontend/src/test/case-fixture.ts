@@ -1,6 +1,18 @@
 import type { components } from "../api/generated"
 
 
+export const memoryImageFixture: components["schemas"]["MemoryImageRead"] = {
+  id: "memory-image-fixture",
+  generation: 1,
+  status: "pending_review",
+  image_url: "/api/v1/cases/case-fixture/memory-image/content",
+  rendered_video_url: null,
+  render_status: null,
+  failure_code: null,
+  reviewed_at: null,
+}
+
+
 export const caseFixture: components["schemas"]["CaseRead"] = {
   id: "case-fixture",
   analysis_id: "analysis-fixture",
@@ -123,6 +135,7 @@ export const caseFixture: components["schemas"]["CaseRead"] = {
       steps: [
         {
           title: "Contactar el punto territorial",
+          key_point: "Lleve la denuncia impresa.",
           instructions: "Confirmar horario antes del traslado.",
           claims: [
             {

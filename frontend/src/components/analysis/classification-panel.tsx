@@ -24,8 +24,10 @@ export function ClassificationPanel({
       aria-labelledby="classification-title"
     >
       <div>
-        <p className="eyebrow">Lectura especializada</p>
-        <h2 id="classification-title">Clasificación BETO</h2>
+        {/* Quien lee esto no necesita saber qué modelo clasifica: le importa
+            qué tipo de caso es y con cuánta seguridad se afirma. */}
+        <p className="eyebrow">Lectura del relato</p>
+        <h2 id="classification-title">Tipo de caso</h2>
       </div>
       <dl>
         <div>
@@ -33,7 +35,7 @@ export function ClassificationPanel({
           <dd>{category?.label ?? "No disponible"}</dd>
           {category?.confidence !== undefined ? (
             <dd className="model-confidence">
-              {Math.round(category.confidence * 100)}% de confianza del modelo
+              {Math.round(category.confidence * 100)}% de confianza
             </dd>
           ) : null}
         </div>
@@ -42,14 +44,14 @@ export function ClassificationPanel({
           <dd>{subcategory?.label ?? "No disponible"}</dd>
           {subcategory?.confidence !== undefined ? (
             <dd className="model-confidence">
-              {Math.round(subcategory.confidence * 100)}% de confianza del modelo
+              {Math.round(subcategory.confidence * 100)}% de confianza
             </dd>
           ) : null}
         </div>
       </dl>
       <p>
-        BETO aporta categoría y subcategoría; la verificación humana conserva
-        la decisión final.
+        Es una lectura automática del relato. La decisión final siempre queda
+        en manos de quien revisa el caso.
       </p>
     </section>
   )

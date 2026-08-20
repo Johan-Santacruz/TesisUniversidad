@@ -26,117 +26,164 @@ const chapters = [
   { number: "03", title: "Trazando", stages: ["timeline", "routes"] },
 ] as const
 
+// Sólo estas cuentan como terreno ganado. Antes se contaban los eventos
+// recibidos, así que una etapa fallida o no disponible sumaba porcentaje igual
+// que una lograda y la barra prometía más de lo que había.
+const SETTLED_STATES = new Set(["completed", "persisted", "skipped"])
+
+type StageState = string | undefined
+
+function statusLabel(state: StageState, isCurrent: boolean) {
+  if (state === "failed") return "Con error"
+  if (state === "unavailable") return "No disponible"
+  if (state === "skipped") return "Omitida"
+  if (state) return "Lista"
+  return isCurrent ? "En curso" : "En espera"
+}
+
 
 export function AnalysisProgress({
   events,
   error,
+  onRetry,
 }: {
   events: AnalysisEvent[]
   error: string
+  onRetry?: () => void
 }) {
   const reduceMotion = useReducedMotion() ?? false
   const states = new Map(events.map((event) => [event.stage, event.state]))
-  const completedStages = Math.min(events.length, stages.length)
-  const percent = Math.round((completedStages / stages.length) * 100)
-  const currentStage = error ? undefined : stages[completedStages]?.id
+
+  const settled = stages.filter(
+    (stage) => SETTLED_STATES.has(String(states.get(stage.id))),
+  ).length
+  const failed = stages.filter((stage) => {
+    const state = states.get(stage.id)
+    return state === "failed" || state === "unavailable"
+  }).length
+  const percent = Math.round((settled / stages.length) * 100)
+
+  // La etapa en curso es la primera sin noticias, no un índice contra el
+  // arreglo: los eventos no tienen por qué llegar en ese orden.
+  const currentStage = error
+    ? undefined
+    : stages.find((stage) => !states.has(stage.id))?.id
+
+  const currentLabel = stages.find((stage) => stage.id === currentStage)?.label
 
   return (
-    <section className="analysis-prelude" aria-labelledby="progress-title">
-      <aside className="prelude-document">
+    <section className="processing-view" aria-labelledby="progress-title">
+      <header className="processing-head">
         <p className="eyebrow">Procesamiento protegido</p>
-        <h2>Tres capítulos, una sola lectura.</h2>
-        <p>
-          Cada resultado queda persistido antes de aparecer. La ruta solo se
-          abre cuando el relato, los hechos y las fuentes están preparados.
-        </p>
-        <p className="processing-note">
-          Puedes mantener esta ventana abierta mientras avanza el análisis.
-        </p>
-      </aside>
-      <div className="narrative-sheet analysis-progress">
-        <p className="eyebrow">Procesamiento cifrado</p>
         <h1 id="progress-title">Construyendo la lectura del caso</h1>
-        <div className="progress-summary">
-          <div
-            className="progress-orbit"
-            role="progressbar"
-            aria-label="Progreso del análisis"
-            aria-valuemin={0}
-            aria-valuemax={stages.length}
-            aria-valuenow={completedStages}
-            style={{ "--analysis-progress": `${percent}%` } as CSSProperties}
-          >
-            <motion.strong
-              key={percent}
-              initial={reduceMotion ? false : { opacity: 0.5, scale: 0.82 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: reduceMotion ? 0.01 : 0.42 }}
-            >
-              {percent}%
-            </motion.strong>
-            <span>{completedStages} de {stages.length}</span>
-          </div>
+        <p className="processing-lede">
+          Cada resultado queda guardado antes de aparecer. La ruta se abre
+          cuando el relato, los hechos y las fuentes están listos.
+        </p>
+      </header>
+
+      <div className="processing-status">
+        <div
+          className="processing-meter"
+          role="progressbar"
+          aria-label="Progreso del análisis"
+          aria-valuemin={0}
+          aria-valuemax={stages.length}
+          aria-valuenow={settled}
+          aria-valuetext={`${settled} de ${stages.length} etapas listas`}
+          style={{ "--analysis-progress": `${percent}%` } as CSSProperties}
+        >
+          <motion.span
+            className="processing-meter-fill"
+            initial={false}
+            animate={{ scaleX: settled / stages.length }}
+            transition={{ duration: reduceMotion ? 0.01 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+          />
+        </div>
+        <div className="processing-readout">
+          <strong>
+            {settled} <span>de {stages.length} etapas</span>
+          </strong>
           <p
             aria-live="polite"
-            className={error ? "progress-message is-error" : "progress-message"}
+            className={error ? "processing-message is-error" : "processing-message"}
           >
             {error
               ? error
-              : `${completedStages} de ${stages.length} etapas persistidas`}
+              : currentLabel
+                ? `Procesando ${currentLabel.toLocaleLowerCase("es")}…`
+                : "Cerrando la lectura"}
           </p>
+          {/* El fallo parcial no se esconde: el análisis puede terminar con
+              etapas caídas y quien revisa debe saberlo antes de leer. */}
+          {!error && failed ? (
+            <p className="processing-warning" role="status">
+              {failed === 1
+                ? "1 etapa quedó sin resultado"
+                : `${failed} etapas quedaron sin resultado`}
+            </p>
+          ) : null}
         </div>
-        <motion.ol
-          className="progress-chapters"
-          variants={staggerContainer}
-          initial={reduceMotion ? false : "hidden"}
-          animate="visible"
-        >
-          {chapters.map((chapter) => (
+        {error && onRetry ? (
+          <button type="button" className="processing-retry" onClick={onRetry}>
+            Reintentar
+          </button>
+        ) : null}
+      </div>
+
+      <motion.ol
+        className="processing-chapters"
+        variants={staggerContainer}
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+      >
+        {chapters.map((chapter) => {
+          const done = chapter.stages.every(
+            (id) => SETTLED_STATES.has(String(states.get(id))),
+          )
+          const active = chapter.stages.some((id) => id === currentStage)
+          return (
             <motion.li
               key={chapter.number}
+              className={
+                done ? "is-done" : active ? "is-active" : undefined
+              }
               variants={staggerItem}
               transition={motionTransition(reduceMotion)}
             >
-              <span>{chapter.number}</span>
-              <div>
+              <div className="processing-chapter-head">
+                <span className="processing-chapter-number">{chapter.number}</span>
                 <strong>{chapter.title}</strong>
-                <ul>
-                  {chapter.stages.map((stageId) => {
-                    const stage = stages.find((item) => item.id === stageId)
-                    const state = states.get(stageId)
-                    const isPersisted = Boolean(state)
-                    const isComplete = state === "completed"
-                    const isCurrent = stageId === currentStage
-                    const statusLabel = state === "failed"
-                      ? "Persistida con error"
-                      : state === "unavailable"
-                        ? "No disponible"
-                        : isPersisted
-                          ? "Persistida"
-                          : isCurrent
-                            ? "En curso"
-                            : "En espera"
-                    return (
-                      <li
-                        key={stageId}
-                        className={[
-                          isComplete ? "is-complete" : "",
-                          isPersisted ? `state-${state}` : "",
-                          isCurrent ? "is-current" : "",
-                        ].filter(Boolean).join(" ")}
-                      >
-                        <span aria-hidden="true" />
-                        <span>{stage?.label}</span>
-                        <small>{statusLabel}</small>
-                      </li>
-                    )
-                  })}
-                </ul>
               </div>
+              <ul>
+                {chapter.stages.map((stageId) => {
+                  const stage = stages.find((item) => item.id === stageId)
+                  const state = states.get(stageId)
+                  const isCurrent = stageId === currentStage
+                  return (
+                    <li
+                      key={stageId}
+                      className={[
+                        state ? `state-${state}` : "",
+                        SETTLED_STATES.has(String(state)) ? "is-settled" : "",
+                        isCurrent ? "is-current" : "",
+                      ].filter(Boolean).join(" ")}
+                    >
+                      <span className="processing-dot" aria-hidden="true" />
+                      <span className="processing-stage-label">{stage?.label}</span>
+                      <small>{statusLabel(state, isCurrent)}</small>
+                    </li>
+                  )
+                })}
+              </ul>
             </motion.li>
-          ))}
-        </motion.ol>
-      </div>
+          )
+        })}
+      </motion.ol>
+
+      <p className="processing-note">
+        Puedes mantener esta ventana abierta mientras avanza el análisis.
+      </p>
     </section>
   )
 }

@@ -26,7 +26,7 @@ describe("AuthProvider", () => {
           expires_in: 900,
           user: {
             id: "admin-1",
-            email: "admin@siad.local",
+            email: "admin@senda.local",
             role: "admin",
             is_active: true,
           },
@@ -41,7 +41,7 @@ describe("AuthProvider", () => {
       </AuthProvider>,
     )
 
-    expect(await screen.findByText("admin@siad.local")).toBeVisible()
+    expect(await screen.findByText("admin@senda.local")).toBeVisible()
     expect(localStorage.getItem("access_token")).toBeNull()
     expect(sessionStorage.getItem("access_token")).toBeNull()
     await waitFor(() =>

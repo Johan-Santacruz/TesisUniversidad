@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/analyses/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Readiness */
+        get: operations["get_readiness_api_v1_analyses_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/analyses/{analysis_id}/events": {
         parameters: {
             query?: never;
@@ -156,6 +173,108 @@ export interface paths {
         head?: never;
         /** Review Fact */
         patch: operations["review_fact_api_v1_cases__case_id__facts__fact_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/memory-image/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Memory Image Content */
+        get: operations["read_memory_image_content_api_v1_cases__case_id__memory_image_content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/memory-image/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Memory Image */
+        post: operations["decide_memory_image_api_v1_cases__case_id__memory_image_decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/memory-image/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Regenerate Memory Image */
+        post: operations["regenerate_memory_image_api_v1_cases__case_id__memory_image_regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/rendered-video/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Rendered Video */
+        post: operations["retry_rendered_video_api_v1_cases__case_id__rendered_video_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/rendered-video/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream Rendered Video */
+        get: operations["stream_rendered_video_api_v1_cases__case_id__rendered_video_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/routes/{route_id}/steps/{step_index}/narration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Narrate Route Step */
+        get: operations["narrate_route_step_api_v1_cases__case_id__routes__route_id__steps__step_index__narration_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/sources": {
@@ -316,6 +435,27 @@ export interface components {
             /** Video Id */
             video_id: string;
         };
+        /** AnalysisReadinessRead */
+        AnalysisReadinessRead: {
+            /** Accepted Media Types */
+            accepted_media_types: ("video/mp4" | "video/webm")[];
+            /** Anthropic Configured */
+            anthropic_configured: boolean;
+            /** Beto Available */
+            beto_available: boolean;
+            /** Can Upload */
+            can_upload: boolean;
+            /** Ffmpeg Available */
+            ffmpeg_available: boolean;
+            /** Ffprobe Available */
+            ffprobe_available: boolean;
+            /** Max Video Bytes */
+            max_video_bytes: number;
+            /** Openai Configured */
+            openai_configured: boolean;
+            /** Video Retention Days */
+            video_retention_days: number;
+        };
         /**
          * AnalysisStage
          * @enum {string}
@@ -347,14 +487,6 @@ export interface components {
         };
         /** Body_upload_video_api_v1_videos_post */
         Body_upload_video_api_v1_videos_post: {
-            /** Consent Reference */
-            consent_reference?: string | null;
-            data_kind: components["schemas"]["DataKind"];
-            /**
-             * Explicit Consent
-             * @default false
-             */
-            explicit_consent: boolean;
             /** File */
             file: string;
         };
@@ -400,6 +532,7 @@ export interface components {
             facts: components["schemas"]["FactRead"][];
             /** Id */
             id: string;
+            memory_image?: components["schemas"]["MemoryImageRead"] | null;
             /** Recommendation Status */
             recommendation_status: string;
             /** Routes */
@@ -422,11 +555,6 @@ export interface components {
          * @enum {string}
          */
         ConfidenceBand: "high" | "medium" | "low";
-        /**
-         * DataKind
-         * @enum {string}
-         */
-        DataKind: "fictitious" | "real";
         /** EvidenceRef */
         EvidenceRef: {
             /** End Ms */
@@ -439,6 +567,8 @@ export interface components {
         /** FactRead */
         FactRead: {
             confidence_band: components["schemas"]["ConfidenceBand"];
+            /** Display Value */
+            display_value?: string | null;
             /** Evidence */
             evidence?: components["schemas"]["EvidenceRef"][];
             /** Id */
@@ -463,7 +593,10 @@ export interface components {
              * @enum {string}
              */
             action: "confirm" | "correct";
-            /** Reason */
+            /**
+             * Reason
+             * @default
+             */
             reason: string;
             /** Value */
             value?: string | number | boolean | string[] | null;
@@ -480,6 +613,40 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** MemoryImageDecisionRead */
+        MemoryImageDecisionRead: {
+            memory_image: components["schemas"]["MemoryImageRead"];
+        };
+        /** MemoryImageDecisionRequest */
+        MemoryImageDecisionRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "approve" | "reject";
+        };
+        /** MemoryImageRead */
+        MemoryImageRead: {
+            /** Failure Code */
+            failure_code: string | null;
+            /** Generation */
+            generation: number;
+            /** Id */
+            id: string;
+            /** Image Url */
+            image_url: string | null;
+            /** Render Status */
+            render_status: ("rendering" | "ready" | "failed" | "expired") | null;
+            /** Rendered Video Url */
+            rendered_video_url: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "generating" | "pending_review" | "approved" | "rejected" | "failed";
+        };
         /**
          * Origin
          * @enum {string}
@@ -491,6 +658,8 @@ export interface components {
             claims: components["schemas"]["GroundedClaim"][];
             /** Instructions */
             instructions: string;
+            /** Key Point */
+            key_point: string;
             /** Title */
             title: string;
         };
@@ -677,14 +846,20 @@ export interface components {
         };
         /** TranscriptSegment */
         TranscriptSegment: {
+            /** Analysis Id */
+            analysis_id?: string | null;
             /** End Ms */
             end_ms: number;
             /** Id */
             id: string;
+            /** Order Index */
+            order_index?: number | null;
             /** Start Ms */
             start_ms: number;
             /** Text */
             text: string;
+            /** Video Id */
+            video_id?: string | null;
         };
         /** UserCreate */
         UserCreate: {
@@ -747,7 +922,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            data_kind: components["schemas"]["DataKind"];
             /** Filename */
             filename: string;
             /** Id */
@@ -770,6 +944,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_readiness_api_v1_analyses_readiness_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisReadinessRead"];
+                };
+            };
+        };
+    };
     stream_analysis_events_api_v1_analyses__analysis_id__events_get: {
         parameters: {
             query?: never;
@@ -840,7 +1034,7 @@ export interface operations {
             header?: never;
             path?: never;
             cookie?: {
-                siad_refresh?: string | null;
+                senda_refresh?: string | null;
             };
         };
         requestBody?: never;
@@ -889,7 +1083,7 @@ export interface operations {
             header?: never;
             path?: never;
             cookie?: {
-                siad_refresh?: string | null;
+                senda_refresh?: string | null;
             };
         };
         requestBody?: never;
@@ -1065,6 +1259,200 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FactRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_memory_image_content_api_v1_cases__case_id__memory_image_content_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_memory_image_api_v1_cases__case_id__memory_image_decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryImageDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryImageDecisionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_memory_image_api_v1_cases__case_id__memory_image_regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryImageDecisionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_rendered_video_api_v1_cases__case_id__rendered_video_retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryImageDecisionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_rendered_video_api_v1_cases__case_id__rendered_video_stream_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Range?: string | null;
+            };
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    narrate_route_step_api_v1_cases__case_id__routes__route_id__steps__step_index__narration_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                route_id: string;
+                step_index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             /** @description Validation Error */

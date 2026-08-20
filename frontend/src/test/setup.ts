@@ -47,6 +47,14 @@ Object.defineProperty(window, "matchMedia", {
   }),
 })
 
+// jsdom no implementa el desplazamiento: las etapas lo usan para seguir el
+// fragmento activo mientras corre el testimonio.
+Object.defineProperty(Element.prototype, "scrollIntoView", {
+  configurable: true,
+  writable: true,
+  value: () => undefined,
+})
+
 class IntersectionObserverMock implements IntersectionObserver {
   readonly root = null
   readonly rootMargin = "0px"

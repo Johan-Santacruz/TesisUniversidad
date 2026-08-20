@@ -1,38 +1,37 @@
+import type { ReactNode } from "react"
+
 import type { components } from "../../api/generated"
 import { RoutesComparison } from "./routes-comparison"
-import { Timeline } from "./timeline"
 
 
 type CaseData = components["schemas"]["CaseRead"]
 type Role = components["schemas"]["UserRole"]
-type TimelineEvent = components["schemas"]["TimelineEventRead"]
 
 
 export function RouteStage({
   caseData,
   role,
-  selectedId,
-  onTimelineSelect,
+  memoryPanel,
   onApprove,
+  onGoToSignals,
 }: {
   caseData: CaseData
   role: Role
-  selectedId: string | null
-  onTimelineSelect: (event: TimelineEvent) => void
+  // El cierre de memoria llega como ranura: la etapa no necesita conocer sus
+  // permisos ni sus llamadas, sólo dónde va después del recorrido.
+  memoryPanel?: ReactNode
   onApprove: () => Promise<void> | void
+  onGoToSignals?: () => void
 }) {
   return (
     <div className="route-stage">
-      <Timeline
-        events={caseData.timeline}
-        selectedId={selectedId}
-        onSelect={onTimelineSelect}
-      />
       <RoutesComparison
         caseData={caseData}
         role={role}
         onApprove={onApprove}
+        onGoToSignals={onGoToSignals}
       />
+      {memoryPanel}
     </div>
   )
 }

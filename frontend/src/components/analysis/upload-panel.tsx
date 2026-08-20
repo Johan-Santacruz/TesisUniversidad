@@ -1,11 +1,37 @@
-import { motion, useReducedMotion } from "framer-motion"
-import { useRef, useState, type DragEvent } from "react"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
+import { useId, useRef, useState, type DragEvent } from "react"
 
-import {
-  motionTransition,
-  staggerContainer,
-  staggerItem,
-} from "./motion"
+import { motionTransition, staggerContainer, staggerItem } from "./motion"
+
+
+const MAX_BYTES = 500 * 1024 * 1024
+const ACCEPTED = ["video/mp4", "video/webm", "video/quicktime"]
+
+const STEPS = [
+  ["01", "Escuchar", "Recogemos el relato tal como fue contado."],
+  ["02", "Ordenar", "Separamos hechos, señales y contexto."],
+  ["03", "Trazar", "Construimos una ruta que podrás revisar."],
+] as const
+
+function readableSize(bytes: number) {
+  const mb = bytes / (1024 * 1024)
+  if (mb >= 1) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+/* Se valida aquí y no sólo en el servidor: antes se aceptaba cualquier archivo
+ * soltado —un PDF, o uno de 2 GB— y el rechazo llegaba después de subirlo. */
+export function validateVideo(file: File): string | null {
+  const looksLikeVideo = ACCEPTED.includes(file.type)
+    || /\.(mp4|webm|mov)$/i.test(file.name)
+  if (!looksLikeVideo) {
+    return "Ese archivo no es un video MP4, WebM o MOV."
+  }
+  if (file.size > MAX_BYTES) {
+    return `El video pesa ${readableSize(file.size)} y el máximo son 500 MB.`
+  }
+  return null
+}
 
 
 export function UploadPanel({
@@ -22,45 +48,74 @@ export function UploadPanel({
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [rejection, setRejection] = useState("")
   const reduceMotion = useReducedMotion() ?? false
+  const hintId = useId()
+  const problemId = useId()
+
+  const state = busy
+    ? "uploading"
+    : dragging
+      ? "dragging"
+      : file
+        ? "selected"
+        : "ready"
 
   const choose = (selected: File | undefined) => {
-    if (selected) setFile(selected)
+    if (!selected) return
+    const problem = validateVideo(selected)
+    if (problem) {
+      setRejection(problem)
+      setFile(null)
+      return
+    }
+    setRejection("")
+    setFile(selected)
   }
-  const drop = (event: DragEvent<HTMLDivElement>) => {
+
+  const drop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault()
     setDragging(false)
     choose(event.dataTransfer.files[0])
   }
 
+  const problem = rejection || error
+
   return (
     <motion.section
-      className="analysis-prelude upload-prelude soft-editorial-shell"
+      className="intake"
       data-testid="soft-editorial-upload"
-      data-visual-state={
-        busy ? "busy" : dragging ? "dragging" : file ? "selected" : "ready"
-      }
+      data-visual-state={state}
       initial={reduceMotion ? false : "hidden"}
       animate="visible"
       variants={staggerContainer}
       aria-labelledby="upload-title"
     >
-      <motion.aside
-        className="intake-rail"
-        aria-labelledby="intake-title"
+      <motion.header
+        className="intake-head"
         variants={staggerItem}
         transition={motionTransition(reduceMotion)}
       >
         <p className="eyebrow">Nuevo análisis</p>
-        <h2 id="intake-title">Tu declaración</h2>
-        <p>
-          Selecciona un video ficticio o abre el caso preparado para la
-          demostración.
+        <h1 id="upload-title">Tu declaración</h1>
+        <p className="intake-lede">
+          Selecciona el video del testimonio. El sistema lo escuchará, separará
+          los hechos y construirá una ruta que podrás revisar paso a paso.
         </p>
-        <motion.div
-          className={dragging ? "drop-zone is-dragging" : "drop-zone"}
-          variants={staggerItem}
-          transition={motionTransition(reduceMotion)}
+      </motion.header>
+
+      <motion.div
+        className="intake-dropzone-wrap"
+        variants={staggerItem}
+        transition={motionTransition(reduceMotion)}
+      >
+        {/* Es un <button> real: antes era un div con manejadores de arrastre,
+            inalcanzable con teclado y mudo para un lector de pantalla. */}
+        <button
+          type="button"
+          className={dragging ? "intake-dropzone is-dragging" : "intake-dropzone"}
+          aria-describedby={problem ? `${hintId} ${problemId}` : hintId}
+          onClick={() => inputRef.current?.click()}
           onDragEnter={(event) => {
             event.preventDefault()
             setDragging(true)
@@ -69,109 +124,112 @@ export function UploadPanel({
           onDragLeave={() => setDragging(false)}
           onDrop={drop}
         >
-          <span className="upload-glyph" aria-hidden="true">↑</span>
-          <strong>{file ? file.name : "Arrastra un video ficticio"}</strong>
-          <p>MP4, WebM o MOV · hasta 500 MB</p>
-          <button
-            type="button"
-            className={file ? "file-picker-action" : "primary-action"}
-            onClick={() => inputRef.current?.click()}
-          >
-            {file ? "Cambiar archivo" : "Elegir archivo"}
-          </button>
-          <input
-            ref={inputRef}
-            className="visually-hidden"
-            type="file"
-            aria-label="Archivo de video ficticio"
-            accept="video/mp4,video/webm,video/quicktime"
-            onChange={(event) => choose(event.target.files?.[0])}
-          />
-        </motion.div>
-        <motion.div
-          className="upload-actions"
-          variants={staggerItem}
-          transition={motionTransition(reduceMotion)}
-        >
-          {file ? (
-            <button
-              type="button"
-              className="primary-action"
-              disabled={busy}
-              onClick={() => void onUpload(file)}
-            >
-              {busy ? "Iniciando análisis…" : "Analizar video ficticio"}
-            </button>
-          ) : null}
-          <span>o</span>
-          <button
-            type="button"
-            className="demo-link"
-            disabled={busy}
-            onClick={() => void onDemo()}
-          >
-            Probar caso de demostración
-          </button>
-        </motion.div>
-        {error ? <p className="workspace-error" role="alert">{error}</p> : null}
-      </motion.aside>
+          {/* Las perforaciones son la marca: dicen "cinta" sin recurrir a un
+              icono de widget de carga, y se dibujan en CSS. */}
+          <span className="intake-sprockets" aria-hidden="true" />
+          <span className="intake-frame">
+            <strong>Arrastra aquí el testimonio</strong>
+            <span className="intake-alt">o elige un archivo del equipo</span>
+            <span id={hintId} className="intake-hint">
+              MP4, WebM o MOV · hasta 500 MB
+            </span>
+          </span>
+          <span className="intake-sprockets" aria-hidden="true" />
+        </button>
 
-      <motion.article
-        className="narrative-sheet welcome-sheet"
+        <input
+          ref={inputRef}
+          className="visually-hidden"
+          type="file"
+          aria-label="Archivo de video del testimonio"
+          accept={ACCEPTED.join(",")}
+          onChange={(event) => choose(event.target.files?.[0])}
+        />
+
+        <AnimatePresence initial={false}>
+          {file ? (
+            <motion.div
+              className="intake-file"
+              initial={reduceMotion ? false : { opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+              transition={{ duration: reduceMotion ? 0.01 : 0.24 }}
+            >
+              <span className="intake-file-mark" aria-hidden="true" />
+              <span className="intake-file-meta">
+                <strong>{file.name}</strong>
+                <small>{readableSize(file.size)} · listo para analizar</small>
+              </span>
+              <button
+                type="button"
+                className="intake-file-remove"
+                onClick={() => {
+                  setFile(null)
+                  setRejection("")
+                  if (inputRef.current) inputRef.current.value = ""
+                }}
+              >
+                Quitar
+              </button>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        {problem ? (
+          <p id={problemId} className="intake-problem" role="alert">
+            {problem}
+          </p>
+        ) : null}
+      </motion.div>
+
+      <motion.div
+        className="intake-actions"
         variants={staggerItem}
         transition={motionTransition(reduceMotion)}
       >
-        <span className="welcome-sheet-number" aria-hidden="true">01</span>
-        <motion.div
-          className="welcome-sheet-copy"
-          variants={staggerItem}
-          transition={motionTransition(reduceMotion)}
+        {/* Un boton gris que no puede hacer nada se lee como averiado. La
+            accion aparece cuando hay algo que analizar; hasta entonces el
+            fotograma es la unica cosa que pedir. */}
+        <AnimatePresence initial={false}>
+          {file ? (
+            <motion.button
+              type="button"
+              className="intake-start"
+              disabled={busy}
+              onClick={() => void onUpload(file)}
+              initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+              transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
+            >
+              {busy ? "Iniciando análisis…" : "Analizar este testimonio"}
+            </motion.button>
+          ) : null}
+        </AnimatePresence>
+        <button
+          type="button"
+          className="intake-demo"
+          disabled={busy}
+          onClick={() => void onDemo()}
         >
-          <p className="eyebrow">Antes de comenzar</p>
-          <h1 id="upload-title">
-            Tu relato se convertirá en un camino que podrás revisar.
-          </h1>
-          <span className="welcome-title-rule" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <p>
-            Selecciona el video de tu declaración. Cuando decidas comenzar,
-            verás cómo el sistema escucha, encuentra señales y construye cada
-            paso de la ruta.
-          </p>
-        </motion.div>
+          Ver primero el caso de demostración
+        </button>
+      </motion.div>
 
-        <ol className="welcome-steps" aria-label="Etapas del análisis">
-          <li>
-            <span>01</span>
-            <strong>Escuchar</strong>
-            <small>Recogemos el relato tal como fue contado.</small>
+      <motion.ol
+        className="intake-steps"
+        aria-label="Etapas del análisis"
+        variants={staggerItem}
+        transition={motionTransition(reduceMotion)}
+      >
+        {STEPS.map(([number, title, detail]) => (
+          <li key={number}>
+            <span>{number}</span>
+            <strong>{title}</strong>
+            <small>{detail}</small>
           </li>
-          <li>
-            <span>02</span>
-            <strong>Ordenar</strong>
-            <small>Separamos hechos, señales y contexto.</small>
-          </li>
-          <li>
-            <span>03</span>
-            <strong>Trazar</strong>
-            <small>Construimos una ruta que podrás revisar.</small>
-          </li>
-        </ol>
-
-        <div className="real-data-lock" role="note">
-          <span aria-hidden="true">⌁</span>
-          <div>
-            <strong>Testimonios reales bloqueados</strong>
-            <p>
-              Se habilitarán únicamente después de confirmar ZDR con ambos
-              proveedores y registrar la autorización institucional explícita.
-            </p>
-          </div>
-        </div>
-      </motion.article>
+        ))}
+      </motion.ol>
     </motion.section>
   )
 }

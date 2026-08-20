@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
 
 import { ApiError } from "../api/client"
+import { DISPLACEMENT_MOSAIC, PhotoMosaic } from "../components/photo-mosaic"
 import { useAuth } from "../auth/auth-context"
 
 
@@ -9,18 +10,27 @@ interface RedirectState {
   from?: { pathname?: string }
 }
 
-const LOGIN_PHOTOS = [
-  "/images/hero-esperanza.jpg",
-  "/images/archivo.jpg",
-  "/images/justicia.jpg",
-  "/images/manos-documento.jpg",
-] as const
+
+/* La cuenta que el backend siembra al arrancar cuando SENDA_DEMO_USERS_ENABLED
+ * esta en true. No es un secreto —existe para que cualquiera pueda probar el
+ * sistema sin pedir acceso—, pero tiene que coincidir con SENDA_DEMO_ADMIN_EMAIL
+ * y SENDA_DEMO_ADMIN_PASSWORD de Backend/.env: si alli se cambia una, aqui se
+ * cambia la otra.
+ */
+const DEMO_ADMIN = {
+  email: "camilobalanta1@gmail.com",
+  password: "dios#12Admin",
+}
+
 
 export default function LoginPage() {
   const { status, login } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [demoLoaded, setDemoLoaded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [passwordVisible, setPasswordVisible] = useState(false)
   const target = (location.state as RedirectState | null)?.from?.pathname
@@ -30,15 +40,25 @@ export default function LoginPage() {
     return <Navigate to={target} replace />
   }
 
+  const fillDemoAdmin = () => {
+    setEmail(DEMO_ADMIN.email)
+    setPassword(DEMO_ADMIN.password)
+    // Se descubre la clave: es de prueba, no hay nada que ocultar, y ver el
+    // campo llenarse es lo que confirma que el boton hizo algo. Con puntos
+    // parecia no haber pasado nada.
+    setPasswordVisible(true)
+    setDemoLoaded(true)
+    setError("")
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (submitting) return // evita doble submit si llega un segundo Enter antes del re-render
 
-    const form = new FormData(event.currentTarget)
     setSubmitting(true)
     setError("")
     try {
-      await login(String(form.get("email")), String(form.get("password")))
+      await login(email, password)
       navigate(target, { replace: true })
     } catch (caught) {
       setError(
@@ -54,20 +74,21 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-collage" aria-hidden="true">
-        <div className="login-photo-rail">
-          {LOGIN_PHOTOS.map((src, index) => (
-            <figure
-              className={`login-rail-photo login-rail-photo--${index + 1}`}
-              key={src}
-            >
-              <img src={src} alt="" />
-            </figure>
-          ))}
-        </div>
+        <PhotoMosaic columns={DISPLACEMENT_MOSAIC} />
+        <span className="login-mosaic-fade login-mosaic-fade--top" />
+        <span className="login-mosaic-fade login-mosaic-fade--bottom" />
       </section>
 
       <section className="login-panel" aria-labelledby="login-title">
         <div className="login-form-shell">
+          <button
+            type="button"
+            className="login-back"
+            onClick={() => navigate("/")}
+          >
+            <span aria-hidden="true">←</span>
+            Volver al inicio
+          </button>
           <div className="login-form-heading">
             <p className="login-eyebrow">
               <span className="login-brand-mark" aria-hidden="true">
@@ -75,7 +96,7 @@ export default function LoginPage() {
                 <i />
                 <i />
               </span>
-              <span>SIAD · Acceso institucional</span>
+              <span>SENDA · Acceso institucional</span>
             </p>
             <h1 id="login-title">Bienvenido de nuevo.</h1>
             <p className="login-intro">
@@ -92,6 +113,11 @@ export default function LoginPage() {
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                setDemoLoaded(false)
+              }}
               required
             />
 
@@ -102,6 +128,11 @@ export default function LoginPage() {
                 name="password"
                 type={passwordVisible ? "text" : "password"}
                 autoComplete="current-password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                  setDemoLoaded(false)
+                }}
                 required
               />
               <button
@@ -125,19 +156,44 @@ export default function LoginPage() {
               {error}
             </p>
 
+            {/* El navegador bloquea el envío si no está marcado (required),
+                así el mensaje nativo explica por qué en vez de dejar un botón
+                deshabilitado sin motivo visible. */}
+            <label className="login-terms" htmlFor="login-terms">
+              <input id="login-terms" name="terms" type="checkbox" required />
+              <span>
+                Acepto los términos y condiciones y la política de privacidad
+              </span>
+            </label>
+
             <button
               className="login-submit"
               type="submit"
               disabled={submitting}
             >
-              {submitting ? "Ingresando…" : "Ingresar de forma segura"}
+              {submitting ? "Ingresando…" : "Ingresar"}
             </button>
-          </form>
 
-          <p className="login-security">
-            <span aria-hidden="true" />
-            Sesión cifrada · datos reales bloqueados
-          </p>
+            {/* type="button" explícito: dentro de un form, un botón sin type
+                envía el formulario, y este solo llena los campos. */}
+            <div className="login-demo">
+              <button
+                type="button"
+                className="login-demo-fill"
+                onClick={fillDemoAdmin}
+                disabled={submitting}
+              >
+                Probar administrador de prueba
+              </button>
+              {/* Siempre montado, como .form-error: los lectores de pantalla
+                  anuncian el cambio de texto, no la aparición del nodo. */}
+              <p className="login-demo-hint" role="status" aria-live="polite">
+                {demoLoaded
+                  ? "Credenciales cargadas. Acepta los términos e ingresa."
+                  : "Llena el correo y la contraseña de la cuenta de demostración."}
+              </p>
+            </div>
+          </form>
         </div>
       </section>
     </main>

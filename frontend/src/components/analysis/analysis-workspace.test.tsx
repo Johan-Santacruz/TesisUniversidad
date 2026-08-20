@@ -1,11 +1,11 @@
-import { fireEvent, render, screen, within } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { caseFixture } from "../../test/case-fixture"
+import { apiClient } from "../../api/client"
+import { caseFixture, memoryImageFixture } from "../../test/case-fixture"
 import { AnalysisWorkspace } from "./analysis-workspace"
 import { narrativeStageTransition } from "./motion"
 import { VerificationPanel } from "./verification-panel"
-import { UploadPanel } from "./upload-panel"
 import { DocumentaryVideoRail } from "./video-panel"
 
 
@@ -20,7 +20,7 @@ describe("AnalysisWorkspace", () => {
     expect(narrativeStageTransition(reduceMotion).duration).toBe(duration)
   })
 
-  it("seeks the video to the selected timeline event", async () => {
+  it("seeks the video to the selected transcript fragment", () => {
     render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
     const video = screen.getByTestId("case-video") as HTMLVideoElement
 
@@ -36,12 +36,7 @@ describe("AnalysisWorkspace", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Ruta",
-      }),
-    )
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: /desplazamiento hacia popayán/i,
+        name: /0:18la familia llegó a popayán/i,
       }),
     )
 
@@ -51,6 +46,108 @@ describe("AnalysisWorkspace", () => {
         name: /0:18la familia llegó a popayán/i,
       }),
     ).toHaveAttribute("aria-pressed", "true")
+  })
+
+  it("opens one institutional route at a time", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+    const opener = await screen.findByRole("button", {
+      name: /atención inmediata/i,
+    })
+    expect(opener).toHaveAttribute("aria-expanded", "false")
+
+    fireEvent.click(opener)
+
+    expect(opener).toHaveAttribute("aria-expanded", "true")
+    expect(
+      screen.getByRole("button", { name: /contactar el punto territorial/i }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(opener)
+
+    expect(opener).toHaveAttribute("aria-expanded", "false")
+    expect(
+      screen.queryByRole("button", { name: /contactar el punto territorial/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("uses a distinct decorative photograph on every closed route card", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+    await screen.findByRole("button", { name: /atención inmediata/i })
+
+    const artworks = [
+      screen.getByTestId("route-artwork-emergency"),
+      screen.getByTestId("route-artwork-housing_stabilization"),
+      screen.getByTestId("route-artwork-return_relocation"),
+    ]
+    const sources = artworks.map((artwork) => artwork.getAttribute("src"))
+
+    expect(new Set(sources)).toHaveProperty("size", 3)
+    artworks.forEach((artwork) => {
+      expect(artwork).toHaveAttribute("alt", "")
+      expect(artwork).toHaveAttribute("aria-hidden", "true")
+    })
+    expect(
+      screen.queryByRole("img", { name: "Atención inmediata" }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("keeps the photograph while its route timeline is open", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+    const opener = await screen.findByRole("button", {
+      name: /atención inmediata/i,
+    })
+    expect(screen.getByTestId("route-artwork-emergency")).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(opener)
+      // La suite fuerza movimiento reducido: 30 ms deja concluir la salida
+      // anterior de 10 ms y prueba el estado estable, no un frame intermedio.
+      await new Promise((resolve) => setTimeout(resolve, 30))
+    })
+
+    expect(screen.getByTestId("route-artwork-emergency")).toBeInTheDocument()
+    expect(opener.closest("article")).toHaveClass("is-open")
+
+    fireEvent.click(opener)
+
+    expect(await screen.findByTestId("route-artwork-emergency")).toBeInTheDocument()
+  })
+
+  it("advances the route timeline up to the opened stop", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: /atención inmediata/i }),
+    )
+    const stop = screen.getByRole("button", {
+      name: /contactar el punto territorial/i,
+    })
+    const item = stop.closest("li")
+
+    expect(item).toHaveAttribute("data-reached", "true")
+
+    fireEvent.click(stop)
+
+    expect(stop).toHaveAttribute("aria-expanded", "true")
+    expect(item).toHaveAttribute("data-reached", "true")
+  })
+
+  it("collapses the video rail to widen the stage", () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    const toggle = screen.getByRole("button", { name: /ocultar el video/i })
+
+    fireEvent.click(toggle)
+
+    expect(
+      screen.getByRole("button", { name: /mostrar el video/i }),
+    ).toHaveAttribute("aria-expanded", "false")
   })
 
   it("marks the selected transcript fragment as the current context", () => {
@@ -90,7 +187,7 @@ describe("AnalysisWorkspace", () => {
     render(
       <VerificationPanel
         facts={caseFixture.facts}
-        role="operador"
+        role="validador"
         onReview={vi.fn()}
       />,
     )
@@ -99,9 +196,17 @@ describe("AnalysisWorkspace", () => {
     expect(screen.getByText("Confirmado")).toBeVisible()
     expect(screen.getByText("Inconsistente")).toBeVisible()
     expect(screen.getByText("No identificado")).toBeVisible()
+    // Sólo se puede corregir lo que tiene valor: las dos señales sin valor
+    // ofrecen elegirlo o registrarlo, no corregirlo.
     expect(
-      screen.getAllByRole("button", { name: /necesito corregirlo/i }),
-    ).toHaveLength(2)
+      screen.queryAllByRole("button", { name: /necesito corregirlo/i }),
+    ).toHaveLength(0)
+    expect(
+      screen.getByRole("button", { name: /elegir el valor/i }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: /registrar el valor/i }),
+    ).toBeVisible()
   })
 
   it("collects a value when a validator confirms an unresolved signal", () => {
@@ -118,18 +223,12 @@ describe("AnalysisWorkspace", () => {
 
     fireEvent.click(
       within(urgency as HTMLElement).getByRole("button", {
-        name: /esto es correcto/i,
+        name: /elegir el valor/i,
       }),
     )
     fireEvent.change(
       within(urgency as HTMLElement).getByLabelText("Valor confirmado"),
       { target: { value: "high" } },
-    )
-    fireEvent.change(
-      within(urgency as HTMLElement).getByLabelText(
-        "Razón de la confirmación",
-      ),
-      { target: { value: "Validación humana del caso ficticio" } },
     )
     fireEvent.click(
       within(urgency as HTMLElement).getByRole("button", {
@@ -137,61 +236,563 @@ describe("AnalysisWorkspace", () => {
       }),
     )
 
+    // Confirmar ya no exige justificación: el motivo sólo se pide al corregir.
     expect(onReview).toHaveBeenCalledWith("fact-urgency", {
       action: "confirm",
       value: "high",
-      reason: "Validación humana del caso ficticio",
+      reason: "",
     })
   })
 
-  it("keeps real testimonies locked and exposes the fictitious demo", () => {
-    const onDemo = vi.fn()
+  it("anotates a repeated signal once and points the other passages to it", () => {
+    const insistente: (typeof caseFixture)["facts"][number] = {
+      ...caseFixture.facts[0],
+      id: "fact-recruitment",
+      label: "Intento de vincular a un menor",
+      value: true,
+      verification_status: "inconsistent",
+      evidence: [
+        { segment_id: "segment-1", start_ms: 0, end_ms: 14200 },
+        { segment_id: "segment-2", start_ms: 18400, end_ms: 31800 },
+      ],
+    }
     render(
-      <UploadPanel busy={false} onUpload={vi.fn()} onDemo={onDemo} />,
+      <VerificationPanel
+        facts={[insistente]}
+        role="validador"
+        segments={caseFixture.segments}
+        onReview={vi.fn()}
+      />,
     )
 
-    expect(screen.getByText("Testimonios reales bloqueados")).toBeVisible()
+    // La tarjeta se escribe una sola vez, en el primer pasaje.
     expect(
-      screen.getByTestId("soft-editorial-upload"),
-    ).toHaveAttribute("data-visual-state", "ready")
-    expect(
-      screen.getByRole("button", { name: "Elegir archivo" }),
-    ).toHaveClass("primary-action")
-    expect(
-      screen.queryByRole("button", { name: "Analizar video ficticio" }),
-    ).not.toBeInTheDocument()
-    expect(
-      screen.getByRole("button", { name: "Probar caso de demostración" }),
-    ).toHaveClass("demo-link")
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Probar caso de demostración",
+      screen.getAllByRole("heading", {
+        name: "Intento de vincular a un menor",
       }),
-    )
-    expect(onDemo).toHaveBeenCalledOnce()
+    ).toHaveLength(1)
+    // Un valor booleano se lee en español, no como "true".
+    expect(screen.getByText("Sí")).toBeVisible()
+    // El regreso queda anotado en la nota…
+    expect(screen.getByText(/lo vuelve a decir en/i)).toBeVisible()
+    // …y el segundo pasaje remite a ella en vez de repetirla.
+    expect(
+      screen.getByRole("button", { name: /ya anotado en 0:00/i }),
+    ).toBeVisible()
+    expect(
+      screen.queryAllByRole("button", { name: /esto es correcto/i }),
+    ).toHaveLength(1)
   })
 
-  it("promotes analysis only after a fictitious video is selected", () => {
+  // La pantalla de carga se cubre completa en upload-panel.test.tsx, incluida
+  // la validación de tipo y peso que antes no existía.
+})
+
+
+describe("AnalysisWorkspace guided journey", () => {
+  const play = (video: HTMLVideoElement, ms: number) => {
+    video.currentTime = ms / 1000
+    fireEvent.timeUpdate(video)
+  }
+
+  // `timeupdate` se colapsa a un cuadro de animación, así que el avance nunca
+  // es síncrono con el evento.
+  const settle = () => act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 40))
+  })
+
+  const currentStage = () =>
+    ["Escuchar", "Señales", "Ruta"].find(
+      (name) =>
+        screen.getByRole("button", { name }).getAttribute("aria-current") === "step",
+    )
+
+  it("reports a refused playback through the rail", async () => {
     render(
-      <UploadPanel busy={false} onUpload={vi.fn()} onDemo={vi.fn()} />,
+      <DocumentaryVideoRail
+        source="blob:testimonio"
+        segments={caseFixture.segments}
+        activeSegmentId={null}
+        playbackError="No se pudo reproducir el testimonio: NotSupportedError"
+        onSegmentSelect={vi.fn()}
+      />,
     )
 
-    fireEvent.change(
-      screen.getByLabelText("Archivo de video ficticio"),
-      {
-        target: {
-          files: [
-            new File(["video"], "declaracion.webm", { type: "video/webm" }),
-          ],
-        },
-      },
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No se pudo reproducir el testimonio: NotSupportedError",
     )
-
-    expect(
-      screen.getByRole("button", { name: "Cambiar archivo" }),
-    ).not.toHaveClass("primary-action")
-    expect(
-      screen.getByRole("button", { name: "Analizar video ficticio" }),
-    ).toHaveClass("primary-action")
   })
+
+  it("moves to the signals once the testimony has been heard", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    const video = screen.getByTestId("case-video") as HTMLVideoElement
+    fireEvent.play(video)
+
+    // Mitad del relato: sigue escuchando.
+    play(video, 20000)
+    await settle()
+    expect(currentStage()).toBe("Escuchar")
+
+    // El último fragmento cierra en 31.8 s.
+    play(video, 31800)
+    await settle()
+
+    expect(currentStage()).toBe("Señales")
+  })
+
+  it("does not advance while the testimony is paused", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    const video = screen.getByTestId("case-video") as HTMLVideoElement
+
+    // Sin reproducir: el cabezal puede moverse al buscar, y aun así no avanza.
+    play(video, 40000)
+    await settle()
+
+    expect(currentStage()).toBe("Escuchar")
+  })
+
+  it("stops advancing on its own once the person navigates", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    const video = screen.getByTestId("case-video") as HTMLVideoElement
+    fireEvent.play(video)
+
+    fireEvent.click(screen.getByRole("button", { name: "Escuchar" }))
+    play(video, 31800)
+    await settle()
+
+    // Tomó el control: el recorrido ya no se mueve solo.
+    expect(currentStage()).toBe("Escuchar")
+  })
+
+  it("closes the journey on the route stage when the testimony ends", async () => {
+    render(
+      <AnalysisWorkspace
+        initialCase={caseFixture}
+        role="operador"
+        evidenceMinMs={30}
+      />,
+    )
+    const video = screen.getByTestId("case-video") as HTMLVideoElement
+    fireEvent.play(video)
+    fireEvent.ended(video)
+
+    // Señales conserva una permanencia mínima antes de cerrar en Ruta.
+    expect(currentStage()).toBe("Señales")
+
+    await waitFor(() => expect(currentStage()).toBe("Ruta"))
+  })
+})
+
+describe("AnalysisWorkspace memory closing", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  const withMemoryImage = (
+    memoryImage: (typeof caseFixture)["memory_image"],
+  ) => ({ ...caseFixture, memory_image: memoryImage })
+
+  const openRouteStage = async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+    return screen.findByRole("heading", { name: "Cierre de memoria" })
+  }
+
+  it("downloads the protected image and shows it in the closing panel", async () => {
+    const download = vi
+      .spyOn(apiClient, "download")
+      .mockResolvedValue(new Blob(["imagen"], { type: "image/png" }))
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memory-image")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage(memoryImageFixture)}
+        role="validador"
+      />,
+    )
+    await openRouteStage()
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("img", {
+          name: "Imagen representativa del cierre de memoria del caso",
+        }),
+      ).toHaveAttribute("src", "blob:memory-image")
+    })
+    // El caso llega por prop: sólo se descarga la imagen, no el video remoto.
+    expect(download).toHaveBeenCalledWith(
+      "/api/v1/cases/case-fixture/memory-image/content",
+    )
+  })
+
+  it("sends the approval and refreshes the case with the returned generation", async () => {
+    vi.spyOn(apiClient, "download").mockResolvedValue(new Blob(["imagen"]))
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memory-image")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    const approved = {
+      ...memoryImageFixture,
+      status: "approved" as const,
+      render_status: "rendering" as const,
+    }
+    const request = vi
+      .spyOn(apiClient, "request")
+      .mockImplementation(async (path: string) => {
+        if (path.endsWith("/memory-image/decision")) {
+          return { memory_image: approved } as never
+        }
+        return withMemoryImage(approved) as never
+      })
+
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage(memoryImageFixture)}
+        role="validador"
+      />,
+    )
+    await openRouteStage()
+
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar" }))
+
+    expect(await screen.findByText("Preparando versión con cierre…")).toBeVisible()
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/cases/case-fixture/memory-image/decision",
+      { method: "POST", body: JSON.stringify({ action: "approve" }) },
+    )
+    expect(request).toHaveBeenCalledWith("/api/v1/cases/case-fixture")
+  })
+
+  it("plays the derivative when the closing version is selected", async () => {
+    const download = vi
+      .spyOn(apiClient, "download")
+      .mockResolvedValue(new Blob(["video"]))
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memory-video")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage({
+          ...memoryImageFixture,
+          status: "approved",
+          render_status: "ready",
+          rendered_video_url: "/api/v1/cases/case-fixture/rendered-video/stream",
+        })}
+        role="operador"
+      />,
+    )
+    await openRouteStage()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Versión con cierre de memoria" }),
+    )
+
+    // La franja anuncia qué versión suena; el original permanece intacto.
+    expect(
+      await screen.findByRole("button", {
+        name: "Versión con cierre de memoria",
+      }),
+    ).toHaveAttribute("aria-pressed", "true")
+    expect(
+      screen.getByLabelText("Reproductor de la versión con cierre de memoria"),
+    ).toBeInTheDocument()
+    expect(download).not.toHaveBeenCalledWith(
+      "/api/v1/cases/case-fixture/rendered-video/stream",
+    )
+  })
+
+  it("returns to the original testimony when the derivative disappears", async () => {
+    vi.spyOn(apiClient, "download").mockResolvedValue(new Blob(["video"]))
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memory-video")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    const expired = {
+      ...memoryImageFixture,
+      status: "approved" as const,
+      render_status: "expired" as const,
+      rendered_video_url: null,
+    }
+    vi.spyOn(apiClient, "request").mockImplementation(async (path: string) => {
+      if (path.endsWith("/rendered-video/retry")) {
+        return { memory_image: expired } as never
+      }
+      return withMemoryImage(expired) as never
+    })
+
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage({
+          ...memoryImageFixture,
+          status: "approved",
+          render_status: "failed",
+          rendered_video_url: null,
+        })}
+        role="validador"
+      />,
+    )
+    await openRouteStage()
+
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar cierre" }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "La versión con cierre ya no está disponible por la política de retención."
+          + " El testimonio original permanece disponible.",
+        ),
+      ).toBeVisible()
+    })
+    expect(
+      screen.getByLabelText("Reproductor del testimonio ficticio"),
+    ).toBeInTheDocument()
+  })
+
+  it("re-reads the case until the closing image finishes generating", async () => {
+    vi.spyOn(apiClient, "download").mockResolvedValue(new Blob(["imagen"]))
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memory-image")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    const request = vi
+      .spyOn(apiClient, "request")
+      .mockResolvedValue(
+        withMemoryImage({
+          ...memoryImageFixture,
+          status: "pending_review",
+        }) as never,
+      )
+
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage({
+          ...memoryImageFixture,
+          status: "generating",
+          image_url: null,
+        })}
+        role="validador"
+        closingPollMs={20}
+      />,
+    )
+    await openRouteStage()
+
+    // Partiendo de `generating`, el sondeo alcanza solo el estado estable. El
+    // texto de "Preparando…" lo cubre la prueba unitaria del panel; afirmarlo
+    // aquí sería una carrera contra el propio sondeo.
+    expect(
+      await screen.findByText("La imagen está pendiente de revisión."),
+    ).toBeInTheDocument()
+    expect(request).toHaveBeenCalledWith("/api/v1/cases/case-fixture")
+
+    const calls = request.mock.calls.length
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    expect(request.mock.calls).toHaveLength(calls)
+  })
+
+  it("downloads and shows the image the moment polling reports it is ready", async () => {
+    const download = vi
+      .spyOn(apiClient, "download")
+      .mockResolvedValue(new Blob(["imagen"], { type: "image/png" }))
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memory-image")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    vi.spyOn(apiClient, "request").mockResolvedValue(
+      withMemoryImage({ ...memoryImageFixture, status: "pending_review" }) as never,
+    )
+
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage({
+          ...memoryImageFixture,
+          status: "generating",
+          image_url: null,
+        })}
+        role="validador"
+        closingPollMs={20}
+      />,
+    )
+    await openRouteStage()
+
+    // Al llegar `pending_review` por sondeo, el recurso protegido se descarga
+    // sin que nadie recargue la página.
+    const image = await screen.findByRole("img", {
+      name: "Imagen representativa del cierre de memoria del caso",
+    })
+    expect(image).toHaveAttribute("src", "blob:memory-image")
+    expect(download).toHaveBeenCalledWith(
+      "/api/v1/cases/case-fixture/memory-image/content",
+    )
+  })
+
+  it("does not poll a case whose closing already settled", async () => {
+    vi.spyOn(apiClient, "download").mockResolvedValue(new Blob(["imagen"]))
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memory-image")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    const request = vi.spyOn(apiClient, "request")
+
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage(memoryImageFixture)}
+        role="validador"
+        closingPollMs={10}
+      />,
+    )
+    await openRouteStage()
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it("keeps the closing panel out of the case when there is no image", async () => {
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage(null)}
+        role="validador"
+      />,
+    )
+    await openRouteStage()
+
+    // La etapa entra con opacidad 0: se espera a que termine para afirmar que
+    // el mensaje queda realmente visible, no sólo montado.
+    await waitFor(() => {
+      expect(
+        screen.getByText("El cierre visual no está configurado para este caso."),
+      ).toBeVisible()
+    })
+    expect(screen.queryByRole("button", { name: "Aprobar" })).toBeNull()
+  })
+})
+
+
+describe("Guided route narration", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  class FakeAudio {
+    static instances: FakeAudio[] = []
+    listeners: Record<string, Array<() => void>> = {}
+    paused = true
+    constructor(public src: string) {
+      FakeAudio.instances.push(this)
+    }
+    addEventListener(name: string, fn: () => void) {
+      (this.listeners[name] ??= []).push(fn)
+    }
+    removeAttribute() {}
+    pause() { this.paused = true }
+    play() { this.paused = false; return Promise.resolve() }
+    end() { (this.listeners.ended ?? []).forEach((fn) => fn()) }
+  }
+
+  // La ruta del fixture tiene una sola parada: para probar el avance hace
+  // falta una segunda a la cual pasar.
+  const twoStopCase = {
+    ...caseFixture,
+    routes: caseFixture.routes.map((route) =>
+      route.id === "route-emergency"
+        ? {
+            ...route,
+            steps: [
+              route.steps[0],
+              {
+                title: "Solicitar valoración de protección",
+                key_point: "Pida que la acompañe el Ministerio Público.",
+                instructions: "Puede pedirlo en la misma diligencia.",
+                claims: [],
+              },
+            ],
+          }
+        : route,
+    ),
+  }
+
+  const openRoute = async (data = twoStopCase) => {
+    render(<AnalysisWorkspace initialCase={data} role="operador" />)
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: /atención inmediata/i }),
+    )
+  }
+
+  it("advances to the next stop when the voice finishes the current one", async () => {
+    FakeAudio.instances = []
+    vi.stubGlobal("Audio", FakeAudio as unknown as typeof Audio)
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:voz")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    const download = vi
+      .spyOn(apiClient, "download")
+      .mockResolvedValue(new Blob(["audio"], { type: "audio/mpeg" }))
+
+    await openRoute()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Escuchar la ruta guiada" }),
+    )
+
+    await waitFor(() => expect(FakeAudio.instances).toHaveLength(1))
+    expect(download).toHaveBeenCalledWith(
+      "/api/v1/cases/case-fixture/routes/route-emergency/steps/0/narration",
+    )
+
+    // La voz termina de explicar la parada: el recorrido pasa a la siguiente.
+    await act(async () => {
+      FakeAudio.instances[0].end()
+    })
+
+    await waitFor(() =>
+      expect(download).toHaveBeenCalledWith(
+        "/api/v1/cases/case-fixture/routes/route-emergency/steps/1/narration",
+      ))
+  })
+
+  it("stops the guide without leaving a voice running", async () => {
+    FakeAudio.instances = []
+    vi.stubGlobal("Audio", FakeAudio as unknown as typeof Audio)
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:voz")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    vi.spyOn(apiClient, "download").mockResolvedValue(new Blob(["audio"]))
+
+    await openRoute()
+    fireEvent.click(
+      screen.getByRole("button", { name: "Escuchar la ruta guiada" }),
+    )
+    await waitFor(() => expect(FakeAudio.instances).toHaveLength(1))
+
+    fireEvent.click(screen.getByRole("button", { name: "Detener la guía" }))
+
+    expect(FakeAudio.instances[0].paused).toBe(true)
+    expect(
+      screen.getByRole("button", { name: "Escuchar la ruta guiada" }),
+    ).toBeInTheDocument()
+  })
+
+  it("says the guide is unavailable when the voice is not configured", async () => {
+    vi.spyOn(apiClient, "download").mockRejectedValue(
+      new Error("La narración no está configurada"),
+    )
+
+    await openRoute()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Escuchar la ruta guiada" }),
+    )
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "La narración no está configurada",
+    )
+  })
+})
+
+
+describe("AnalysisWorkspace restart", () => {
+  it("returns to the intake without leaving the workspace", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    expect(screen.getByTestId("case-video")).toBeInTheDocument()
+    // Sólo se ofrece al final del recorrido, no en cada etapa.
+    expect(screen.queryByRole("button", { name: /analizar otro/i })).toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: /analizar otro testimonio/i }),
+    )
+
+    // La pantalla de carga vuelve sin pasar por el inicio ni por el login.
+    expect(await screen.findByTestId("soft-editorial-upload")).toBeInTheDocument()
+    expect(screen.queryByTestId("case-video")).toBeNull()
+  })
+
 })
