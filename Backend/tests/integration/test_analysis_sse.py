@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from app.models import AnalysisEvent
+from app.entities import AnalysisEvent
 
 
 EXPECTED_STAGES = [

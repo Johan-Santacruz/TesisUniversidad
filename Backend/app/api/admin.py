@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import AdminUser, get_session
-from app.models import User
+from app.entities import User
 from app.schemas import UserCreate, UserList, UserRead, UserUpdate
 from app.services.audit import AuditService
 from app.services.auth import AuthService

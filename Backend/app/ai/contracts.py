@@ -69,6 +69,9 @@ class EvidenceRef(StrictModel):
 
 class TranscriptSegment(StrictModel):
     id: str
+    analysis_id: str | None = None
+    video_id: str | None = None
+    order_index: int | None = Field(default=None, ge=0)
     start_ms: int = Field(ge=0)
     end_ms: int = Field(ge=0)
     text: str
@@ -81,6 +84,10 @@ class TranscriptResult(StrictModel):
 
 class ProviderSignal(StrictModel):
     key: str
+    # Rótulo y valor tal como los leerá una persona: la clave técnica sirve
+    # para reconciliar entre proveedores, no para mostrarse en pantalla.
+    label: str
+    display_value: str
     value: ScalarValue
     origin: Origin
     evidence: list[EvidenceRef]
@@ -102,6 +109,12 @@ class GroundedClaim(StrictModel):
 
 class ProviderRouteStep(StrictModel):
     title: str
+    # Lo único que no puede fallar en este paso. Va aparte porque dentro de un
+    # párrafo se pierde, y quien lee con dificultad necesita poder quedarse
+    # sólo con esta línea. Obligatorio a propósito: con un valor por defecto
+    # quedaba fuera de 'required' y las salidas estructuradas de OpenAI, que
+    # exigen todas las propiedades, rechazaban el esquema entero.
+    key_point: str
     instructions: str
     claims: list[GroundedClaim]
 
@@ -121,6 +134,8 @@ class ProviderAnalysis(StrictModel):
 
 class ReconciledSignal(StrictModel):
     key: str
+    label: str = ""
+    display_value: str = ""
     value: ScalarValue
     origin: Origin
     verification_status: VerificationStatus

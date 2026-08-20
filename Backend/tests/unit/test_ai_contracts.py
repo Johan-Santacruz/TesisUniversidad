@@ -35,6 +35,8 @@ def test_provider_contract_rejects_untyped_extra_fields():
 def test_signal_requires_typed_evidence():
     signal = ProviderSignal(
         key="urgency",
+        label="Urgency",
+        display_value="",
         value="high",
         origin=Origin.INFERRED,
         evidence=[
@@ -44,6 +46,8 @@ def test_signal_requires_typed_evidence():
 
     assert signal.model_dump(mode="json") == {
         "key": "urgency",
+        "label": "Urgency",
+        "display_value": "",
         "value": "high",
         "origin": "inferred",
         "evidence": [
@@ -52,7 +56,7 @@ def test_signal_requires_typed_evidence():
     }
 
 
-def test_whisper_requests_verbose_segments_and_preserves_timestamps():
+def test_whisper_chunk_requests_verbose_segments_and_preserves_local_timestamps():
     captured: dict[str, object] = {}
 
     class Transcriptions:
@@ -75,7 +79,7 @@ def test_whisper_requests_verbose_segments_and_preserves_timestamps():
     )
     adapter = WhisperAdapter(client=client, model="whisper-1")
 
-    result = adapter.transcribe(b"video-ficticio", filename="caso.mp4")
+    result = adapter.transcribe_chunk(b"audio-ficticio", filename="chunk-0000.wav")
 
     assert captured["model"] == "whisper-1"
     assert captured["response_format"] == "verbose_json"

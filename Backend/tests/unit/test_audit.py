@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.models import AuditLog
+from app.entities import AuditLog
 from app.services.audit import AuditService
 
 

@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, inspect, text
 from typer.testing import CliRunner
 
 from app.database import Database
-from app.models import Base
+from app.entities import Base
 
 
 def _columns(
@@ -115,7 +115,7 @@ def test_pipeline_migration_aborts_when_a_video_has_duplicate_analyses(
                     id, email, password_hash, role, is_active,
                     created_at, updated_at
                 ) VALUES (
-                    'migration-user', 'migration@siad.local',
+                    'migration-user', 'migration@senda.local',
                     '$argon2id$placeholder', 'operador', 1,
                     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                 )
@@ -178,7 +178,7 @@ def test_pipeline_migration_preserves_events_and_backfills_next_sequence(
                     id, email, password_hash, role, is_active,
                     created_at, updated_at
                 ) VALUES (
-                    'existing-user', 'existing@siad.local',
+                    'existing-user', 'existing@senda.local',
                     '$argon2id$placeholder', 'operador', 1,
                     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                 )
@@ -294,6 +294,56 @@ def test_openapi_export_contains_the_complete_public_contract(client):
     ]
 
 
+def test_openapi_export_publishes_the_memory_closing_contract(client):
+    from scripts.export_openapi import build_openapi
+
+    schema = build_openapi(client.app)
+
+    memory_paths = {
+        "/api/v1/cases/{case_id}/memory-image/content",
+        "/api/v1/cases/{case_id}/memory-image/regenerate",
+        "/api/v1/cases/{case_id}/memory-image/decision",
+        "/api/v1/cases/{case_id}/rendered-video/stream",
+        "/api/v1/cases/{case_id}/rendered-video/retry",
+    }
+    assert memory_paths.issubset(schema["paths"])
+
+    schemas = schema["components"]["schemas"]
+    memory_image = schemas["MemoryImageRead"]["properties"]
+    assert schemas["CaseRead"]["properties"]["memory_image"]["anyOf"][0] == {
+        "$ref": "#/components/schemas/MemoryImageRead"
+    }
+    assert memory_image["status"]["enum"] == [
+        "generating",
+        "pending_review",
+        "approved",
+        "rejected",
+        "failed",
+    ]
+    assert memory_image["render_status"]["anyOf"][0]["enum"] == [
+        "rendering",
+        "ready",
+        "failed",
+        "expired",
+    ]
+    assert schemas["MemoryImageDecisionRequest"]["properties"]["action"]["enum"] == [
+        "approve",
+        "reject",
+    ]
+
+    # Los dos recursos protegidos se declaran binarios: el cliente generado los
+    # descarga como blob y nunca intenta interpretarlos como JSON.
+    for path in (
+        "/api/v1/cases/{case_id}/memory-image/content",
+        "/api/v1/cases/{case_id}/rendered-video/stream",
+    ):
+        content = schema["paths"][path]["get"]["responses"]["200"]["content"]
+        assert content == {"application/octet-stream": {"schema": {
+            "type": "string",
+            "format": "binary",
+        }}}
+
+
 def test_openapi_export_can_write_to_an_explicit_contract_path(
     client,
     tmp_path,
@@ -322,12 +372,12 @@ def test_non_interactive_cli_manages_users_and_sources(
     database.dispose()
     runner = CliRunner()
     environment = {
-        "SIAD_SIAD_ENV": "test",
-        "SIAD_DATABASE_URL": settings.database_url,
-        "SIAD_STORAGE_DIR": str(settings.storage_dir),
-        "SIAD_ENCRYPTION_MASTER_KEY": settings.encryption_master_key.get_secret_value(),
-        "SIAD_JWT_SECRET_KEY": settings.jwt_secret_key.get_secret_value(),
-        "SIAD_DEMO_USERS_ENABLED": "false",
+        "SENDA_SENDA_ENV": "test",
+        "SENDA_DATABASE_URL": settings.database_url,
+        "SENDA_STORAGE_DIR": str(settings.storage_dir),
+        "SENDA_ENCRYPTION_MASTER_KEY": settings.encryption_master_key.get_secret_value(),
+        "SENDA_JWT_SECRET_KEY": settings.jwt_secret_key.get_secret_value(),
+        "SENDA_DEMO_USERS_ENABLED": "false",
     }
 
     created = runner.invoke(
@@ -336,7 +386,7 @@ def test_non_interactive_cli_manages_users_and_sources(
             "users",
             "create",
             "--email",
-            "cli@siad.local",
+            "cli@senda.local",
             "--password",
             "Clave-CLI-Segura-2026!",
             "--role",
@@ -345,7 +395,7 @@ def test_non_interactive_cli_manages_users_and_sources(
         env=environment,
     )
     assert created.exit_code == 0, created.output
-    assert "cli@siad.local" in runner.invoke(
+    assert "cli@senda.local" in runner.invoke(
         app, ["users", "list"], env=environment
     ).output
     assert runner.invoke(

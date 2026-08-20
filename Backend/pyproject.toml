@@ -3,9 +3,9 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "siad-backend"
+name = "senda-backend"
 version = "0.2.0"
-description = "Backend seguro para el análisis inteligente de testimonios ficticios en SIAD"
+description = "Backend seguro para el análisis inteligente de testimonios ficticios en SENDA"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "alembic>=1.14,<2",
@@ -16,6 +16,7 @@ dependencies = [
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
   "openai>=1.68,<2",
+  "Pillow>=11,<13",
   "pydantic-settings>=2.8,<3",
   "PyJWT>=2.10,<3",
   "python-multipart>=0.0.20,<1",
@@ -38,7 +39,7 @@ test = [
 ]
 
 [project.scripts]
-siad = "app.cli:app"
+senda = "app.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parents[3]
     [
         "scripts/bootstrap-local.sh",
         "scripts/generate-contracts.sh",
-        "scripts/run-e2e-backend.sh",
     ],
 )
 def test_shell_automation_has_valid_syntax(relative_path: str):
@@ -34,8 +33,11 @@ def test_shell_automation_has_valid_syntax(relative_path: str):
 def test_local_delivery_documentation_and_make_targets_exist():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    package = (ROOT / "frontend/package.json").read_text(encoding="utf-8")
 
     assert "./scripts/bootstrap-local.sh" in readme
-    assert "REAL_DATA_ENABLED=false" in readme
     assert "verify:" in makefile
     assert "contracts-check:" in makefile
+    assert "make e2e" not in readme
+    assert "e2e:" not in makefile
+    assert '"e2e"' not in package

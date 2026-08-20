@@ -9,7 +9,7 @@ import jwt
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.models import RefreshSession, User
+from app.entities import RefreshSession, User
 from app.security.passwords import PasswordService
 from app.security.tokens import TokenClaims, TokenService
 

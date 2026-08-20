@@ -13,7 +13,7 @@ from app.services.auth import AuthenticationError, AuthService, SessionTokens
 
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
-REFRESH_COOKIE = "siad_refresh"
+REFRESH_COOKIE = "senda_refresh"
 
 
 def get_auth_service(request: Request) -> AuthService:
@@ -34,7 +34,7 @@ def _set_refresh_cookie(
         tokens.refresh_token,
         max_age=settings.refresh_token_hours * 3600,
         httponly=True,
-        secure=settings.siad_env == "production",
+        secure=settings.senda_env == "production",
         samesite="lax",
         path=f"{settings.api_prefix}/auth",
     )

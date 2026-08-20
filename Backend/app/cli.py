@@ -8,16 +8,18 @@ from sqlalchemy import select, update
 
 from app.config import Settings, get_settings
 from app.database import Database
-from app.models import RefreshSession, SourceEntry, User
+from app.entities import RefreshSession, SourceEntry, User
 from app.schemas import UserRole
 from app.security.crypto import EnvelopeCipher
 from app.security.passwords import PasswordService
 from app.services.audit import AuditService
+from app.services.assets import EncryptedAssetStore
+from app.services.purges import PurgeService
 from app.services.rag import RagCatalog, seed_official_sources
 from app.services.retention import RetentionService
 
 
-app = typer.Typer(help="Administración local y no interactiva de SIAD.")
+app = typer.Typer(help="Administración local y no interactiva de SENDA.")
 users_app = typer.Typer(help="Gestionar usuarios.")
 sources_app = typer.Typer(help="Gestionar el catálogo RAG.")
 retention_app = typer.Typer(help="Ejecutar la política de retención.")
@@ -32,7 +34,7 @@ def _runtime() -> tuple[Settings, Database]:
 
 
 def _passwords(settings: Settings) -> PasswordService:
-    if settings.siad_env == "test":
+    if settings.senda_env == "test":
         return PasswordService(time_cost=1, memory_cost_kib=8192)
     return PasswordService()
 
@@ -135,12 +137,19 @@ def run_retention() -> None:
         keys={settings.key_version: settings.encryption_key_bytes},
         current_version=settings.key_version,
     )
-    service = RetentionService(AuditService(cipher), settings.storage_dir)
+    purges = PurgeService(
+        database=database,
+        cipher=cipher,
+        assets=EncryptedAssetStore(cipher=cipher, storage_dir=settings.storage_dir),
+        storage_dir=settings.storage_dir,
+    )
+    service = RetentionService(AuditService(cipher), purges)
     with database.session() as session:
         deleted = service.delete_due_videos(
             session,
             now=datetime.now(timezone.utc),
         )
+    service.process_pending()
     database.dispose()
     typer.echo(f"Videos eliminados: {deleted}")
 

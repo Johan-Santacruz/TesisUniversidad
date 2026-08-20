@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from datetime import datetime, timezone
 import json
-import subprocess
 import time
 from typing import Any
 from uuid import uuid4
@@ -25,7 +24,7 @@ from app.ai.providers import retry_call
 from app.ai.reconcile import reconcile_readings
 from app.database import Database
 from app.logging import get_logger
-from app.models import (
+from app.entities import (
     Analysis,
     AnalysisEvent,
     CaseRecord,
@@ -35,13 +34,19 @@ from app.models import (
     Video,
 )
 from app.security.crypto import EnvelopeCipher
+from app.services.media import (
+    MediaPipeline,
+    MediaToolUnavailableError,
+    MediaValidationError,
+)
 from app.services.rag import RagCatalog
+from app.services.transcription import TranscriptionService
 from app.services.videos import VideoService
 
 
 ANALYSIS_STAGES = tuple(stage.value for stage in AnalysisStage)
 TERMINAL_ANALYSIS_STATES = {"completed", "partial", "failed"}
-logger = get_logger("siad.analysis")
+logger = get_logger("senda.analysis")
 PEOPLE_PLACE_KEYS = {"people", "current_location", "origin_location", "places"}
 
 
@@ -53,33 +58,6 @@ class AnalysisAlreadyExistsError(ValueError):
     pass
 
 
-def extract_audio_in_memory(video_bytes: bytes) -> bytes:
-    process = subprocess.run(
-        [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-i",
-            "pipe:0",
-            "-vn",
-            "-ac",
-            "1",
-            "-ar",
-            "16000",
-            "-f",
-            "mp3",
-            "pipe:1",
-        ],
-        input=video_bytes,
-        capture_output=True,
-        check=False,
-    )
-    if process.returncode != 0 or not process.stdout:
-        raise NoAudioError("video has no readable audio track")
-    return process.stdout
-
-
 class AnalysisService:
     def __init__(
         self,
@@ -89,10 +67,11 @@ class AnalysisService:
         rag: RagCatalog,
         beto: BetoAdapter,
         video_service: VideoService | None = None,
-        whisper: Any | None = None,
+        media: MediaPipeline | None = None,
+        transcription: TranscriptionService | None = None,
         gpt: Any | None = None,
         claude: Any | None = None,
-        audio_extractor: Callable[[bytes], bytes] | None = extract_audio_in_memory,
+        memory_images: Any | None = None,
         retry_attempts: int = 2,
     ) -> None:
         self.database = database
@@ -100,10 +79,13 @@ class AnalysisService:
         self.rag = rag
         self.beto = beto
         self.video_service = video_service
-        self.whisper = whisper
+        # El audio se extrae por bloques y se transcribe con el servicio que
+        # los une: el adaptador de Whisper sólo sabe de un bloque a la vez.
+        self.media = media
+        self.transcription = transcription
         self.gpt = gpt
         self.claude = claude
-        self.audio_extractor = audio_extractor
+        self.memory_images = memory_images
         self.retry_attempts = retry_attempts
 
     def start(self, session: Session, *, video: Video, user: User) -> Analysis:
@@ -301,6 +283,7 @@ class AnalysisService:
                 "steps": [
                     {
                         "title": "Contactar el punto territorial",
+                        "key_point": "Lleve su documento si lo conserva.",
                         "instructions": (
                             "Confirmar horario y canal vigente antes del traslado."
                         ),
@@ -313,6 +296,7 @@ class AnalysisService:
                     },
                     {
                         "title": "Solicitar valoración de protección",
+                        "key_point": "Pida que la acompañe el Ministerio Público.",
                         "instructions": (
                             "Exponer únicamente la información necesaria y pedir "
                             "acompañamiento del Ministerio Público."
@@ -336,6 +320,7 @@ class AnalysisService:
                 "steps": [
                     {
                         "title": "Revisar trámites y servicios vigentes",
+                        "key_point": "Confirme requisitos antes de desplazarse.",
                         "instructions": (
                             "Contrastar requisitos y disponibilidad con la ficha oficial."
                         ),
@@ -348,6 +333,7 @@ class AnalysisService:
                     },
                     {
                         "title": "Coordinar atención familiar",
+                        "key_point": "Diga cuántos menores viajan con usted.",
                         "instructions": (
                             "Consultar si la regional Cauca puede activar atención móvil."
                         ),
@@ -370,6 +356,7 @@ class AnalysisService:
                 "steps": [
                     {
                         "title": "Solicitar evaluación acompañada",
+                        "key_point": "No regrese sin evaluación de seguridad.",
                         "instructions": (
                             "No presentar el retorno como decisión tomada; pedir valoración institucional."
                         ),
@@ -382,6 +369,7 @@ class AnalysisService:
                     },
                     {
                         "title": "Contrastar garantías",
+                        "key_point": "Exija por escrito las garantías ofrecidas.",
                         "instructions": (
                             "Confirmar las garantías con el Ministerio Público territorial."
                         ),
@@ -570,6 +558,14 @@ class AnalysisService:
                         )
                     payload = {**payload, "case_id": case_id}
                 self._append_event(analysis_id, stage, payload)
+                if stage is AnalysisStage.ROUTES and self.memory_images is not None:
+                    try:
+                        self.memory_images.generate_initial(case_id, is_demo=is_demo)
+                    except Exception:
+                        logger.exception(
+                            "memory_image_generation_failed",
+                            extra={"case_id": case_id},
+                        )
             with self.database.session() as session:
                 analysis = session.get(Analysis, analysis_id)
                 analysis.status = "completed"
@@ -621,19 +617,28 @@ class AnalysisService:
         self,
         adapter: Any | None,
         segments: list[Any],
+        sources: list[Any] | None = None,
+        classification: dict[str, Any] | None = None,
     ) -> tuple[ProviderAnalysis | None, str | None]:
         if adapter is None:
             return None, "provider_not_configured"
         try:
             return (
                 retry_call(
-                    lambda: adapter.analyze(segments),
+                    lambda: adapter.analyze(segments, sources, classification),
                     attempts=self.retry_attempts,
                     retryable=(TimeoutError, ConnectionError),
                 ),
                 None,
             )
-        except (TimeoutError, ConnectionError, ValueError, RuntimeError) as exc:
+        except Exception as exc:  # noqa: BLE001
+            # Los SDK de los proveedores levantan sus propias excepciones
+            # (autenticación, cuota, 5xx). Ninguna debe tumbar el análisis:
+            # el caso continúa como parcial y queda registrado el motivo.
+            logger.warning(
+                "provider_read_failed",
+                extra={"error_code": type(exc).__name__},
+            )
             return None, type(exc).__name__
 
     @staticmethod
@@ -877,24 +882,38 @@ class AnalysisService:
                 reason="video_service_not_configured",
             )
             return
-        with self.database.session() as session:
-            analysis = session.get(Analysis, analysis_id)
-            video = session.get(Video, analysis.video_id)
-            video_bytes = self.video_service.open_plain_bytes(video)
-        if self.audio_extractor is None:
+        if self.media is None:
             self._finish_unavailable(
                 analysis_id,
                 from_stage=AnalysisStage.AUDIO,
                 reason="audio_extractor_not_configured",
             )
             return
-        try:
-            audio = self.audio_extractor(video_bytes)
-        except (NoAudioError, OSError, ValueError) as exc:
+        # La extracción ocurre dentro de la sesión: el vídeo carga sus bloques
+        # cifrados de forma perezosa y fuera de ella quedaría desprendido.
+        # Los bloques se materializan aquí para que un fallo de extracción se
+        # reporte en la etapa de audio y no a mitad de la transcripción.
+        extraction_error: Exception | None = None
+        chunks: list[Any] = []
+        with self.database.session() as session:
+            analysis = session.get(Analysis, analysis_id)
+            video = session.get(Video, analysis.video_id)
+            video_id = video.id
+            try:
+                chunks = list(self.media.iter_audio_chunks(video))
+            except (
+                MediaValidationError,
+                MediaToolUnavailableError,
+                NoAudioError,
+                OSError,
+                ValueError,
+            ) as exc:
+                extraction_error = exc
+        if extraction_error is not None:
             self._append_event(
                 analysis_id,
                 AnalysisStage.AUDIO,
-                {"state": "failed", "reason": type(exc).__name__},
+                {"state": "failed", "reason": type(extraction_error).__name__},
                 state="failed",
             )
             self._finish_unavailable(
@@ -909,10 +928,10 @@ class AnalysisService:
             {
                 "state": "completed",
                 "audio_present": True,
-                "audio_bytes": len(audio),
+                "audio_bytes": sum(len(chunk.wav_bytes) for chunk in chunks),
             },
         )
-        if self.whisper is None:
+        if self.transcription is None:
             self._finish_unavailable(
                 analysis_id,
                 from_stage=AnalysisStage.TRANSCRIPTION,
@@ -921,11 +940,17 @@ class AnalysisService:
             return
         try:
             transcript: TranscriptResult = retry_call(
-                lambda: self.whisper.transcribe(audio, filename="audio.mp3"),
+                lambda: self.transcription.transcribe(
+                    analysis_id=analysis_id,
+                    video_id=video_id,
+                    chunks=chunks,
+                ),
                 attempts=self.retry_attempts,
                 retryable=(TimeoutError, ConnectionError),
             )
-        except (TimeoutError, ConnectionError, ValueError, RuntimeError) as exc:
+        # Igual que en la lectura de proveedores: un fallo de Whisper deja el
+        # caso sin transcripción, pero nunca derriba el análisis.
+        except Exception as exc:  # noqa: BLE001
             self._append_event(
                 analysis_id,
                 AnalysisStage.TRANSCRIPTION,
@@ -950,11 +975,31 @@ class AnalysisService:
                 ],
             },
         )
+        # La clasificación se calcula ANTES de leer con los proveedores. Antes
+        # iba después, así que las rutas se construían sin saber de qué tipo de
+        # desplazamiento se trataba y salían intercambiables entre casos.
+        try:
+            classification = self.beto.classify(transcript.text)
+        except (ValueError, RuntimeError) as exc:
+            from app.ai.contracts import BetoClassification
+
+            classification = BetoClassification(
+                status="unavailable",
+                unavailable_reason=type(exc).__name__,
+            )
+        classification_input = (
+            classification.model_dump(mode="json")
+            if classification.status == "available"
+            else None
+        )
+        # El catálogo se recupera una vez y se entrega a ambos proveedores:
+        # es lo que les permite citar fuentes reales en lugar de inventarlas.
+        catalog = self.rag.groundable()
         gpt_reading, gpt_error = self._read_provider(
-            self.gpt, transcript.segments
+            self.gpt, transcript.segments, catalog, classification_input
         )
         claude_reading, claude_error = self._read_provider(
-            self.claude, transcript.segments
+            self.claude, transcript.segments, catalog, classification_input
         )
         gpt_signals = self._signals_by_key(gpt_reading)
         claude_signals = self._signals_by_key(claude_reading)
@@ -996,15 +1041,8 @@ class AnalysisService:
             AnalysisStage.DATES_FACTS,
             {"state": "completed", "facts": dates_facts},
         )
-        try:
-            classification = self.beto.classify(transcript.text)
-        except (ValueError, RuntimeError) as exc:
-            from app.ai.contracts import BetoClassification
-
-            classification = BetoClassification(
-                status="unavailable",
-                unavailable_reason=type(exc).__name__,
-            )
+        # El evento se emite aquí, en su lugar de siempre dentro de la
+        # secuencia: sólo el cálculo se adelantó.
         self._append_event(
             analysis_id,
             AnalysisStage.CLASSIFICATION,
@@ -1073,6 +1111,14 @@ class AnalysisService:
                 "critical_inconsistencies": critical_inconsistencies,
             },
         )
+        if self.memory_images is not None:
+            try:
+                self.memory_images.generate_initial(case_id, is_demo=False)
+            except Exception:
+                logger.exception(
+                    "memory_image_generation_failed",
+                    extra={"case_id": case_id},
+                )
         partial = (
             gpt_reading is None
             or claude_reading is None

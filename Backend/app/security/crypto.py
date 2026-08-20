@@ -31,6 +31,11 @@ class EnvelopeCipher:
         self._keys = dict(keys)
         self.current_version = current_version
 
+    # El prefijo "siad:" de este archivo no es la marca del producto: es la
+    # etiqueta de separación de dominio de la derivación de claves. Cambiarlo
+    # deriva claves distintas, y todo lo ya cifrado —la base entera y el video
+    # por bloques— queda indescifrable. Sobrevive al renombrado a SENDA a
+    # propósito; moverlo exigiría migrar y volver a cifrar cada registro.
     def _derive_key(self, record_id: str, purpose: str, version: int) -> bytes:
         master = self._keys[version]
         return HKDF(

@@ -14,7 +14,7 @@ from transformers import AutoModel, AutoTokenizer
 
 
 ARTIFACT_DIR = Path(
-    os.environ.get("MODEL_ARTIFACT_DIR", "./models/violencia_classifier_artifacts")
+    os.environ.get("MODEL_ARTIFACT_DIR", "./ml-artifacts/violencia_classifier_artifacts")
 ).resolve()
 
 

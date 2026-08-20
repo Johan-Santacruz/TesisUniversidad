@@ -15,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import CurrentUser, OperatorUser, get_session
-from app.models import Analysis, User, Video
+from app.entities import Analysis, User, Video
 from app.schemas import AnalysisRead, AnalysisReadinessRead, UserRole
 from app.services.analysis import AnalysisAlreadyExistsError, AnalysisService
 from app.services.readiness import AnalysisReadinessService

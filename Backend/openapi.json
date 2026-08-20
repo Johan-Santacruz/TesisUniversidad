@@ -40,6 +40,66 @@
         "title": "AnalysisRead",
         "type": "object"
       },
+      "AnalysisReadinessRead": {
+        "properties": {
+          "accepted_media_types": {
+            "items": {
+              "enum": [
+                "video/mp4",
+                "video/webm"
+              ],
+              "type": "string"
+            },
+            "title": "Accepted Media Types",
+            "type": "array"
+          },
+          "anthropic_configured": {
+            "title": "Anthropic Configured",
+            "type": "boolean"
+          },
+          "beto_available": {
+            "title": "Beto Available",
+            "type": "boolean"
+          },
+          "can_upload": {
+            "title": "Can Upload",
+            "type": "boolean"
+          },
+          "ffmpeg_available": {
+            "title": "Ffmpeg Available",
+            "type": "boolean"
+          },
+          "ffprobe_available": {
+            "title": "Ffprobe Available",
+            "type": "boolean"
+          },
+          "max_video_bytes": {
+            "title": "Max Video Bytes",
+            "type": "integer"
+          },
+          "openai_configured": {
+            "title": "Openai Configured",
+            "type": "boolean"
+          },
+          "video_retention_days": {
+            "title": "Video Retention Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "can_upload",
+          "openai_configured",
+          "anthropic_configured",
+          "beto_available",
+          "ffmpeg_available",
+          "ffprobe_available",
+          "accepted_media_types",
+          "max_video_bytes",
+          "video_retention_days"
+        ],
+        "title": "AnalysisReadinessRead",
+        "type": "object"
+      },
       "AnalysisStage": {
         "enum": [
           "audio",
@@ -115,25 +175,6 @@
       },
       "Body_upload_video_api_v1_videos_post": {
         "properties": {
-          "consent_reference": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Consent Reference"
-          },
-          "data_kind": {
-            "$ref": "#/components/schemas/DataKind"
-          },
-          "explicit_consent": {
-            "default": false,
-            "title": "Explicit Consent",
-            "type": "boolean"
-          },
           "file": {
             "contentMediaType": "application/octet-stream",
             "title": "File",
@@ -141,8 +182,7 @@
           }
         },
         "required": [
-          "file",
-          "data_kind"
+          "file"
         ],
         "title": "Body_upload_video_api_v1_videos_post",
         "type": "object"
@@ -241,6 +281,16 @@
             "title": "Id",
             "type": "string"
           },
+          "memory_image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MemoryImageRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "recommendation_status": {
             "title": "Recommendation Status",
             "type": "string"
@@ -314,14 +364,6 @@
         "title": "ConfidenceBand",
         "type": "string"
       },
-      "DataKind": {
-        "enum": [
-          "fictitious",
-          "real"
-        ],
-        "title": "DataKind",
-        "type": "string"
-      },
       "EvidenceRef": {
         "additionalProperties": false,
         "properties": {
@@ -353,6 +395,17 @@
         "properties": {
           "confidence_band": {
             "$ref": "#/components/schemas/ConfidenceBand"
+          },
+          "display_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Value"
           },
           "evidence": {
             "items": {
@@ -458,8 +511,8 @@
             "type": "string"
           },
           "reason": {
+            "default": "",
             "maxLength": 1000,
-            "minLength": 5,
             "title": "Reason",
             "type": "string"
           },
@@ -491,8 +544,7 @@
           }
         },
         "required": [
-          "action",
-          "reason"
+          "action"
         ],
         "title": "FactReviewRequest",
         "type": "object"
@@ -529,6 +581,132 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "MemoryImageDecisionRead": {
+        "properties": {
+          "memory_image": {
+            "$ref": "#/components/schemas/MemoryImageRead"
+          }
+        },
+        "required": [
+          "memory_image"
+        ],
+        "title": "MemoryImageDecisionRead",
+        "type": "object"
+      },
+      "MemoryImageDecisionRequest": {
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Action",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "MemoryImageDecisionRequest",
+        "type": "object"
+      },
+      "MemoryImageRead": {
+        "properties": {
+          "failure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Code"
+          },
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "render_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "rendering",
+                  "ready",
+                  "failed",
+                  "expired"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Render Status"
+          },
+          "rendered_video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rendered Video Url"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "status": {
+            "enum": [
+              "generating",
+              "pending_review",
+              "approved",
+              "rejected",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "generation",
+          "status",
+          "image_url",
+          "rendered_video_url",
+          "render_status",
+          "failure_code",
+          "reviewed_at"
+        ],
+        "title": "MemoryImageRead",
+        "type": "object"
+      },
       "Origin": {
         "enum": [
           "mentioned",
@@ -552,6 +730,10 @@
             "title": "Instructions",
             "type": "string"
           },
+          "key_point": {
+            "title": "Key Point",
+            "type": "string"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -559,6 +741,7 @@
         },
         "required": [
           "title",
+          "key_point",
           "instructions",
           "claims"
         ],
@@ -1094,6 +1277,17 @@
       "TranscriptSegment": {
         "additionalProperties": false,
         "properties": {
+          "analysis_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Id"
+          },
           "end_ms": {
             "minimum": 0.0,
             "title": "End Ms",
@@ -1103,6 +1297,18 @@
             "title": "Id",
             "type": "string"
           },
+          "order_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Index"
+          },
           "start_ms": {
             "minimum": 0.0,
             "title": "Start Ms",
@@ -1111,6 +1317,17 @@
           "text": {
             "title": "Text",
             "type": "string"
+          },
+          "video_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Id"
           }
         },
         "required": [
@@ -1297,9 +1514,6 @@
             "title": "Created At",
             "type": "string"
           },
-          "data_kind": {
-            "$ref": "#/components/schemas/DataKind"
-          },
           "filename": {
             "title": "Filename",
             "type": "string"
@@ -1330,7 +1544,6 @@
           "filename",
           "media_type",
           "size_bytes",
-          "data_kind",
           "status",
           "is_demo",
           "created_at"
@@ -1352,11 +1565,37 @@
     }
   },
   "info": {
-    "title": "SIAD API",
+    "title": "SENDA API",
     "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/analyses/readiness": {
+      "get": {
+        "operationId": "get_readiness_api_v1_analyses_readiness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisReadinessRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Readiness",
+        "tags": [
+          "analyses"
+        ]
+      }
+    },
     "/api/v1/analyses/{analysis_id}/events": {
       "get": {
         "operationId": "stream_analysis_events_api_v1_analyses__analysis_id__events_get",
@@ -1471,7 +1710,7 @@
         "parameters": [
           {
             "in": "cookie",
-            "name": "siad_refresh",
+            "name": "senda_refresh",
             "required": false,
             "schema": {
               "anyOf": [
@@ -1482,7 +1721,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Siad Refresh"
+              "title": "Senda Refresh"
             }
           }
         ],
@@ -1539,7 +1778,7 @@
         "parameters": [
           {
             "in": "cookie",
-            "name": "siad_refresh",
+            "name": "senda_refresh",
             "required": false,
             "schema": {
               "anyOf": [
@@ -1550,7 +1789,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Siad Refresh"
+              "title": "Senda Refresh"
             }
           }
         ],
@@ -1826,6 +2065,335 @@
           }
         ],
         "summary": "Review Fact",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/memory-image/content": {
+      "get": {
+        "operationId": "read_memory_image_content_api_v1_cases__case_id__memory_image_content_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Read Memory Image Content",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/memory-image/decision": {
+      "post": {
+        "operationId": "decide_memory_image_api_v1_cases__case_id__memory_image_decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryImageDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryImageDecisionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Decide Memory Image",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/memory-image/regenerate": {
+      "post": {
+        "operationId": "regenerate_memory_image_api_v1_cases__case_id__memory_image_regenerate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryImageDecisionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Regenerate Memory Image",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/rendered-video/retry": {
+      "post": {
+        "operationId": "retry_rendered_video_api_v1_cases__case_id__rendered_video_retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryImageDecisionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Retry Rendered Video",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/rendered-video/stream": {
+      "get": {
+        "operationId": "stream_rendered_video_api_v1_cases__case_id__rendered_video_stream_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Range",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Range"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Stream Rendered Video",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/routes/{route_id}/steps/{step_index}/narration": {
+      "get": {
+        "operationId": "narrate_route_step_api_v1_cases__case_id__routes__route_id__steps__step_index__narration_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "title": "Route Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "step_index",
+            "required": true,
+            "schema": {
+              "title": "Step Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Narrate Route Step",
         "tags": [
           "cases"
         ]

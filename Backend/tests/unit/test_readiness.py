@@ -14,7 +14,6 @@ def test_readiness_exposes_capabilities_without_secrets(settings_factory):
     value = service.check(UserRole.OPERATOR).model_dump()
 
     assert set(value) == {
-        "real_analysis_ready",
         "can_upload",
         "openai_configured",
         "anthropic_configured",

@@ -5,7 +5,7 @@ def test_admin_can_create_and_list_an_operator(admin_client):
     created = admin_client.post(
         "/api/v1/users",
         json={
-            "email": "nueva.operadora@siad.local",
+            "email": "nueva.operadora@senda.local",
             "password": "Clave-Segura-2026!",
             "role": "operador",
         },
@@ -14,7 +14,7 @@ def test_admin_can_create_and_list_an_operator(admin_client):
     assert created.status_code == 201
     assert created.json()["role"] == "operador"
     listed = admin_client.get("/api/v1/users")
-    assert "nueva.operadora@siad.local" in {
+    assert "nueva.operadora@senda.local" in {
         user["email"] for user in listed.json()["items"]
     }
 
@@ -23,7 +23,7 @@ def test_operator_cannot_create_users(operator_client):
     response = operator_client.post(
         "/api/v1/users",
         json={
-            "email": "otra@siad.local",
+            "email": "otra@senda.local",
             "password": "Clave-Segura-2026!",
             "role": "operador",
         },
@@ -36,7 +36,7 @@ def test_duplicate_email_returns_conflict_instead_of_exposing_database_error(
     admin_client,
 ):
     payload = {
-        "email": "duplicada@siad.local",
+        "email": "duplicada@senda.local",
         "password": "Clave-Segura-2026!",
         "role": "operador",
     }
@@ -52,7 +52,7 @@ def test_admin_disable_revokes_future_access(admin_client):
     created = admin_client.post(
         "/api/v1/users",
         json={
-            "email": "temporal@siad.local",
+            "email": "temporal@senda.local",
             "password": "Clave-Temporal-2026!",
             "role": "validador",
         },
@@ -70,7 +70,7 @@ def test_admin_disable_revokes_future_access(admin_client):
     login = admin_client.post(
         "/api/v1/auth/token",
         data={
-            "username": "temporal@siad.local",
+            "username": "temporal@senda.local",
             "password": "Clave-Temporal-2026!",
         },
     )

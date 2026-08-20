@@ -1,2 +1,2 @@
-"""Security primitives used by SIAD."""
+"""Security primitives used by SENDA."""
 

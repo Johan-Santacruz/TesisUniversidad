@@ -6,7 +6,6 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
-    Form,
     Header,
     HTTPException,
     Request,
@@ -17,15 +16,18 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import CurrentUser, OperatorUser, get_session
-from app.models import User, Video
-from app.schemas import DataKind, VideoRead
+from app.entities import User, Video
+from app.schemas import VideoRead
 from app.services.videos import (
-    ConsentRequiredError,
     InvalidVideoError,
-    RealDataBlockedError,
     VideoService,
     VideoTooLargeError,
     parse_byte_range,
+)
+from app.services.media import (
+    EmptyMediaError,
+    MediaToolUnavailableError,
+    NoAudioTrackError,
 )
 
 
@@ -42,23 +44,25 @@ def upload_video(
     session: Annotated[Session, Depends(get_session)],
     service: Annotated[VideoService, Depends(get_video_service)],
     file: Annotated[UploadFile, File()],
-    data_kind: Annotated[DataKind, Form()],
-    explicit_consent: Annotated[bool, Form()] = False,
-    consent_reference: Annotated[str | None, Form()] = None,
 ) -> Video:
     try:
         return service.create(
             session,
             user=operator,
             source=file.file,
-            data_kind=data_kind,
-            explicit_consent=explicit_consent,
-            consent_reference=consent_reference,
         )
-    except RealDataBlockedError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
-    except ConsentRequiredError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+    except NoAudioTrackError:
+        raise HTTPException(
+            status_code=422,
+            detail="El video no contiene una pista de audio",
+        )
+    except EmptyMediaError:
+        raise HTTPException(status_code=422, detail="El video está vacío")
+    except MediaToolUnavailableError:
+        raise HTTPException(
+            status_code=503,
+            detail="El servicio de validación audiovisual no está disponible",
+        )
     except InvalidVideoError as exc:
         raise HTTPException(status_code=415, detail=str(exc))
     except VideoTooLargeError as exc:
@@ -116,4 +120,3 @@ def stream_video(
         media_type=video.media_type,
         headers=headers,
     )
-

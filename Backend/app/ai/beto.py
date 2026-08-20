@@ -19,7 +19,7 @@ class BetoAdapter:
     @classmethod
     def load(cls, artifact_dir: Path) -> "BetoAdapter":
         try:
-            from services.ml_service.classifier_service import ViolenceClassifier
+            from app.ai.ml_service.classifier_service import ViolenceClassifier
 
             return cls(classifier=ViolenceClassifier(artifact_dir))
         except (ImportError, FileNotFoundError, RuntimeError) as exc:
@@ -35,9 +35,18 @@ class BetoAdapter:
                 unavailable_reason=self.unavailable_reason or "not_loaded",
             )
         result = self.classifier.predict(text)
+        # predict() añade la distribución completa por clase; el contrato
+        # público sólo expone la etiqueta ganadora y su confianza.
         return BetoClassification(
             status="available",
-            category=LabelProbability.model_validate(result["category"]),
-            subcategory=LabelProbability.model_validate(result["subcategory"]),
+            category=_label(result["category"]),
+            subcategory=_label(result["subcategory"]),
         )
+
+
+def _label(reading: dict[str, Any]) -> LabelProbability:
+    return LabelProbability(
+        label=str(reading["label"]),
+        confidence=float(reading["confidence"]),
+    )
 

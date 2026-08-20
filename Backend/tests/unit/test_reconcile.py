@@ -7,6 +7,8 @@ from app.ai.reconcile import reconcile_readings
 def _reading(value, segment_id: str = "segment-1") -> ProviderSignal:
     return ProviderSignal(
         key="urgency",
+        label="Urgency",
+        display_value="",
         value=value,
         origin=Origin.INFERRED,
         evidence=[
@@ -67,12 +69,16 @@ def test_unknown_evidence_makes_the_result_inconsistent():
 def test_both_explicitly_unidentified_values_group_as_not_identified():
     gpt = ProviderSignal(
         key="date",
+        label="Date",
+        display_value="",
         value=None,
         origin=Origin.MENTIONED,
         evidence=[],
     )
     claude = ProviderSignal(
         key="date",
+        label="Date",
+        display_value="",
         value=None,
         origin=Origin.MENTIONED,
         evidence=[],

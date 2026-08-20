@@ -1,4 +1,4 @@
-"""Initial encrypted SIAD schema.
+"""Initial encrypted SENDA schema.
 
 Revision ID: 0001_initial
 Revises:

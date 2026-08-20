@@ -6,8 +6,8 @@ from app.logging import SafeLogger
 
 
 def test_sensitive_fields_are_dropped_from_structured_logs(caplog):
-    logger = SafeLogger(logging.getLogger("siad.tests.logging"))
-    caplog.set_level(logging.INFO, logger="siad.tests.logging")
+    logger = SafeLogger(logging.getLogger("senda.tests.logging"))
+    caplog.set_level(logging.INFO, logger="senda.tests.logging")
 
     logger.info(
         "analysis_failed",
@@ -25,8 +25,8 @@ def test_sensitive_fields_are_dropped_from_structured_logs(caplog):
 
 
 def test_unapproved_nested_values_never_reach_logs(caplog):
-    logger = SafeLogger(logging.getLogger("siad.tests.logging.nested"))
-    caplog.set_level(logging.INFO, logger="siad.tests.logging.nested")
+    logger = SafeLogger(logging.getLogger("senda.tests.logging.nested"))
+    caplog.set_level(logging.INFO, logger="senda.tests.logging.nested")
 
     logger.info(
         "provider_finished",

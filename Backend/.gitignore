@@ -8,6 +8,8 @@ build/
 
 # Environment variables
 .env
+# Las copias del .env llevan las mismas claves reales que el original.
+.env.backup-*
 .env.local
 .env.*.local
 
@@ -43,3 +45,6 @@ temp/
 .pytest_cache/
 .coverage
 htmlcov/
+# Pesos de BETO: 420 MB cada uno, muy por encima del limite de 100 MB por
+# archivo de GitHub. Viajan aparte (vease docs/despliegue.md).
+*.pt

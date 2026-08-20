@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import subprocess
 
+from app.services.media import MediaToolUnavailableError
+
 
 def _upload_fictitious(operator_client, payload: bytes):
     return operator_client.post(
         "/api/v1/videos",
         files={"file": ("ficticio.mp4", payload, "video/mp4")},
-        data={"data_kind": "fictitious"},
     )
 
 
@@ -45,112 +46,52 @@ def test_full_stream_reconstructs_the_original_video(
     assert streamed.headers["content-length"] == str(len(tiny_video_bytes))
 
 
-def test_real_upload_is_blocked_without_both_zdr_confirmations(
-    operator_client, tiny_video_bytes
+def test_corrupt_or_disguised_video_is_rejected(
+    operator_client,
+    corrupt_ftyp_bytes,
 ):
-    response = operator_client.post(
-        "/api/v1/videos",
-        files={"file": ("real.mp4", tiny_video_bytes, "video/mp4")},
-        data={
-            "data_kind": "real",
-            "explicit_consent": "true",
-            "consent_reference": "ACTA-1",
-        },
-    )
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == (
-        "Los testimonios reales están bloqueados hasta confirmar ZDR y autorización"
-    )
-
-
-def test_real_upload_rejects_blank_consent_reference(
-    client, settings_factory, tiny_video_bytes
-):
-    from fastapi.testclient import TestClient
-
-    from app.database import Database
-    from app.main import create_app
-
-    settings = settings_factory(
-        real_data_enabled=True,
-        openai_zdr_confirmed=True,
-        anthropic_zdr_confirmed=True,
-        institutional_authorization_id="ACTA-INSTITUCIONAL-1",
-    )
-    database = Database(settings.database_url)
-    with TestClient(create_app(settings=settings, database=database)) as gated_client:
-        login = gated_client.post(
-            "/api/v1/auth/token",
-            data={
-                "username": "admin@siad.local",
-                "password": "Cambiar-Esta-Clave-2026!",
-            },
-        )
-        gated_client.headers["Authorization"] = (
-            f"Bearer {login.json()['access_token']}"
-        )
-        response = gated_client.post(
-            "/api/v1/videos",
-            files={"file": ("real.mp4", tiny_video_bytes, "video/mp4")},
-            data={
-                "data_kind": "real",
-                "explicit_consent": "true",
-                "consent_reference": "   ",
-            },
-        )
-
-    database.dispose()
-    assert response.status_code == 422
-
-
-def test_real_upload_is_blocked_without_provider_keys(
-    settings_factory, tiny_video_bytes
-):
-    from fastapi.testclient import TestClient
-
-    from app.database import Database
-    from app.main import create_app
-
-    settings = settings_factory(
-        real_data_enabled=True,
-        openai_zdr_confirmed=True,
-        anthropic_zdr_confirmed=True,
-        institutional_authorization_id="ACTA-INSTITUCIONAL-1",
-    )
-    database = Database(settings.database_url)
-    with TestClient(create_app(settings=settings, database=database)) as gated_client:
-        login = gated_client.post(
-            "/api/v1/auth/token",
-            data={
-                "username": "admin@siad.local",
-                "password": "Cambiar-Esta-Clave-2026!",
-            },
-        )
-        gated_client.headers["Authorization"] = (
-            f"Bearer {login.json()['access_token']}"
-        )
-        response = gated_client.post(
-            "/api/v1/videos",
-            files={"file": ("real.mp4", tiny_video_bytes, "video/mp4")},
-            data={
-                "data_kind": "real",
-                "explicit_consent": "true",
-                "consent_reference": "ACTA-1",
-            },
-        )
-
-    database.dispose()
-    assert response.status_code == 403
-
-
-def test_corrupt_or_disguised_video_is_rejected(operator_client):
     response = _upload_fictitious(
         operator_client,
-        "Este archivo no contiene una firma audiovisual válida".encode(),
+        corrupt_ftyp_bytes,
     )
 
     assert response.status_code == 415
+
+
+def test_video_without_audio_is_rejected_before_encrypted_persistence(
+    operator_client,
+    silent_mp4,
+):
+    response = _upload_fictitious(operator_client, silent_mp4)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "El video no contiene una pista de audio"
+    storage = operator_client.app.state.settings.storage_dir / "videos"
+    assert not storage.exists() or list(storage.iterdir()) == []
+
+
+def test_missing_media_tool_maps_to_503_without_leaking_diagnostics(
+    operator_client,
+    valid_mp4_bytes,
+    monkeypatch,
+):
+    def unavailable(*_args, **_kwargs):
+        raise MediaToolUnavailableError(
+            "ffprobe: /private/testimony/path: Invalid data found"
+        )
+
+    monkeypatch.setattr(
+        operator_client.app.state.videos.media_validator,
+        "validate",
+        unavailable,
+    )
+
+    response = _upload_fictitious(operator_client, valid_mp4_bytes)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "El servicio de validación audiovisual no está disponible"
+    )
 
 
 def test_demo_endpoint_creates_only_a_fictitious_record(operator_client):
@@ -158,7 +99,6 @@ def test_demo_endpoint_creates_only_a_fictitious_record(operator_client):
 
     assert response.status_code == 201
     assert response.json()["is_demo"] is True
-    assert response.json()["data_kind"] == "fictitious"
     streamed = operator_client.get(
         f"/api/v1/videos/{response.json()['id']}/stream"
     )

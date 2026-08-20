@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import AdminUser, get_session
-from app.models import SourceEntry
+from app.entities import SourceEntry
 from app.schemas import SourceCreate, SourceList, SourceRead, SourceUpdate
 from app.services.audit import AuditService
 from app.services.rag import RagCatalog, SourceSeed

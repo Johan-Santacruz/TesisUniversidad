@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -86,32 +87,24 @@ class RefreshSession(Base):
     user: Mapped[User] = relationship(back_populates="sessions")
 
 
-class Consent(EncryptedPayloadMixin, TimestampMixin, Base):
-    __tablename__ = "consents"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
-    consent_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-
 class Video(TimestampMixin, Base):
     __tablename__ = "videos"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
-    consent_id: Mapped[str | None] = mapped_column(ForeignKey("consents.id"))
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     media_type: Mapped[str] = mapped_column(String(80), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     chunk_size: Mapped[int] = mapped_column(Integer, nullable=False)
     key_version: Mapped[int] = mapped_column(Integer, nullable=False)
-    data_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(24), default="uploaded", nullable=False)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     delete_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retention_lease_token: Mapped[str | None] = mapped_column(String(36), index=True)
+    retention_lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
 
     chunks: Mapped[list["VideoChunk"]] = relationship(
         back_populates="video",
@@ -240,6 +233,74 @@ class CaseRecord(TimestampMixin, Base):
     )
     approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deletion_claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MemoryImage(EncryptedPayloadMixin, TimestampMixin, Base):
+    __tablename__ = "memory_images"
+    __table_args__ = (
+        UniqueConstraint(
+            "case_id",
+            "generation",
+            name="uq_memory_images_case_id_generation",
+        ),
+        Index(
+            "uq_memory_images_case_active",
+            "case_id",
+            unique=True,
+            sqlite_where=text("status IN ('generating', 'pending_review')"),
+            postgresql_where=text("status IN ('generating', 'pending_review')"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(
+        ForeignKey("cases.id", ondelete="CASCADE"), index=True
+    )
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    model: Mapped[str] = mapped_column(String(128), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    context_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    image_mime_type: Mapped[str | None] = mapped_column(String(80))
+    image_width: Mapped[int | None] = mapped_column(Integer)
+    image_height: Mapped[int | None] = mapped_column(Integer)
+    plaintext_size: Mapped[int | None] = mapped_column(Integer)
+    asset_key_version: Mapped[int | None] = mapped_column(Integer)
+    asset_nonce: Mapped[bytes | None] = mapped_column(LargeBinary(12))
+    storage_path: Mapped[str | None] = mapped_column(String(512))
+    ciphertext_size: Mapped[int | None] = mapped_column(Integer)
+    failure_code: Mapped[str | None] = mapped_column(String(64))
+    reviewed_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RenderedVideo(TimestampMixin, Base):
+    __tablename__ = "rendered_videos"
+    __table_args__ = (
+        UniqueConstraint(
+            "memory_image_id",
+            name="uq_rendered_videos_memory_image_id",
+        ),
+        UniqueConstraint("video_id", name="uq_rendered_videos_video_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    memory_image_id: Mapped[str] = mapped_column(
+        ForeignKey("memory_images.id", ondelete="CASCADE")
+    )
+    case_id: Mapped[str] = mapped_column(
+        ForeignKey("cases.id", ondelete="CASCADE"), index=True
+    )
+    video_id: Mapped[str | None] = mapped_column(
+        ForeignKey("videos.id", ondelete="CASCADE")
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    render_attempt_id: Mapped[str | None] = mapped_column(String(36))
+    failure_code: Mapped[str | None] = mapped_column(String(64))
 
 
 class Fact(EncryptedPayloadMixin, TimestampMixin, Base):
@@ -323,3 +384,14 @@ class Tombstone(Base):
     deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     action: Mapped[str] = mapped_column(String(40), nullable=False)
     actor_role: Mapped[str] = mapped_column(String(24), nullable=False)
+
+
+class PurgeJob(EncryptedPayloadMixin, TimestampMixin, Base):
+    """Durable, encrypted intent to remove a single filesystem resource."""
+
+    __tablename__ = "purge_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    resource_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    lease_token: Mapped[str | None] = mapped_column(String(36), index=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -10,7 +10,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.database import Database
-from app.models import SourceEntry
+from app.entities import SourceEntry
 
 
 class GroundingError(ValueError):
@@ -137,6 +137,22 @@ class RagCatalog:
             if entry is None:
                 raise KeyError(source_id)
             return self._view(entry)
+
+    def groundable(self) -> list[SourceView]:
+        """Fuentes activas que un modelo puede citar.
+
+        Es la mitad de recuperación del RAG: sin esta lista el modelo no
+        conoce ningún source_entry_id válido y no puede sustentar una ruta.
+        Las vencidas se excluyen para no inducir a citar oferta caducada.
+        """
+        with self.database.session() as session:
+            entries = session.scalars(
+                select(SourceEntry)
+                .where(SourceEntry.status == "active")
+                .order_by(SourceEntry.id)
+            )
+            views = [self._view(entry) for entry in entries]
+        return [view for view in views if not view.is_expired]
 
     def search(
         self,

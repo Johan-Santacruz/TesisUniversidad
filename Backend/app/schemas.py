@@ -5,7 +5,7 @@ from enum import StrEnum
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import model_validator, BaseModel, ConfigDict, Field, field_validator
 
 from app.ai.contracts import (
     AnalysisStage,
@@ -69,15 +69,6 @@ class TokenResponse(BaseModel):
     user: UserRead
 
 
-class Message(BaseModel):
-    message: str
-
-
-class DataKind(StrEnum):
-    FICTITIOUS = "fictitious"
-    REAL = "real"
-
-
 class VideoRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -85,7 +76,6 @@ class VideoRead(BaseModel):
     filename: str
     media_type: str
     size_bytes: int
-    data_kind: DataKind
     status: str
     is_demo: bool
     created_at: datetime
@@ -102,7 +92,6 @@ class AnalysisRead(BaseModel):
 
 
 class AnalysisReadinessRead(BaseModel):
-    real_analysis_ready: bool
     can_upload: bool
     openai_configured: bool
     anthropic_configured: bool
@@ -118,6 +107,10 @@ class FactRead(BaseModel):
     id: str
     label: str
     value: ScalarValue
+    # El dato canónico sirve para contrastar proveedores y queda en inglés
+    # ("widowed"). Quien lee la ficha necesita el texto que el modelo ya
+    # escribió en español ("Viuda"); sin este campo nunca salía de la base.
+    display_value: str | None = None
     origin: Origin
     verification_status: VerificationStatus
     confidence_band: ConfidenceBand
@@ -129,7 +122,16 @@ class FactRead(BaseModel):
 class FactReviewRequest(BaseModel):
     action: Literal["confirm", "correct"]
     value: ScalarValue = None
-    reason: str = Field(min_length=5, max_length=1000)
+    # Confirmar es decir "esto ya estaba bien": exigir una justificación para
+    # eso sólo añade fricción y produce motivos de relleno que ensucian la
+    # auditoría. Corregir sí cambia el dato, y ahí el motivo es obligatorio.
+    reason: str = Field(default="", max_length=1000)
+
+    @model_validator(mode="after")
+    def _corregir_exige_motivo(self) -> "FactReviewRequest":
+        if self.action == "correct" and len(self.reason.strip()) < 5:
+            raise ValueError("una corrección debe explicar el motivo")
+        return self
 
 
 class RouteRead(BaseModel):
@@ -208,6 +210,27 @@ class SourceUpdate(BaseModel):
     status: str | None = None
 
 
+class MemoryImageRead(BaseModel):
+    id: str
+    generation: int
+    status: Literal[
+        "generating", "pending_review", "approved", "rejected", "failed"
+    ]
+    image_url: str | None
+    rendered_video_url: str | None
+    render_status: Literal["rendering", "ready", "failed", "expired"] | None
+    failure_code: str | None
+    reviewed_at: datetime | None
+
+
+class MemoryImageDecisionRequest(BaseModel):
+    action: Literal["approve", "reject"]
+
+
+class MemoryImageDecisionRead(BaseModel):
+    memory_image: MemoryImageRead
+
+
 class CaseRead(BaseModel):
     id: str
     analysis_id: str
@@ -223,6 +246,7 @@ class CaseRead(BaseModel):
     sources: list[SourceRead]
     routes: list[RouteRead]
     critical_inconsistencies: int
+    memory_image: MemoryImageRead | None = None
 
 
 class CaseApprovalRequest(BaseModel):

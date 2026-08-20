@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from app.models import AuditLog
+from app.entities import AuditLog
 from app.security.crypto import EnvelopeCipher
 
 

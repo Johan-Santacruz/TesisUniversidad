@@ -52,6 +52,16 @@ def reconcile_readings(
         if signal is not None
     }
     key = gpt.key if gpt is not None else claude.key if claude is not None else "unknown"
+    # El rótulo legible viene del proveedor; si ninguno lo dio, cae en la clave.
+    readable = next(
+        (
+            (signal.label, signal.display_value)
+            for signal in (gpt, claude)
+            if signal is not None and getattr(signal, "label", "")
+        ),
+        (key, ""),
+    )
+    label, display_value = readable
     origins = [
         signal.origin for signal in available.values() if signal is not None
     ]
@@ -76,6 +86,8 @@ def reconcile_readings(
     ):
         return ReconciledSignal(
             key=key,
+            label=label,
+            display_value=display_value,
             value=None,
             origin=origins[0] if origins else Origin.MENTIONED,
             verification_status=VerificationStatus.NOT_IDENTIFIED,
@@ -94,6 +106,8 @@ def reconcile_readings(
     if invalid:
         return ReconciledSignal(
             key=key,
+            label=label,
+            display_value=display_value,
             value=None,
             origin=Origin.CONTRASTED,
             verification_status=VerificationStatus.INCONSISTENT,
@@ -107,6 +121,8 @@ def reconcile_readings(
         if _canonical(values[0].value) == _canonical(values[1].value):
             return ReconciledSignal(
                 key=key,
+                label=label,
+                display_value=display_value,
                 value=values[0].value,
                 origin=Origin.CONTRASTED,
                 verification_status=VerificationStatus.CONFIRMED,
@@ -116,6 +132,8 @@ def reconcile_readings(
             )
         return ReconciledSignal(
             key=key,
+            label=label,
+            display_value=display_value,
             value=None,
             origin=Origin.CONTRASTED,
             verification_status=VerificationStatus.INCONSISTENT,
@@ -127,6 +145,8 @@ def reconcile_readings(
         signal = next(iter(valid_non_null.values()))
         return ReconciledSignal(
             key=key,
+            label=label,
+            display_value=display_value,
             value=signal.value,
             origin=signal.origin,
             verification_status=VerificationStatus.PENDING,
@@ -136,6 +156,8 @@ def reconcile_readings(
         )
     return ReconciledSignal(
         key=key,
+        label=label,
+        display_value=display_value,
         value=None,
         origin=Origin.CONTRASTED,
         verification_status=VerificationStatus.INCONSISTENT,

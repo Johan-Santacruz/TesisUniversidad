@@ -7,10 +7,6 @@ from app.config import Settings
 from app.schemas import AnalysisReadinessRead, UserRole
 
 
-class RealAnalysisNotReadyError(PermissionError):
-    pass
-
-
 class AnalysisReadinessService:
     def __init__(
         self,
@@ -32,13 +28,6 @@ class AnalysisReadinessService:
             else self.beto_available
         )
         return AnalysisReadinessRead(
-            real_analysis_ready=(
-                self.settings.real_data_controls_ready
-                and self.settings.openai_configured
-                and self.settings.anthropic_configured
-                and ffmpeg_available
-                and ffprobe_available
-            ),
             can_upload=role in {UserRole.OPERATOR, UserRole.ADMIN},
             openai_configured=self.settings.openai_configured,
             anthropic_configured=self.settings.anthropic_configured,
@@ -49,9 +38,3 @@ class AnalysisReadinessService:
             max_video_bytes=self.settings.max_video_bytes,
             video_retention_days=self.settings.video_retention_days,
         )
-
-    def require_real_ready(self) -> None:
-        if not self.check(UserRole.ADMIN).real_analysis_ready:
-            raise RealAnalysisNotReadyError(
-                "Los testimonios reales están bloqueados hasta confirmar ZDR y autorización"
-            )

@@ -17,29 +17,44 @@ from app.ai.contracts import (
     TranscriptResult,
     TranscriptSegment,
 )
+from app.ai.providers import RawTranscriptChunk, RawTranscriptSegment
 from app.services.analysis import AnalysisService
+from app.services.media import AudioChunk
+from app.services.transcription import TranscriptionService
+
+
+class FakeMedia:
+    """Entrega un bloque de audio ya decodificado, como haría ffmpeg."""
+
+    def iter_audio_chunks(self, video: object):
+        yield AudioChunk(
+            index=0,
+            start_ms=0,
+            end_ms=16000,
+            wav_bytes=b"audio-en-memoria",
+        )
 
 
 class FakeWhisper:
-    def transcribe(self, audio: bytes, *, filename: str) -> TranscriptResult:
+    """Doble al nivel del adaptador real: transcribe un bloque a la vez."""
+
+    def transcribe_chunk(self, audio: bytes, *, filename: str) -> RawTranscriptChunk:
         assert audio == b"audio-en-memoria"
-        assert filename.endswith(".mp3")
-        return TranscriptResult(
+        assert filename.endswith(".wav")
+        return RawTranscriptChunk(
             text="Testimonio enteramente ficticio sobre una llegada a Popayán.",
-            segments=[
-                TranscriptSegment(
-                    id="segment-1",
+            segments=(
+                RawTranscriptSegment(
                     start_ms=0,
                     end_ms=8000,
                     text="Una familia ficticia llegó a Popayán.",
                 ),
-                TranscriptSegment(
-                    id="segment-2",
+                RawTranscriptSegment(
                     start_ms=8000,
                     end_ms=16000,
                     text="Necesita orientación temporal.",
                 ),
-            ],
+            ),
         )
 
 
@@ -61,7 +76,7 @@ class FakeBeto:
 
 def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
     evidence = [
-        EvidenceRef(segment_id="segment-1", start_ms=0, end_ms=8000)
+        EvidenceRef(segment_id="segment-0000-0000", start_ms=0, end_ms=8000)
     ]
     routes = [
         ProviderRoute(
@@ -70,6 +85,7 @@ def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
             steps=[
                 ProviderRouteStep(
                     title="Consultar CRAV",
+                    key_point="Lleve lo que conserve.",
                     instructions="Confirmar el canal vigente.",
                     claims=[
                         GroundedClaim(
@@ -86,6 +102,7 @@ def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
             steps=[
                 ProviderRouteStep(
                     title="Consultar servicios",
+                    key_point="Lleve lo que conserve.",
                     instructions="Verificar requisitos vigentes.",
                     claims=[
                         GroundedClaim(
@@ -102,6 +119,7 @@ def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
             steps=[
                 ProviderRouteStep(
                     title="Solicitar evaluación",
+                    key_point="Lleve lo que conserve.",
                     instructions="Verificar voluntariedad y condiciones.",
                     claims=[
                         GroundedClaim(
@@ -118,18 +136,24 @@ def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
         signals=[
             ProviderSignal(
                 key="people",
+                label="People",
+                display_value="",
                 value="Familia ficticia",
                 origin=Origin.MENTIONED,
                 evidence=evidence,
             ),
             ProviderSignal(
                 key="current_location",
+                label="Current location",
+                display_value="",
                 value="Popayán, Cauca",
                 origin=Origin.MENTIONED,
                 evidence=evidence,
             ),
             ProviderSignal(
                 key="urgency",
+                label="Urgencia",
+                display_value="Alta",
                 value=urgency,
                 origin=Origin.INFERRED,
                 evidence=evidence,
@@ -153,9 +177,14 @@ class FakeReader:
     def __init__(self, value: ProviderAnalysis | Exception):
         self.value = value
 
-    def analyze(self, segments):
+    def analyze(self, segments, sources=None, classification=None):
         if isinstance(self.value, Exception):
             raise self.value
+        # El catálogo debe llegar al proveedor: sin él no podría citar fuentes.
+        assert sources is not None
+        # Y la clasificación también: es lo que permite que las rutas
+        # respondan al tipo de desplazamiento en vez de ser plantillas.
+        self.seen_classification = classification
         return self.value
 
 
@@ -167,10 +196,14 @@ def _configured_service(operator_client, *, claude_value):
         rag=app.state.rag,
         beto=FakeBeto(),
         video_service=app.state.videos,
-        whisper=FakeWhisper(),
+        media=FakeMedia(),
+        # El doble se queda al nivel del adaptador real (un bloque a la vez) y
+        # el servicio de transcripción es el de producción: así la prueba
+        # recorre la misma costura que la app.
+        transcription=TranscriptionService(FakeWhisper()),
         gpt=FakeReader(_provider("gpt")),
         claude=FakeReader(claude_value),
-        audio_extractor=lambda _: b"audio-en-memoria",
+        memory_images=app.state.memory_images,
         retry_attempts=0,
     )
 
@@ -183,7 +216,6 @@ def _run_uploaded(operator_client, tiny_video_bytes, *, claude_value):
     video = operator_client.post(
         "/api/v1/videos",
         files={"file": ("ficticio.mp4", tiny_video_bytes, "video/mp4")},
-        data={"data_kind": "fictitious"},
     ).json()
     analysis = operator_client.post(
         f"/api/v1/videos/{video['id']}/analyses"
@@ -196,6 +228,30 @@ def _run_uploaded(operator_client, tiny_video_bytes, *, claude_value):
     ]
     return analysis, payloads
 
+
+
+def test_routes_are_built_knowing_the_kind_of_displacement(
+    operator_client, tiny_video_bytes
+):
+    """La clasificación se calculaba después de llamar a los proveedores, así
+    que las rutas nacían sin saber de qué desplazamiento se trataba y salían
+    intercambiables entre casos. Ahora viaja en el input del análisis."""
+    service = _configured_service(operator_client, claude_value=_provider("claude"))
+    operator_client.app.state.analysis = service
+    video = operator_client.post(
+        "/api/v1/videos",
+        files={"file": ("ficticio.mp4", tiny_video_bytes, "video/mp4")},
+    ).json()
+    analysis = operator_client.post(
+        f"/api/v1/videos/{video['id']}/analyses"
+    ).json()
+    operator_client.get(analysis["events_url"])
+
+    for reader in (service.gpt, service.claude):
+        assert reader.seen_classification is not None, (
+            "el proveedor construyó las rutas sin la clasificación"
+        )
+        assert "category" in reader.seen_classification
 
 def test_configured_pipeline_runs_all_models_and_grounds_three_routes(
     operator_client, tiny_video_bytes
@@ -253,8 +309,9 @@ def test_configured_pipeline_case_is_readable_through_public_workspace_contract(
 
     assert response.status_code == 200
     workspace = response.json()
-    assert workspace["segments"][0]["id"] == "segment-1"
-    assert "urgency" in {fact["label"] for fact in workspace["facts"]}
+    assert workspace["segments"][0]["id"] == "segment-0000-0000"
+    labels = {fact["label"] for fact in workspace["facts"]}
+    assert "Urgencia" in labels, labels
     assert len(workspace["routes"]) == 3
 
 
@@ -296,7 +353,48 @@ def test_one_provider_timeout_produces_partial_pending_results(
     assert payloads[7]["payload"]["recommendation_status"] == "preliminary"
 
     database = operator_client.app.state.database
-    from app.models import Analysis
+    from app.entities import Analysis
 
     with database.session() as session:
         assert session.get(Analysis, analysis["id"]).status == "partial"
+
+
+def test_demo_pipeline_generates_a_pending_memory_image_without_provider(operator_client):
+    video = operator_client.post("/api/v1/videos/demo").json()
+    analysis = operator_client.post(f"/api/v1/videos/{video['id']}/analyses").json()
+    stream = operator_client.get(analysis["events_url"]).text
+    routes = next(
+        json.loads(line.removeprefix("data: "))["payload"]
+        for line in stream.splitlines()
+        if line.startswith("data: ")
+        and json.loads(line.removeprefix("data: "))["stage"] == "routes"
+    )
+    from app.entities import MemoryImage
+
+    with operator_client.app.state.database.session() as session:
+        images = list(
+            session.query(MemoryImage).filter(MemoryImage.case_id == routes["case_id"])
+        )
+    assert [(image.generation, image.status) for image in images] == [(1, "pending_review")]
+
+
+def test_uploaded_pipeline_keeps_completion_status_when_image_provider_is_missing(
+    operator_client, tiny_video_bytes
+):
+    analysis, payloads = _run_uploaded(
+        operator_client,
+        tiny_video_bytes,
+        claude_value=_provider("claude"),
+    )
+    case_id = payloads[-1]["payload"]["case_id"]
+    from app.entities import Analysis, MemoryImage
+
+    with operator_client.app.state.database.session() as session:
+        assert session.get(Analysis, analysis["id"]).status == "completed"
+        [image] = list(
+            session.query(MemoryImage).filter(MemoryImage.case_id == case_id)
+        )
+    assert (image.status, image.failure_code) == (
+        "failed",
+        "image_provider_not_configured",
+    )

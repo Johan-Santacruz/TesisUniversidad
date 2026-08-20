@@ -1,2 +1,2 @@
-"""SIAD secure video analysis backend."""
+"""SENDA secure video analysis backend."""
 

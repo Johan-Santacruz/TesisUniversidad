@@ -9,7 +9,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.database import Database
-from app.models import User
+from app.entities import User
 from app.schemas import UserRole
 from app.security.tokens import TokenService
 
