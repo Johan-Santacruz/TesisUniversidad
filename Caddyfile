@@ -1,6 +1,13 @@
-# El reparto es el mismo se entre por donde se entre; se define una vez para
-# que las dos puertas no se separen con el tiempo.
-(reparto) {
+# El dominio y el certificado los termina el proxy del anfitrión, no esto.
+#
+# Por eso aquí se sirve HTTP plano y sin redirección, a propósito: si Caddy
+# redirigiera a HTTPS, el proxy de delante —que ya entrega por HTTPS— entraría
+# en un bucle de redirecciones; y si intentara emitir su propio certificado,
+# fallaría siempre, porque los puertos 80 y 443 públicos son del anfitrión.
+#
+# Caddy se queda como repartidor interno: decide qué va a la API y qué al
+# frontend, que es lo que ninguno de los dos sabe hacer por su cuenta.
+:80 {
 	encode gzip
 
 	# La API va primero: una ruta más específica gana a la del sitio.
@@ -23,26 +30,4 @@
 
 	# El testimonio no debe quedar en la caché de nadie por el camino.
 	header /api/* Cache-Control "no-store"
-}
-
-# Puerta principal: Caddy pide y renueva el certificado de Let's Encrypt solo,
-# con que el dominio apunte a esta máquina y los puertos 80 y 443 lleguen.
-{$SENDA_DOMINIO} {
-	import reparto
-
-	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "same-origin"
-		-Server
-	}
-}
-
-# Puerta para el túnel. Va en HTTP plano y a propósito: el TLS lo termina
-# Cloudflare en su borde, y si aquí se redirigiera a HTTPS el túnel entraría en
-# un bucle de redirecciones. No se publica al exterior: solo es alcanzable
-# desde la red interna de Docker, así que nadie llega a ella sin pasar por el
-# túnel.
-:8080 {
-	import reparto
 }

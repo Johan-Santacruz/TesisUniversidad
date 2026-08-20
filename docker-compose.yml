@@ -36,42 +36,15 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
+      # Solo el 80, y en HTTP plano: el proxy del anfitrión entra por aquí,
+      # termina el TLS de cara a internet y reparte el dominio. El 443 no se
+      # abre porque el certificado no se emite en esta máquina.
       - "80:80"
-      - "443:443"
-      # Puerta en HTTP plano, atada al bucle local a propósito: desde internet
-      # no se alcanza, pero sí desde la propia máquina. Eso basta para que
-      # cualquiera con acceso SSH la reenvíe a su equipo con `ssh -L` y vea el
-      # sistema mientras el anfitrión del proveedor siga quedándose con el 80
-      # y el 443. cloudflared, si se usa, entra por la red de Docker.
-      - "127.0.0.1:8080:8080"
-    environment:
-      SENDA_DOMINIO: ${SENDA_DOMINIO}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # Los certificados persisten: sin esto, cada reinicio pide uno nuevo y
-      # Let's Encrypt limita a cinco por semana y dominio.
-      - caddy-datos:/data
-      - caddy-config:/config
     depends_on:
       - api
       - web
 
-  # El túnel sale desde aquí hacia Cloudflare, así que no necesita ningún
-  # puerto abierto de entrada. Existe porque el anfitrión del proveedor se
-  # queda con el 80 y el 443, y sin ellos Caddy no puede emitir certificado.
-  #
-  # Va en un perfil: sin token, `docker compose up -d` no debe intentar
-  # levantarlo ni fallar por ello. Se arranca con:
-  #   docker compose --profile tunel up -d
-  tunel:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    profiles: ["tunel"]
-    command: tunnel --no-autoupdate run --token ${SENDA_TUNNEL_TOKEN}
-    depends_on:
-      - proxy
-
 volumes:
   datos:
-  caddy-datos:
-  caddy-config:
