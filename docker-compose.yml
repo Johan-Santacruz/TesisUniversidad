@@ -38,10 +38,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    expose:
-      # Puerta interna del túnel. No se publica al anfitrión: solo la alcanzan
-      # los contenedores de esta red, y cloudflared es uno de ellos.
-      - "8080"
+      # Puerta en HTTP plano, atada al bucle local a propósito: desde internet
+      # no se alcanza, pero sí desde la propia máquina. Eso basta para que
+      # cualquiera con acceso SSH la reenvíe a su equipo con `ssh -L` y vea el
+      # sistema mientras el anfitrión del proveedor siga quedándose con el 80
+      # y el 443. cloudflared, si se usa, entra por la red de Docker.
+      - "127.0.0.1:8080:8080"
     environment:
       SENDA_DOMINIO: ${SENDA_DOMINIO}
     volumes:
