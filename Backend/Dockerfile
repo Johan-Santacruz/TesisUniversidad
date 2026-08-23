@@ -27,10 +27,23 @@ dependencias += proyecto.get("optional-dependencies", {}).get("ml", [])
 open("/tmp/requisitos.txt", "w").write("\n".join(dependencias) + "\n")
 PY
 
+# El encoder base de BETO se descarga aquí, al construir, y no al arrancar.
+# `AutoModel.from_pretrained` va a HuggingFace la primera vez: en un servidor
+# sin salida a internet la aplicación levanta igual, pero el clasificador queda
+# como no disponible y el fallo solo se ve al analizar un testimonio. Bajarlo
+# ahora hace el arranque reproducible y sin red.
+RUN python -c "\
+from transformers import AutoModel, AutoTokenizer; \
+m='dccuchile/bert-base-spanish-wwm-cased'; \
+AutoModel.from_pretrained(m); \
+AutoTokenizer.from_pretrained(m); \
+print('BETO en cache')"
+
 COPY . .
 
-# Los pesos de BETO no viajan en la imagen: pesan 840 MB y se montan como
-# volumen desde el servidor (véase docs/despliegue.md).
+# Los pesos AFINADOS (model_categoria.pt y model_subcategoria.pt) sí quedan
+# fuera: pesan 840 MB y se montan como volumen desde el servidor. Lo que la
+# imagen trae es solo el encoder base que ambos comparten.
 ENV SENDA_BETO_ARTIFACT_DIR=/app/ml-artifacts/violencia_classifier_artifacts \
     PYTHONUNBUFFERED=1
 

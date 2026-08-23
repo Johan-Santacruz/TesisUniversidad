@@ -1,6 +1,9 @@
 # Tres servicios: la API, el frontend estático y Caddy delante de ambos.
-# Caddy es quien obtiene y renueva el certificado de senda.casa por su cuenta;
-# por eso los puertos 80 y 443 son suyos y nadie más los expone.
+#
+# El certificado y el dominio NO se gestionan aquí: los termina el proxy del
+# anfitrión (el del proveedor del servidor). Caddy se queda como repartidor
+# interno —/api a la API, el resto al frontend— y publica HTTP plano en el 80,
+# que es por donde entra ese proxy. Por eso el 443 no se abre.
 services:
   api:
     build:

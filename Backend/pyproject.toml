@@ -12,13 +12,12 @@ dependencies = [
   "anthropic>=0.49,<1",
   "argon2-cffi>=23.1,<26",
   "cryptography>=44,<46",
-  "email-validator>=2.2,<3",
   "fastapi>=0.115,<1",
-  "httpx>=0.28,<1",
   "openai>=1.68,<2",
   "Pillow>=11,<13",
   "pydantic-settings>=2.8,<3",
   "PyJWT>=2.10,<3",
+  # Sin import directo: FastAPI la exige para UploadFile/File en videos.py.
   "python-multipart>=0.0.20,<1",
   "SQLAlchemy>=2.0.38,<3",
   "typer>=0.15,<1",
@@ -28,13 +27,16 @@ dependencies = [
 [project.optional-dependencies]
 ml = [
   "joblib>=1.4,<2",
+  # Sin import directo: joblib deserializa los LabelEncoder de sklearn.
   "scikit-learn>=1.6,<2",
   "torch>=2.6,<3",
-  "transformers>=4.49,<5",
+  # El pin llegaba hasta <5, pero el modelo se entrenó y se verificó con la 5.x.
+  # Dejarlo en 4.x haría que la imagen instalara una versión distinta de la probada.
+  "transformers>=4.49,<6",
 ]
 test = [
+  "httpx>=0.28,<1",  # la usa fastapi.testclient.TestClient
   "pytest>=8.3,<9",
-  "pytest-asyncio>=0.25,<1",
   "pytest-cov>=6,<7",
 ]
 
