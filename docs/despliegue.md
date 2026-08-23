@@ -1,7 +1,12 @@
 # Desplegar SENDA en la máquina virtual
 
 Servidor `104.225.223.220`, SSH por el puerto `2228`, usuario `camilo`,
-dominio `senda.casa`.
+dominio `senda.casa`. El proyecto vive en `/root/senda`.
+
+**Un detalle del servidor que cambia los comandos:** entras como `camilo` y la
+sesión interactiva te convierte en `root`, pero `scp` no hace ese cambio — se
+queda como `camilo`, que no puede escribir en `/root`. Por eso los archivos
+grandes se copian a `/tmp` y se mueven después desde dentro de la sesión.
 
 **El dominio y el certificado no se gestionan aquí.** El proveedor del servidor
 ya enruta `senda.casa` y termina el TLS en su propio proxy. Esta máquina solo
@@ -16,8 +21,16 @@ esto es automático.
 ```bash
 ssh camilo@104.225.223.220 -p 2228
 
-mkdir -p ~/senda && cd ~/senda
+mkdir -p /root/senda && cd /root/senda
 git clone https://github.com/Miloiskd/TesisUniversidad.git .
+```
+
+Si ya está desplegado, `docker compose ls` dice dónde:
+
+```bash
+docker compose ls
+# NAME    STATUS        CONFIG FILES
+# senda   running(3)    /root/senda/docker-compose.yml
 ```
 
 El puerto 80 tiene que estar abierto para que el proxy del anfitrión alcance a
@@ -54,16 +67,24 @@ recupera: cada registro se cifra con una clave derivada de ella.
 ## 3. Los pesos afinados de BETO
 
 No están en el repositorio: son 420 MB cada uno y GitHub rechaza cualquier
-archivo de más de 100 MB. Se copian una sola vez, **desde tu equipo**:
+archivo de más de 100 MB. Se copian en dos pasos, y el primero sale **de tu
+equipo**: el prompt tiene que decir tu Mac, no `root@camilo`.
 
 ```bash
-ssh camilo@104.225.223.220 -p 2228 \
-  "mkdir -p ~/senda/Backend/ml-artifacts/violencia_classifier_artifacts"
-
 scp -P 2228 \
   Backend/ml-artifacts/violencia_classifier_artifacts/model_categoria.pt \
   Backend/ml-artifacts/violencia_classifier_artifacts/model_subcategoria.pt \
-  camilo@104.225.223.220:~/senda/Backend/ml-artifacts/violencia_classifier_artifacts/
+  camilo@104.225.223.220:/tmp/
+```
+
+Son 840 MB y la subida puede tardar más de una hora. Cuando termine, **dentro
+del servidor** en sesión interactiva, que es donde eres `root`:
+
+```bash
+ssh camilo@104.225.223.220 -p 2228
+
+mv /tmp/model_categoria.pt /tmp/model_subcategoria.pt \
+   /root/senda/Backend/ml-artifacts/violencia_classifier_artifacts/
 ```
 
 Los demás artefactos (codificadores, `metrics_config_singlelabel.json`,
@@ -75,9 +96,13 @@ queda marcada como no disponible y el análisis lo dice en vez de inventárselo.
 Comprueba que llegaron antes de seguir:
 
 ```bash
-ls -lh ~/senda/Backend/ml-artifacts/violencia_classifier_artifacts/*.pt
-# deben aparecer los dos, ~420 MB cada uno
+ls -lh /root/senda/Backend/ml-artifacts/violencia_classifier_artifacts/*.pt
+# los dos, ~420 MB cada uno, con la fecha de la copia
 ```
+
+Si la fecha es vieja, no se reemplazaron: los codificadores nuevos son de 15
+subcategorías y unos pesos anteriores, de 10, harían fallar el arranque con
+`size mismatch`.
 
 ## 4. Levantar
 
@@ -113,7 +138,7 @@ En los registros de `api` verás avisos de `transformers` sobre claves
 ## Actualizar
 
 ```bash
-cd ~/senda && git pull && docker compose up -d --build
+cd /root/senda && git pull && docker compose up -d --build
 ```
 
 La base y los testimonios cifrados viven en un volumen y sobreviven a cada
