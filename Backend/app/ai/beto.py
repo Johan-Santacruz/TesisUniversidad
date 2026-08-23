@@ -37,14 +37,19 @@ class BetoAdapter:
         result = self.classifier.predict(text)
         # predict() añade la distribución completa por clase; el contrato
         # público sólo expone la etiqueta ganadora y su confianza.
+        # subcategory llega en None cuando la categoría predicha no tiene
+        # ninguna subcategoría alcanzable: preferimos abstenernos antes que
+        # devolver una etiqueta de otra familia con alta confianza.
         return BetoClassification(
             status="available",
             category=_label(result["category"]),
-            subcategory=_label(result["subcategory"]),
+            subcategory=_label(result.get("subcategory")),
         )
 
 
-def _label(reading: dict[str, Any]) -> LabelProbability:
+def _label(reading: dict[str, Any] | None) -> LabelProbability | None:
+    if reading is None:
+        return None
     return LabelProbability(
         label=str(reading["label"]),
         confidence=float(reading["confidence"]),

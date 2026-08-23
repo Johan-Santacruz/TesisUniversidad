@@ -5,16 +5,18 @@
     "TEST_SIZE": 0.15,
     "VAL_SIZE": 0.15,
     "MIN_SAMPLES_CATEGORY": 50,
-    "MIN_SAMPLES_SUBCATEGORY": 50,
+    "MIN_SAMPLES_SUBCATEGORY": 40,
     "MIN_EVAL_EXAMPLES_PER_CLASS": 2,
-    "REQUIRE_SINGLE_CATEGORY_FOR_SUBCATEGORY": true,
+    "RECOMPUTE_ELIGIBILITY": true,
+    "ENFORCE_SUBCATEGORY_COVERAGE": true,
+    "BASELINE_SOLVER": "lbfgs",
     "MIN_HIERARCHICAL_GROUP_SIZE": 35,
     "TARGET_MACRO_F1": 0.85,
     "MAX_LEN_CAP": 256,
     "MAX_LEN_PERCENTILE": 95,
     "BATCH_SIZE": 16,
-    "EPOCHS": 6,
-    "PATIENCE": 2,
+    "EPOCHS": 15,
+    "PATIENCE": 3,
     "MIN_DELTA": 0.0001,
     "DROPOUT": 0.35,
     "LABEL_SMOOTHING": 0.05,
@@ -27,17 +29,18 @@
     "USE_WEIGHTED_SAMPLER": true,
     "NUM_WORKERS": 0,
     "USE_HIERARCHY_FOR_SUBCATEGORY": true,
-    "ARTIFACT_DIR": "/content/drive/MyDrive/violencia_classifier_artifacts",
+    "MASK_SUBCATEGORY_BY_CATEGORY": true,
+    "ARTIFACT_DIR": "/content/violencia_classifier_artifacts",
     "MODEL_NAME": "dccuchile/bert-base-spanish-wwm-cased",
     "MAX_LEN": 240
   },
   "n_events_total": 2870,
   "n_category_trainable": 2449,
-  "n_subcategory_trainable": 1806,
-  "category_coverage_single_label": 1.0,
-  "subcategory_coverage_single_label": 1.0,
-  "n_category_excluded": 421,
-  "n_subcategory_excluded": 1064,
+  "n_subcategory_trainable": 2208,
+  "category_coverage_single_label": 0.9722111949186185,
+  "subcategory_coverage_single_label": 0.9090160559901194,
+  "n_category_excluded": 351,
+  "n_subcategory_excluded": 441,
   "category_classes": [
     "Acciones armadas",
     "Ataques contra la población civil",
@@ -46,42 +49,224 @@
     "Uso de artefactos explosivos"
   ],
   "subcategory_classes": [
-    "Amenazas (individuales/colectivas)",
+    "Amenazas y control social sobre la población",
     "Atentado",
     "Combates",
+    "Desaparición forzada",
+    "Desplazamiento forzado (masivo o individual)",
     "Enfrentamiento entre actores no estatales",
     "Homicidio intencional en persona protegida",
     "Hostigamiento",
+    "Incursión",
+    "Masacre (homicidio colectivo)",
     "Mina antipersonal - MAP",
+    "Obstrucción del acceso y la movilidad humanitaria",
     "Reclutamiento, vinculación y utilización de menores",
     "Secuestro",
     "Trampas explosivas- TE"
   ],
-  "category_removed_classes": {},
-  "subcategory_removed_classes": {},
+  "category_removed_classes": {
+    "Ataque a objetivos ilícitos de guerra": 38,
+    "Categorías Complementarias": 32
+  },
+  "subcategory_removed_classes": {
+    "Munición sin explotar - MSE": 38,
+    "Ataque, ocupación o uso infraestructura y/o bienes civiles (incluye bienes culturales y religiosos)": 34,
+    "Desvinculación de menores de edad": 31,
+    "Bloqueo de vías y/o Retén ilegal": 27,
+    "Ataque a infraestructura militar / policial": 24,
+    "Impacto por movilización social/protestas": 23,
+    "Tortura": 16,
+    "Emboscada": 11,
+    "Paro armado": 7,
+    "Desplazamiento por conflicto interétnico": 2,
+    "Violencia sexual": 2,
+    "Ataque a infraestructura vial": 2,
+    "Toma de rehenes": 2,
+    "Ataques a bienes indispensables para la superviviencia de la población civil": 2
+  },
+  "category_to_subcategories": {
+    "Acciones armadas": [
+      "Combates",
+      "Enfrentamiento entre actores no estatales",
+      "Hostigamiento",
+      "Incursión"
+    ],
+    "Ataques contra la población civil": [
+      "Amenazas y control social sobre la población",
+      "Atentado",
+      "Desaparición forzada",
+      "Homicidio intencional en persona protegida",
+      "Masacre (homicidio colectivo)",
+      "Reclutamiento, vinculación y utilización de menores",
+      "Secuestro"
+    ],
+    "Desplazamiento forzado": [
+      "Desplazamiento forzado (masivo o individual)"
+    ],
+    "Restricción al acceso humanitario": [
+      "Obstrucción del acceso y la movilidad humanitaria"
+    ],
+    "Uso de artefactos explosivos": [
+      "Mina antipersonal - MAP",
+      "Trampas explosivas- TE"
+    ]
+  },
+  "subcategory_mask": [
+    [
+      0,
+      0,
+      1,
+      0,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "subcategory_merge_map": {
+    "Desplazamientos masivos": "Desplazamiento forzado (masivo o individual)",
+    "Desplazamiento individual": "Desplazamiento forzado (masivo o individual)",
+    "Amenazas (individuales/colectivas)": "Amenazas y control social sobre la población",
+    "Control social (toques de queda, códigos de conducta, manuales de convivencia, carnetizando)": "Amenazas y control social sobre la población",
+    "Categoría 1: Negación por parte de las autoridades de la existencia de necesidades humanitarias o de derecho a la asistencia.": "Obstrucción del acceso y la movilidad humanitaria",
+    "Categoría 2: Obstáculos e impedimentos a la entrada de agencias, personal y bienes al país": "Obstrucción del acceso y la movilidad humanitaria",
+    "Categoría 3: Restricciones o interferencia con el paso de agencias, personal o bienes en el país": "Obstrucción del acceso y la movilidad humanitaria",
+    "Categoría 6: Interferencia en la implementación de actividades/acción humanitaria": "Obstrucción del acceso y la movilidad humanitaria",
+    "Categoría 7: Presencia de Minas Antipersonales (MAP) y Municiones Sin Explotar (MUSE)": "Obstrucción del acceso y la movilidad humanitaria",
+    "Categoría 8: Ambiente físico/Estado de infraestructura física": "Obstrucción del acceso y la movilidad humanitaria",
+    "Restricciones a la movilidad y sobre, u obstrucción de acceso a servicios y asistencia por parte de las poblaciones": "Obstrucción del acceso y la movilidad humanitaria",
+    "Confinamiento/Bloqueo de comunidades": "Obstrucción del acceso y la movilidad humanitaria",
+    "Categoría 4: Operaciones militares y hostilidades continuas impidiendo a las operaciones humanitarias": "Obstrucción del acceso y la movilidad humanitaria",
+    "Categoría 5: Amenazas y violaciones encontra el personal humanitario y sus instalaciones": "Obstrucción del acceso y la movilidad humanitaria",
+    "Categoría 5.1: Ataques contra misión médica": "Obstrucción del acceso y la movilidad humanitaria"
+  },
+  "mask_subcategory_by_category": true,
   "baseline_category_test": {
-    "accuracy": 0.9184782608695652,
-    "f1_macro": 0.8959127151403543,
-    "f1_weighted": 0.9181368042985932
+    "accuracy": 0.9320652173913043,
+    "f1_macro": 0.9119256629081658,
+    "f1_weighted": 0.9327378808336079
   },
   "baseline_subcategory_test": {
-    "accuracy": 0.9003690036900369,
-    "f1_macro": 0.8505416010744403,
-    "f1_weighted": 0.8961401061047989
+    "accuracy": 0.8644578313253012,
+    "f1_macro": 0.8317117495328648,
+    "f1_weighted": 0.8654248176345538
   },
   "hierarchical_baseline_subcategory_test": {
-    "accuracy": 0.8966789667896679,
-    "f1_macro": 0.8474802252077899,
-    "f1_weighted": 0.8932151905156288
+    "accuracy": 0.8614457831325302,
+    "f1_macro": 0.8264630950265804,
+    "f1_weighted": 0.8610567508717633
   },
   "transformer_category_test": {
-    "accuracy": 0.9293478260869565,
-    "f1_macro": 0.8979038378508003,
-    "f1_weighted": 0.9297187394997104
+    "accuracy": 0.9375,
+    "f1_macro": 0.8963815351790159,
+    "f1_weighted": 0.9381167122075891
   },
   "transformer_subcategory_test": {
-    "accuracy": 0.9261992619926199,
-    "f1_macro": 0.8871309529968056,
-    "f1_weighted": 0.9273267884184379
+    "accuracy": 0.8795180722891566,
+    "f1_macro": 0.8425281351478555,
+    "f1_weighted": 0.8799472227782041
+  },
+  "robustez_lexica": {
+    "solapamiento_lexico": {
+      "Desplazamiento forzado": 1.0,
+      "Uso de artefactos explosivos": 0.776255707762557,
+      "Acciones armadas": 0.6839729119638827,
+      "Ataques contra la población civil": 0.5159194282001299,
+      "Restricción al acceso humanitario": 0.4846938775510204
+    },
+    "accuracy_original": 0.9375,
+    "accuracy_ablado": 0.8831521739130435,
+    "caida_por_ablacion": 0.05434782608695654,
+    "caida_por_clase": {
+      "Desplazamiento forzado": 0.2857142857142857,
+      "Uso de artefactos explosivos": 0.1515151515151516,
+      "Restricción al acceso humanitario": 0.1333333333333333,
+      "Acciones armadas": 0.10447761194029848,
+      "Ataques contra la población civil": 0.008658008658008587
+    }
+  },
+  "coherencia_jerarquica": {
+    "coherencia_sin_mascara": 0.9608433734939759,
+    "coherencia_con_mascara": 1.0,
+    "accuracy_sub_sin_mascara": 0.8795180722891566,
+    "accuracy_sub_con_mascara": 0.8975903614457831,
+    "f1_macro_sub_sin_mascara": 0.8425281351478555,
+    "f1_macro_sub_con_mascara": 0.871746250683123
   }
 }

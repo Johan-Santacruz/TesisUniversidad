@@ -35,3 +35,7 @@ yarn-error.log*
 **/__pycache__/
 **/*.py[cod]
 **/.ipynb_checkpoints/
+
+# Respaldos locales de artefactos del clasificador: los pesos .pt pesan 420 MB
+# cada uno y GitHub rechaza cualquier archivo de mas de 100 MB.
+Backend/ml-artifacts/*-backup/
