@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import { apiClient } from "../../api/client"
@@ -152,34 +152,32 @@ function RouteStops({
     )
   }
 
-  // El trazo de avance llega hasta la parada abierta; sin ninguna abierta se
-  // detiene en la primera, que es donde empieza el recorrido.
-  const reached = openStep ?? 0
-  const progress = route.steps.length > 1
-    ? reached / (route.steps.length - 1)
-    : 1
+  // La parada abierta manda: el recorrido siempre muestra una y arranca por
+  // la primera. Un panel vacío bajo el riel no diría nada.
+  const current = openStep ?? 0
+  const step = route.steps[current]
 
-  const grounded = route.steps.filter((step) =>
-    step.claims.length
-    && step.claims.every((claim) => sources.has(claim.source_entry_id))).length
+  const grounded = route.steps.filter((s) =>
+    s.claims.length
+    && s.claims.every((claim) => sources.has(claim.source_entry_id))).length
+  const missing = route.steps.length - grounded
 
   return (
     <>
-      {/* El recorrido se anuncia: cuántas paradas hay y cuántas tienen
-          respaldo institucional verificable. */}
-      {/* Antes vivían aquí tres cadenas que decían casi lo mismo: cuántas
-          paradas, cuántas con fuente y en cuál vamos. Queda la posición, que
-          es lo único que cambia mientras se recorre, y el aviso sólo si falta
-          respaldo —una ausencia merece texto; una normalidad, no. */}
+      {/* Dónde vamos, qué falta y cómo escucharlo: tres cosas distintas con
+          tres pesos distintos. Antes iban seguidas y se leían como una frase. */}
       <div className="route-stops-head">
         <span className="route-stops-position">
-          Parada {reached + 1} de {route.steps.length}
+          Parada {current + 1} de {route.steps.length}
+          <span className="route-stops-route"> · {route.title}</span>
         </span>
-        {grounded === route.steps.length ? null : (
+        {missing ? (
           <span className="route-stops-grounded">
-            {route.steps.length - grounded} sin fuente verificable
+            {missing === 1
+              ? "1 parada sin fuente verificable"
+              : `${missing} paradas sin fuente verificable`}
           </span>
-        )}
+        ) : null}
         <button
           type="button"
           className="route-narrate"
@@ -192,177 +190,165 @@ function RouteStops({
       {narrationError ? (
         <p className="action-error" role="alert">{narrationError}</p>
       ) : null}
-    <motion.ol
-      className="route-stops"
-      aria-label={`Pasos de ${route.title}`}
-      style={{ "--route-steps": route.steps.length } as CSSProperties}
-      initial={reduceMotion ? false : "hidden"}
-      animate="visible"
-      variants={{
-        hidden: {},
-        visible: {
-          transition: {
-            delayChildren: reduceMotion ? 0 : 0.18,
-            staggerChildren: reduceMotion ? 0 : 0.09,
+
+      {/* El riel sólo lleva número y título: es el mapa del recorrido. Lo que
+          hay que hacer en cada parada vive abajo, a ancho completo. */}
+      <motion.ol
+        className="route-stops"
+        // Cinco es el techo que aguanta un diagrama horizontal legible; por
+        // encima el recorrido se queda de pie, que es como se lee en un
+        // teléfono. Apretar más no ayuda a nadie.
+        data-diagrama={route.steps.length <= 5 ? "" : undefined}
+        aria-label={`Pasos de ${route.title}`}
+        initial={reduceMotion ? false : "hidden"}
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: {
+            transition: {
+              delayChildren: reduceMotion ? 0 : 0.12,
+              staggerChildren: reduceMotion ? 0 : 0.07,
+            },
           },
-        },
-      }}
-    >
-      <span className="route-stops-rail" aria-hidden="true">
-        {/* El eje se traza de izquierda a derecha al abrir la ruta. */}
-        <motion.span
-          className="route-stops-rail-line"
-          initial={reduceMotion ? false : { scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ duration: reduceMotion ? 0.01 : 0.55, ease: [0.16, 1, 0.3, 1] }}
-        />
-        {/* El avance recorre el eje hasta la parada activa. */}
-        <motion.span
-          className="route-stops-rail-progress"
-          initial={false}
-          animate={{ scaleX: progress }}
-          transition={{ duration: reduceMotion ? 0.01 : 0.45, ease: [0.16, 1, 0.3, 1] }}
-        />
-      </span>
-      {route.steps.map((step, index) => {
-        const isOpen = openStep === index
-        const isReached = index <= reached
-        const ungrounded = step.claims.some(
-          (claim) => !sources.has(claim.source_entry_id),
-        )
-        return (
-          <motion.li
-            key={`${route.id}-${step.title}`}
-            className={isOpen ? "route-stop is-open" : "route-stop"}
-            data-reached={isReached ? "true" : undefined}
-            variants={{
-              hidden: { opacity: 0, y: 16 },
-              visible: {
-                opacity: 1,
-                y: 0,
-                transition: { duration: reduceMotion ? 0.01 : 0.34, ease: [0.16, 1, 0.3, 1] },
-              },
-            }}
-          >
-            {/* El nodo se apoya sobre el eje y marca el punto del recorrido.
-                Vive fuera del botón para compartir fila con la línea. */}
-            <span className="route-stop-node" aria-hidden="true">
-              <motion.span
-                className="route-stop-node-number"
-                initial={false}
-                animate={{ scale: isOpen ? 1.06 : 1 }}
-                transition={{ duration: reduceMotion ? 0.01 : 0.28, ease: [0.16, 1, 0.3, 1] }}
-              >
-                {index + 1}
-              </motion.span>
-            </span>
-            <div className="route-stop-panel">
+        }}
+      >
+        {route.steps.map((item, index) => {
+          const isOpen = index === current
+          const ungrounded = item.claims.some(
+            (claim) => !sources.has(claim.source_entry_id),
+          )
+          return (
+            <motion.li
+              key={`${route.id}-${item.title}`}
+              className={isOpen ? "route-stop is-open" : "route-stop"}
+              data-reached={index <= current ? "true" : undefined}
+              variants={{
+                hidden: { opacity: 0, y: 12 },
+                visible: {
+                  opacity: 1,
+                  y: 0,
+                  transition: {
+                    duration: reduceMotion ? 0.01 : 0.3,
+                    ease: [0.16, 1, 0.3, 1],
+                  },
+                },
+              }}
+            >
               <button
                 type="button"
                 className="route-stop-card"
                 aria-expanded={isOpen}
-                aria-controls={`${panelId}-${index}`}
-                onClick={() => setOpenStep(isOpen ? null : index)}
+                aria-controls={isOpen ? `${panelId}-panel` : undefined}
+                onClick={() => setOpenStep(index)}
               >
-                <span className="visually-hidden">Parada {index + 1}.</span>
-                <span className="route-stop-title">{step.title}</span>
-                {step.key_point ? (
-                  <span className="route-stop-key">{step.key_point}</span>
-                ) : null}
-                <span className="route-stop-hint" aria-hidden="true">
-                  <svg viewBox="0 0 16 16" width="13" height="13" fill="none"
-                    stroke="currentColor" strokeWidth="1.9"
-                    strokeLinecap="round" strokeLinejoin="round">
-                    <path d={isOpen ? "M4 10 8 6l4 4" : "M4 6.5 8 10.5l4-4"} />
-                  </svg>
-                </span>
-                {/* La falta de respaldo institucional se anuncia sin exigir que
-                    la parada esté abierta. */}
-                {ungrounded ? (
-                  <span className="route-stop-warning">
-                    Sin fuente verificable · requiere revisión
+                <span className="route-stop-mark" aria-hidden="true">
+                  <span className="route-stop-node">
+                    <span className="route-stop-node-number">{index + 1}</span>
                   </span>
+                  {/* El tramo nace en el centro de este nodo y muere en el del
+                      siguiente: la línea no depende de ningún cálculo sobre el
+                      ancho de las columnas. */}
+                  <span className="route-stop-link" />
+                </span>
+                <span className="visually-hidden">Parada {index + 1}.</span>
+                <span className="route-stop-title">{item.title}</span>
+                {ungrounded ? (
+                  <>
+                    <span className="route-stop-flag" aria-hidden="true">!</span>
+                    <span className="visually-hidden">
+                      Sin fuente verificable.
+                    </span>
+                  </>
                 ) : null}
               </button>
-              <AnimatePresence initial={false}>
-                {isOpen ? (
-                  <motion.div
-                    id={`${panelId}-${index}`}
-                    className="route-stop-detail"
-                    initial={reduceMotion ? false : { opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                    transition={{ duration: reduceMotion ? 0.01 : 0.24 }}
-                  >
-                    <div className="route-stop-listen">
-                      <ReadAloud
-                        text={[step.title, step.key_point, step.instructions]
-                          .filter(Boolean)
-                          .join(". ")}
-                      />
-                    </div>
-                    <p className="route-stop-instructions">{step.instructions}</p>
-                    {step.claims.map((claim) => {
-                      const source = sources.get(claim.source_entry_id)
-                      return (
-                        <div
-                          key={`${step.title}-${claim.source_entry_id}`}
-                          className="grounded-claim"
-                        >
-                          <p>{claim.text}</p>
-                          {source ? (
-                            <div className="source-inspector">
-                              {/* Lo que hay que saber antes de ir: requisitos,
-                                  cobertura y vigencia. Todo viene de SourceRead;
-                                  nada se infiere. */}
-                              <dl>
-                                <div>
-                                  <dt>Requisitos</dt>
-                                  <dd>{source.requirements}</dd>
-                                </div>
-                                <div>
-                                  <dt>Cobertura</dt>
-                                  <dd>{source.coverage}</dd>
-                                </div>
-                                <div>
-                                  <dt>Contacto</dt>
-                                  <dd>{source.contact}</dd>
-                                </div>
-                              </dl>
-                              <p className="source-footer">
-                                <a href={source.url} target="_blank" rel="noreferrer">
-                                  {source.entity} · {source.program}
-                                </a>
-                                <span
-                                  className={
-                                    source.is_expired
-                                      ? "source-validity is-expired"
-                                      : "source-validity"
-                                  }
-                                >
-                                  {source.is_expired
-                                    ? "Vigencia vencida — confirmar con la entidad"
-                                    : `Vigente hasta el ${new Date(source.expires_at).toLocaleDateString("es-CO")}`}
-                                </span>
-                              </p>
-                              {source.disclaimer ? (
-                                <strong>{source.disclaimer}</strong>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <strong>Sin fuente institucional verificable.</strong>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
+            </motion.li>
+          )
+        })}
+      </motion.ol>
+
+      <AnimatePresence initial={false} mode="wait">
+        <motion.div
+          key={current}
+          id={`${panelId}-panel`}
+          className="route-stop-detail"
+          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+          transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
+        >
+          <div className="route-stop-detail-head">
+            <span className="route-stop-detail-which">Parada {current + 1}</span>
+            <h4>{step.title}</h4>
+            <div className="route-stop-listen">
+              <ReadAloud
+                text={[step.title, step.key_point, step.instructions]
+                  .filter(Boolean)
+                  .join(". ")}
+              />
             </div>
-          </motion.li>
-        )
-      })}
-    </motion.ol>
+          </div>
+          {step.key_point ? (
+            <p className="route-stop-key">{step.key_point}</p>
+          ) : null}
+          <p className="route-stop-instructions">{step.instructions}</p>
+          {step.claims.map((claim) => {
+            const source = sources.get(claim.source_entry_id)
+            return (
+              <div
+                key={`${step.title}-${claim.source_entry_id}`}
+                className="grounded-claim"
+              >
+                <p>{claim.text}</p>
+                {source ? (
+                  <div className="source-inspector">
+                    {/* La ficha guarda lo accionable —qué llevar y cómo
+                        llegar—; quién atiende, dónde cubre y hasta cuándo van
+                        juntos abajo, porque son los tres datos de la fuente y
+                        no del trámite. Todo viene de SourceRead; nada se
+                        infiere. */}
+                    <dl>
+                      <div>
+                        <dt>Requisitos</dt>
+                        <dd>{source.requirements}</dd>
+                      </div>
+                      <div>
+                        <dt>Contacto</dt>
+                        <dd>{source.contact}</dd>
+                      </div>
+                    </dl>
+                    <p className="source-footer">
+                      <span className="source-who">
+                        <a href={source.url} target="_blank" rel="noreferrer">
+                          {source.entity} · {source.program}
+                        </a>
+                        <span className="source-scope">
+                          Cubre {source.coverage}
+                        </span>
+                      </span>
+                      <span
+                        className={
+                          source.is_expired
+                            ? "source-validity is-expired"
+                            : "source-validity"
+                        }
+                      >
+                        {source.is_expired
+                          ? "Vigencia vencida — confirmar con la entidad"
+                          : `Vigente hasta el ${new Date(source.expires_at).toLocaleDateString("es-CO")}`}
+                      </span>
+                    </p>
+                    {source.disclaimer ? (
+                      <strong>{source.disclaimer}</strong>
+                    ) : null}
+                  </div>
+                ) : (
+                  <strong>Sin fuente institucional verificable.</strong>
+                )}
+              </div>
+            )
+          })}
+        </motion.div>
+      </AnimatePresence>
     </>
   )
 }

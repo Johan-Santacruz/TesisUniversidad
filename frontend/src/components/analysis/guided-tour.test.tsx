@@ -11,9 +11,9 @@ import { GuidedTour, WORKSPACE_TOUR, type TourStep } from "./guided-tour"
 
 
 const STEPS: TourStep[] = [
-  { eyebrow: "Uno", title: "Primer paso", body: "Cuerpo uno", target: "#blanco" },
-  { eyebrow: "Dos", title: "Segundo paso", body: "Cuerpo dos", target: "#blanco" },
-  { eyebrow: "Tres", title: "Tercer paso", body: "Cuerpo tres" },
+  { title: "Primer paso", body: "Cuerpo uno", target: "#blanco" },
+  { title: "Segundo paso", body: "Cuerpo dos", target: "#blanco" },
+  { title: "Tercer paso", body: "Cuerpo tres" },
 ]
 
 
@@ -40,6 +40,241 @@ it("abre en el primer paso y avanza y retrocede", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Atrás" }))
   expect(await screen.findByRole("heading", { name: "Primer paso" })).toBeVisible()
+})
+
+
+it("muestra el avance en el borde sin etiquetas ni contador visible", async () => {
+  renderTour()
+
+  let dialog = screen.getByRole("dialog")
+  let progress = screen.getByRole("progressbar", {
+    name: "Progreso del recorrido",
+  })
+
+  expect(dialog.querySelector(".tour-progress-frame"))
+    .toHaveAttribute("data-progress", "0")
+  const stroke = dialog.querySelector(".tour-progress-stroke")
+  expect(stroke).toHaveAttribute("stroke-linecap", "round")
+  expect(progress).toHaveAttribute("aria-valuenow", "0")
+  expect(progress).toHaveAttribute("aria-valuemax", "2")
+  expect(progress).toHaveAttribute("aria-valuetext", "Recorrido sin avanzar")
+  expect(document.querySelector(".tour-eyebrow")).toBeNull()
+  expect(dialog).not.toHaveTextContent("01/03")
+  expect(document.querySelector(".tour-dots")).toBeNull()
+
+  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+  await screen.findByRole("heading", { name: "Segundo paso" })
+  dialog = screen.getByRole("dialog")
+  progress = screen.getByRole("progressbar", {
+    name: "Progreso del recorrido",
+  })
+
+  expect(dialog.querySelector(".tour-progress-frame"))
+    .toHaveAttribute("data-progress", "50")
+  expect(dialog.querySelector(".tour-progress-stroke")).toBe(stroke)
+  expect(progress).toHaveAttribute("aria-valuenow", "1")
+
+  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+  await screen.findByRole("heading", { name: "Tercer paso" })
+  dialog = screen.getByRole("dialog")
+  progress = screen.getByRole("progressbar", {
+    name: "Progreso del recorrido",
+  })
+
+  expect(dialog.querySelector(".tour-progress-frame"))
+    .toHaveAttribute("data-progress", "100")
+  expect(dialog.querySelector(".tour-progress-stroke")).toBe(stroke)
+  expect(progress).toHaveAttribute("aria-valuenow", "2")
+  expect(progress).toHaveAttribute("aria-valuetext", "Recorrido completo")
+
+  fireEvent.click(screen.getByRole("button", { name: "Atrás" }))
+  await screen.findByRole("heading", { name: "Segundo paso" })
+  dialog = screen.getByRole("dialog")
+  expect(dialog.querySelector(".tour-progress-frame"))
+    .toHaveAttribute("data-progress", "50")
+  expect(dialog.querySelector(".tour-progress-stroke")).toBe(stroke)
+
+  fireEvent.click(screen.getByRole("button", { name: "Atrás" }))
+  await screen.findByRole("heading", { name: "Primer paso" })
+  dialog = screen.getByRole("dialog")
+  expect(dialog.querySelector(".tour-progress-frame"))
+    .toHaveAttribute("data-progress", "0")
+  expect(dialog.querySelector(".tour-progress-stroke")).toBe(stroke)
+})
+
+
+it("considera completo un recorrido de un solo paso", () => {
+  render(
+    <GuidedTour
+      steps={[{ title: "Único paso", body: "Todo está aquí" }]}
+      open
+      onClose={vi.fn()}
+    />,
+  )
+
+  expect(screen.getByRole("dialog").querySelector(".tour-progress-frame"))
+    .toHaveAttribute("data-progress", "100")
+  expect(screen.getByRole("progressbar", { name: "Progreso del recorrido" }))
+    .toHaveAttribute("aria-valuenow", "1")
+  expect(screen.getByRole("progressbar", { name: "Progreso del recorrido" }))
+    .toHaveAttribute("aria-valuemax", "1")
+  expect(screen.getByRole("progressbar", { name: "Progreso del recorrido" }))
+    .toHaveAttribute("aria-valuetext", "Recorrido completo")
+})
+
+
+it.each([1024, 1366, 1440])(
+  "adapta la ficha al espacio lateral disponible en %i px",
+  async (viewportWidth) => {
+  const originalWidth = window.innerWidth
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: viewportWidth,
+  })
+  const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      if (this.id === "blanco") {
+        return {
+          x: 396,
+          y: 100,
+          top: 100,
+          right: viewportWidth - 24,
+          bottom: 700,
+          left: 396,
+          width: viewportWidth - 420,
+          height: 600,
+          toJSON: () => ({}),
+        }
+      }
+      return new DOMRect()
+    })
+  const height = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get")
+    .mockReturnValue(320)
+
+  renderTour()
+
+  await waitFor(() => {
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-placement", "left")
+    expect(screen.getByRole("dialog"))
+      .toHaveStyle({ left: "18px", top: "240px", width: "360px" })
+  })
+
+  bounds.mockRestore()
+  height.mockRestore()
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: originalWidth,
+  })
+})
+
+
+it("ancla abajo la ficha cuando ningún costado ofrece un ancho legible", async () => {
+  const originalWidth = window.innerWidth
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 900,
+  })
+  const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      if (this.id === "blanco") {
+        return {
+          x: 250,
+          y: 100,
+          top: 100,
+          right: 650,
+          bottom: 700,
+          left: 250,
+          width: 400,
+          height: 600,
+          toJSON: () => ({}),
+        }
+      }
+      return new DOMRect()
+    })
+  const height = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get")
+    .mockReturnValue(320)
+
+  renderTour()
+
+  await waitFor(() => {
+    const dialog = screen.getByRole("dialog")
+    expect(dialog).toHaveAttribute("data-placement", "docked")
+    expect(dialog.style.top).toBe("")
+    expect(dialog.style.left).toBe("")
+  })
+
+  bounds.mockRestore()
+  height.mockRestore()
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: originalWidth,
+  })
+})
+
+
+it("devuelve el foco a la ficha después de avanzar y retroceder", async () => {
+  renderTour()
+  const dialog = screen.getByRole("dialog")
+
+  expect(document.activeElement).toBe(dialog)
+
+  const next = screen.getByRole("button", { name: "Siguiente" })
+  next.focus()
+  fireEvent.click(next)
+  await screen.findByRole("heading", { name: "Segundo paso" })
+  expect(document.activeElement).toBe(dialog)
+
+  const back = screen.getByRole("button", { name: "Atrás" })
+  back.focus()
+  fireEvent.click(back)
+  await screen.findByRole("heading", { name: "Primer paso" })
+  expect(document.activeElement).toBe(dialog)
+})
+
+
+it("reabre desde el primer paso sin anunciar antes el paso anterior", async () => {
+  const onStageChange = vi.fn()
+  const steps: TourStep[] = [
+    { title: "Inicio", body: "Primero", stage: "one" },
+    { title: "Medio", body: "Segundo", stage: "two" },
+    { title: "Final", body: "Tercero", stage: "three" },
+  ]
+  const view = render(
+    <GuidedTour
+      steps={steps}
+      open
+      onClose={vi.fn()}
+      onStageChange={onStageChange}
+    />,
+  )
+
+  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+  await screen.findByRole("heading", { name: "Medio" })
+  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+  await screen.findByRole("heading", { name: "Final" })
+
+  view.rerender(
+    <GuidedTour
+      steps={steps}
+      open={false}
+      onClose={vi.fn()}
+      onStageChange={onStageChange}
+    />,
+  )
+  onStageChange.mockClear()
+  view.rerender(
+    <GuidedTour
+      steps={steps}
+      open
+      onClose={vi.fn()}
+      onStageChange={onStageChange}
+    />,
+  )
+
+  expect(screen.getByRole("heading", { name: "Inicio" })).toBeVisible()
+  expect(onStageChange.mock.calls).toEqual([["one"]])
+  expect(screen.getByRole("progressbar", { name: "Progreso del recorrido" }))
+    .toHaveAttribute("aria-valuenow", "0")
 })
 
 
@@ -76,6 +311,19 @@ it("se sale con Escape y se navega con las flechas", async () => {
 
   fireEvent.keyDown(layer, { key: "Escape" })
   expect(onClose).toHaveBeenCalled()
+})
+
+
+it("mantiene el foco dentro al retroceder con Tab desde la ficha", () => {
+  renderTour()
+  const dialog = screen.getByRole("dialog")
+
+  expect(document.activeElement).toBe(dialog)
+  fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true })
+
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Siguiente" }),
+  )
 })
 
 
@@ -174,8 +422,10 @@ describe("El recorrido del pliego de análisis", () => {
     // Cuarto paso: la revisión de señales vive en la segunda hoja del pliego.
     for (let salto = 0; salto < 3; salto += 1) {
       fireEvent.click(await screen.findByRole("button", { name: "Siguiente" }))
+      await screen.findByRole("heading", {
+        name: WORKSPACE_TOUR[salto + 1].title,
+      })
     }
-    await screen.findByRole("heading", { name: WORKSPACE_TOUR[3].title })
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Señales" }))

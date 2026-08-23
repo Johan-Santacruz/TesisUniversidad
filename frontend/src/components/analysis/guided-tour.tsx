@@ -10,7 +10,6 @@ import { createPortal } from "react-dom"
 
 
 export interface TourStep {
-  eyebrow: string
   title: string
   body: string
   /* Selector del elemento real que se ilumina. Sin él, el paso se muestra
@@ -30,7 +29,6 @@ export interface TourStep {
  */
 export const WORKSPACE_TOUR: TourStep[] = [
   {
-    eyebrow: "Cómo se lee",
     title: "Tres etapas, y mandas tú",
     body:
       "Escuchar, Señales y Ruta. Avanzan solas mientras corre el video, pero "
@@ -40,7 +38,6 @@ export const WORKSPACE_TOUR: TourStep[] = [
     stage: "listening",
   },
   {
-    eyebrow: "Mientras corre el video",
     title: "Todo se mueve con el minuto exacto",
     body:
       "Reproduce y no tendrás que buscar nada: la transcripción, la cronología "
@@ -49,7 +46,6 @@ export const WORKSPACE_TOUR: TourStep[] = [
     stage: "listening",
   },
   {
-    eyebrow: "Ir al momento exacto",
     title: "Pulsa una frase y el video salta ahí",
     body:
       "Funciona en los dos sentidos. Y si eliges un fragmento para leerlo con "
@@ -59,7 +55,6 @@ export const WORKSPACE_TOUR: TourStep[] = [
     stage: "listening",
   },
   {
-    eyebrow: "Señales",
     title: "Nada queda confirmado solo",
     body:
       "Cada dato que el sistema creyó encontrar llega sin confirmar, con lo "
@@ -69,7 +64,6 @@ export const WORKSPACE_TOUR: TourStep[] = [
     stage: "evidence",
   },
   {
-    eyebrow: "Con la prueba delante",
     title: "Cada señal enseña de dónde salió",
     body:
       "Al margen queda la frase textual que la sostiene, con su minuto. "
@@ -79,7 +73,6 @@ export const WORKSPACE_TOUR: TourStep[] = [
     stage: "evidence",
   },
   {
-    eyebrow: "Ruta",
     title: "Tres rutas, para poder compararlas",
     body:
       "Emergencia, estabilización y retorno. Cada una dice de qué entidad es, "
@@ -88,7 +81,6 @@ export const WORKSPACE_TOUR: TourStep[] = [
     stage: "route",
   },
   {
-    eyebrow: "Ruta",
     title: "Ábrela y una voz te va guiando",
     body:
       "Las paradas se despliegan de una en una. Al escucharlas, la voz lee "
@@ -97,7 +89,6 @@ export const WORKSPACE_TOUR: TourStep[] = [
     stage: "route",
   },
   {
-    eyebrow: "Para terminar",
     title: "Lo que queda en tus manos",
     body: "El caso no se cierra solo. Estas decisiones son tuyas.",
     points: [
@@ -115,6 +106,17 @@ export const WORKSPACE_TOUR: TourStep[] = [
 const HALO = 12       // aire entre el elemento iluminado y el borde del foco
 const GAP = 18        // separación entre el foco y la ficha
 const CARD_WIDTH = 372
+const MIN_SIDE_CARD_WIDTH = 300
+const MOBILE_BREAKPOINT = 720
+
+type TourPlacement =
+  | "above"
+  | "below"
+  | "left"
+  | "right"
+  | "center"
+  | "docked"
+  | "mobile"
 
 
 function focusableWithin(root: HTMLElement | null): HTMLElement[] {
@@ -139,18 +141,27 @@ export function GuidedTour({
   const [index, setIndex] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const [cardHeight, setCardHeight] = useState(0)
-  // La ficha se guarda en estado y no en un ref: con `mode="wait"` la nueva
-  // monta cuando la anterior termina de salir, así que un efecto atado al
-  // índice corría antes de que existiera. Un ref es estable y nunca vuelve a
-  // disparar el efecto; el estado sí, en cuanto el nodo se engancha.
   const [card, setCard] = useState<HTMLDivElement | null>(null)
+  // El contenido sí cambia con `mode="wait"`. Guardar ese nodo en estado
+  // permite enfocar la ficha sólo cuando el título nuevo ya está montado.
+  const [cardCopy, setCardCopy] = useState<HTMLDivElement | null>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
   const reduceMotion = useReducedMotion() ?? false
 
   const step = steps[index]
   const last = index === steps.length - 1
+  const progressMax = Math.max(steps.length - 1, 1)
+  const progressValue = steps.length === 1 ? 1 : index
+  const progressRatio = progressValue / progressMax
+  const borderProgress = progressRatio * 100
+  const progressText = progressValue === 0
+    ? "Recorrido sin avanzar"
+    : last
+      ? "Recorrido completo"
+      : `Recorrido en progreso, paso ${index + 1} de ${steps.length}`
 
   const close = useCallback(() => {
+    setIndex(0)
     onClose()
     // Devolver el foco a donde estaba: si se pierde, el teclado vuelve al
     // principio del documento y la persona no sabe dónde quedó.
@@ -158,8 +169,10 @@ export function GuidedTour({
   }, [onClose])
 
   useEffect(() => {
-    if (!open) return
-    setIndex(0)
+    if (!open) {
+      setIndex(0)
+      return
+    }
     restoreFocusRef.current = document.activeElement as HTMLElement | null
   }, [open])
 
@@ -236,8 +249,8 @@ export function GuidedTour({
   }, [open, step?.target, step?.stage, reduceMotion])
 
   useEffect(() => {
-    card?.focus()
-  }, [card])
+    if (cardCopy) card?.focus()
+  }, [card, cardCopy])
 
   // La colocación necesita saber cuánto mide la ficha; su alto cambia con el
   // texto de cada paso y con el ancho de la ventana.
@@ -276,7 +289,10 @@ export function GuidedTour({
     if (items.length === 0) return
     const first = items[0]
     const lastItem = items[items.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
+    if (
+      event.shiftKey
+      && (document.activeElement === first || document.activeElement === card)
+    ) {
       event.preventDefault()
       lastItem.focus()
     } else if (!event.shiftKey && document.activeElement === lastItem) {
@@ -287,34 +303,72 @@ export function GuidedTour({
 
   const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight
   const viewportWidth = typeof window === "undefined" ? 0 : window.innerWidth
-  // Debajo si cabe entera, si no encima, y si no cabe en ningún lado —un
-  // elemento alto como la rejilla de rutas ocupa media pantalla— se centra
-  // sobre él. Sin medir la altura de la ficha, el paso de las rutas la mandaba
-  // fuera de la ventana y no había forma de pulsar "Siguiente".
+  const mobile = viewportWidth <= MOBILE_BREAKPOINT
+  // Debajo si cabe entera, si no encima. Los elementos altos —como la rejilla
+  // de rutas— no dejan aire vertical: en ese caso la ficha sale del elemento y
+  // se apoya a uno de sus costados, donde haya más espacio.
   const fitsBelow = rect
     ? rect.bottom + GAP + cardHeight <= viewportHeight - GAP
     : false
   const fitsAbove = rect ? rect.top - GAP - cardHeight >= GAP : false
-  const below = fitsBelow || !fitsAbove
-  const cardStyle: React.CSSProperties = rect
-    ? {
-        top: Math.min(
-          Math.max(
-            GAP,
-            fitsBelow
-              ? rect.bottom + GAP
-              : fitsAbove
-                ? rect.top - GAP - cardHeight
-                : (viewportHeight - cardHeight) / 2,
-          ),
-          Math.max(GAP, viewportHeight - cardHeight - GAP),
-        ),
-        left: Math.min(
-          Math.max(GAP, rect.left),
-          Math.max(GAP, viewportWidth - CARD_WIDTH - GAP),
-        ),
-      }
-    : {}
+  const availableLeft = rect ? Math.max(0, rect.left - GAP * 2) : 0
+  const availableRight = rect
+    ? Math.max(0, viewportWidth - rect.right - GAP * 2)
+    : 0
+  const leftCardWidth = Math.min(CARD_WIDTH, availableLeft)
+  const rightCardWidth = Math.min(CARD_WIDTH, availableRight)
+  const fitsLeft = leftCardWidth >= MIN_SIDE_CARD_WIDTH
+  const fitsRight = rightCardWidth >= MIN_SIDE_CARD_WIDTH
+  const placement: TourPlacement = mobile
+    ? "mobile"
+    : !rect
+      ? "center"
+      : fitsBelow
+        ? "below"
+        : fitsAbove
+          ? "above"
+          : fitsLeft && fitsRight
+            ? rect.left >= viewportWidth - rect.right ? "left" : "right"
+            : fitsLeft
+              ? "left"
+              : fitsRight
+                ? "right"
+                : "docked"
+  const sideTop = rect
+    ? Math.min(
+        Math.max(GAP, rect.top + (rect.height - cardHeight) / 2),
+        Math.max(GAP, viewportHeight - cardHeight - GAP),
+      )
+    : GAP
+  const cardStyle = {
+    ...(rect && placement !== "mobile" && placement !== "docked"
+      ? placement === "left"
+        ? {
+            top: sideTop,
+            left: rect.left - GAP - leftCardWidth,
+            width: leftCardWidth,
+          }
+        : placement === "right"
+          ? { top: sideTop, left: rect.right + GAP, width: rightCardWidth }
+          : {
+              top: Math.min(
+                Math.max(
+                  GAP,
+                  placement === "below"
+                    ? rect.bottom + GAP
+                    : placement === "above"
+                      ? rect.top - GAP - cardHeight
+                      : (viewportHeight - cardHeight) / 2,
+                ),
+                Math.max(GAP, viewportHeight - cardHeight - GAP),
+              ),
+              left: Math.min(
+                Math.max(GAP, rect.left),
+                Math.max(GAP, viewportWidth - CARD_WIDTH - GAP),
+              ),
+            }
+      : {}),
+  } as React.CSSProperties
 
   return createPortal(
     <div
@@ -343,89 +397,124 @@ export function GuidedTour({
         <div className="tour-scrim" aria-hidden="true" />
       )}
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={index}
-          ref={setCard}
-          className={rect ? "tour-card" : "tour-card tour-card--centered"}
-          style={cardStyle}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="tour-title"
-          tabIndex={-1}
-          initial={reduceMotion ? false : { opacity: 0, y: below ? 10 : -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: below ? -6 : 6 }}
-          transition={{ duration: reduceMotion ? 0.01 : 0.24 }}
+      <motion.div
+        ref={setCard}
+        className={rect ? "tour-card" : "tour-card tour-card--centered"}
+        style={cardStyle}
+        data-placement={placement}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tour-title"
+        tabIndex={-1}
+        initial={reduceMotion
+          ? false
+          : {
+              opacity: 0,
+              x: placement === "left" ? -8 : placement === "right" ? 8 : 0,
+              y: placement === "below" ? 10 : placement === "above" ? -10 : 0,
+            }}
+        animate={{ opacity: 1, x: 0, y: 0 }}
+        transition={{ duration: reduceMotion ? 0.01 : 0.24 }}
+      >
+        <svg
+          className="tour-progress-frame"
+          data-progress={borderProgress}
+          aria-hidden="true"
+          focusable="false"
         >
-          <p className="tour-eyebrow">{step.eyebrow}</p>
-          <h2 id="tour-title">{step.title}</h2>
-          <p className="tour-body">{step.body}</p>
+          <motion.rect
+            className="tour-progress-stroke"
+            x="1"
+            y="1"
+            width="calc(100% - 2px)"
+            height="calc(100% - 2px)"
+            fill="none"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+            initial={false}
+            animate={{
+              pathLength: progressRatio,
+              opacity: progressRatio > 0 ? 1 : 0,
+            }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.36,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          />
+        </svg>
 
-          {step.points ? (
-            <ul className="tour-points">
-              {step.points.map((point, position) => (
-                <motion.li
-                  key={point}
-                  initial={reduceMotion ? false : { opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{
-                    duration: reduceMotion ? 0.01 : 0.26,
-                    delay: reduceMotion ? 0 : 0.06 + position * 0.05,
-                  }}
-                >
-                  {point}
-                </motion.li>
-              ))}
-            </ul>
-          ) : null}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={index}
+            ref={setCardCopy}
+            className="tour-card-copy"
+            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            transition={{ duration: reduceMotion ? 0.01 : 0.2 }}
+          >
+            <h2 id="tour-title">{step.title}</h2>
+            <p className="tour-body">{step.body}</p>
 
-          <div className="tour-foot">
-            <p className="tour-progress">
-              <span className="tour-count">
-                {String(index + 1).padStart(2, "0")}
-                <i aria-hidden="true">/</i>
-                {String(steps.length).padStart(2, "0")}
-              </span>
-              <span className="tour-dots" aria-hidden="true">
-                {steps.map((item, position) => (
-                  <i
-                    key={item.title}
-                    className={position === index ? "is-here" : undefined}
-                  />
+            {step.points ? (
+              <ul className="tour-points">
+                {step.points.map((point, position) => (
+                  <motion.li
+                    key={point}
+                    initial={reduceMotion ? false : { opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{
+                      duration: reduceMotion ? 0.01 : 0.26,
+                      delay: reduceMotion ? 0 : 0.06 + position * 0.05,
+                    }}
+                  >
+                    {point}
+                  </motion.li>
                 ))}
-              </span>
-            </p>
-            <div className="tour-controls">
-              <button type="button" className="tour-skip" onClick={close}>
-                {last ? "Cerrar" : "Saltar"}
+              </ul>
+            ) : null}
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="tour-foot">
+          <span
+            className="visually-hidden"
+            role="progressbar"
+            aria-label="Progreso del recorrido"
+            aria-valuemin={0}
+            aria-valuemax={progressMax}
+            aria-valuenow={progressValue}
+            aria-valuetext={progressText}
+          />
+          <div className="tour-controls">
+            <button type="button" className="tour-skip" onClick={close}>
+              {last ? "Cerrar" : "Saltar"}
+            </button>
+            {index > 0 ? (
+              <button
+                type="button"
+                className="tour-back"
+                onClick={() => setIndex((value) => value - 1)}
+              >
+                Atrás
               </button>
-              {index > 0 ? (
-                <button
-                  type="button"
-                  className="tour-back"
-                  onClick={() => setIndex((value) => value - 1)}
-                >
-                  Atrás
-                </button>
-              ) : null}
-              {last ? (
-                <button type="button" className="tour-next" onClick={close}>
-                  Empezar
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="tour-next"
-                  onClick={() => setIndex((value) => value + 1)}
-                >
-                  Siguiente
-                </button>
-              )}
-            </div>
+            ) : null}
+            {last ? (
+              <button type="button" className="tour-next" onClick={close}>
+                Empezar
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="tour-next"
+                onClick={() => setIndex((value) => value + 1)}
+              >
+                Siguiente
+              </button>
+            )}
           </div>
-        </motion.div>
-      </AnimatePresence>
+        </div>
+      </motion.div>
     </div>,
     document.body,
   )

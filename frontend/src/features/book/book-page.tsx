@@ -94,46 +94,141 @@ function cx(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(" ")
 }
 
-// El pliego abierto mide 2 × 590 de ancho por 780 de alto: 1.5128. El
-// contenedor venía calculado con 1.7, así que pedía más ancho del que la
-// altura podía sostener y el libro se salía por abajo.
-// 80vh deja arriba la banda de la barra flotante y abajo el pie de la pista,
-// sin que el pliego vuelva a rebasar el alto de la ventana.
-// El ancho del pliego lo manda la ALTURA de la ventana, no un máximo fijo.
-// La barra flotante comparte esta misma expresión para que ambos coincidan
-// en cualquier tamaño de pantalla y no sólo por casualidad en uno.
-const BOOK_WIDTH = "w-[min(94vw,1340px,calc(min(82vh,880px)*1.5128))]"
-const BOOK_BOX = `h-[min(82vh,880px)] ${BOOK_WIDTH}`
-// Una sola tapa es media hoja: 590/780 = 0.7564.
-const COVER_BOX =
-  "h-[min(82vh,880px)] w-[min(78vw,670px,calc(min(82vh,880px)*0.7564))]"
+// El modo de lectura no puede decidirse sólo por el ancho: un teléfono
+// apaisado mide 844 de ancho —más que una tablet vertical— pero sólo 390 de
+// alto, y ahí el pliego tampoco cabe. Se decide con las dos medidas, y por
+// eso se calcula aquí en vez de encadenar media queries.
+const SPREAD_RATIO = 1.5128 // 2 × 590 / 780
+const COVER_RATIO = 0.7564 // 590 / 780: una tapa es media hoja
+// Por debajo de cualquiera de los dos, una hoja doble va demasiado apretada.
+const SPREAD_MIN_WIDTH = 900
+const SPREAD_MIN_HEIGHT = 560
+
+type Box = { width: number; height: number }
+type BookGeometry = {
+  single: boolean
+  page: Box
+  box: Box
+  cover: Box
+}
+
+// La repisa deja arriba la banda de la barra flotante y abajo el pie de la
+// pista. dvh y no vh: en el navegador móvil la barra de direcciones entra y
+// sale, y con vh el pie del libro quedaba debajo de ella.
+function measureBook(
+  vw: number,
+  vh: number,
+  forceSpread = false
+): BookGeometry {
+  const shelf = Math.min(vh * 0.82, 880)
+  const room = Math.min(vw * 0.94, 1340)
+  const coverWidth = Math.min(vw * 0.86, shelf * COVER_RATIO)
+  const cover = { width: coverWidth, height: coverWidth / COVER_RATIO }
+  const single =
+    !forceSpread && (vw < SPREAD_MIN_WIDTH || vh < SPREAD_MIN_HEIGHT)
+
+  if (!single) {
+    // El alto de la caja es toda la repisa, no el que dicta la proporción del
+    // pliego: ese aire de más es el que deja a page-flip honrar su minHeight
+    // y dar hojas más altas que su proporción natural. Recortarlo dejaba las
+    // hojas 50px más bajas y el pie se subía sobre el cuerpo en tablet.
+    const width = Math.min(room, shelf * SPREAD_RATIO)
+    return {
+      single: false,
+      page: { width: 590, height: 780 },
+      box: { width, height: shelf },
+      cover,
+    }
+  }
+
+  // Una sola hoja toma la proporción del hueco que le queda, con topes: más
+  // estrecha no se lee, y más ancha deja renglones interminables.
+  const aspect = Math.min(Math.max(room / shelf, 0.45), 1.3)
+  const width = Math.min(room, shelf * aspect)
+  const box = { width, height: width / aspect }
+  return {
+    single: true,
+    page: { width: Math.round(box.width), height: Math.round(box.height) },
+    box,
+    cover,
+  }
+}
+
+function sameBox(a: Box, b: Box) {
+  return a.width === b.width && a.height === b.height
+}
+
+function useBookGeometry(forceSpread: boolean): BookGeometry {
+  const [geometry, setGeometry] = useState(() =>
+    typeof window === "undefined"
+      ? measureBook(1280, 800, forceSpread)
+      : measureBook(window.innerWidth, window.innerHeight, forceSpread)
+  )
+
+  useEffect(() => {
+    // Devolver el estado anterior cuando la medida no cambió no es una
+    // optimización, es un requisito: react-pageflip vacía sus referencias a
+    // las hojas en cada render y sólo las vuelve a tomar si cambia el NÚMERO
+    // de páginas (renderOnlyPageLengthChange). Un render de más entre medias
+    // lo deja sin referencias y el libro no llega a inicializarse: se queda
+    // el contenedor vacío. En un móvil esto no es hipotético, la barra de
+    // direcciones dispara "resize" constantemente al desplazar.
+    const remeasure = () =>
+      setGeometry((previous) => {
+        const next = measureBook(
+          window.innerWidth,
+          window.innerHeight,
+          forceSpread
+        )
+        return previous.single === next.single &&
+          sameBox(previous.box, next.box) &&
+          sameBox(previous.page, next.page) &&
+          sameBox(previous.cover, next.cover)
+          ? previous
+          : next
+      })
+
+    remeasure()
+    window.addEventListener("resize", remeasure)
+    window.addEventListener("orientationchange", remeasure)
+    return () => {
+      window.removeEventListener("resize", remeasure)
+      window.removeEventListener("orientationchange", remeasure)
+    }
+  }, [forceSpread])
+
+  return geometry
+}
 
 function BookHeader({
   currentPage,
   progressIndex,
   totalPages,
+  width,
 }: {
   currentPage: FlipbookPageItem
   progressIndex: number
   totalPages: number
+  width: number
 }) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 md:px-8 md:pt-5">
       <div
-        className={cx(
-          "mx-auto flex items-center justify-between gap-6 rounded-full border border-ink/8 bg-paper/95 px-5 py-2.5 md:px-7",
-          BOOK_WIDTH
-        )}
+        className="mx-auto flex items-center justify-between gap-3 rounded-full border border-ink/8 bg-paper/95 px-4 py-2.5 md:gap-6 md:px-7"
         style={{
+          width,
           boxShadow:
             "0 12px 30px rgb(12 9 6 / 34%), 0 2px 6px rgb(12 9 6 / 20%), inset 0 1px 0 rgb(255 255 255 / 62%)",
         }}
       >
         <div className="flex min-w-0 items-baseline gap-3" aria-live="polite">
-          <span className="font-sans text-[10px] uppercase tracking-[0.14em] text-ink-faded">
+          <span className="truncate font-sans text-[10px] uppercase tracking-[0.14em] text-ink-faded">
             {currentPage.eyebrow}
           </span>
-          <span aria-hidden="true" className="h-3 w-px bg-ink/20" />
+          <span
+            aria-hidden="true"
+            className="hidden h-3 w-px shrink-0 bg-ink/20 md:block"
+          />
           <span className="hidden truncate font-serif text-sm italic text-ink-soft md:inline">
             Los que caminan todavía
           </span>
@@ -171,10 +266,10 @@ function BookProgressRibbon({
 }) {
   return (
     <div
-      className="pointer-events-none flex shrink-0 items-center gap-4"
+      className="pointer-events-none flex shrink-0 items-center gap-2 md:gap-4"
       aria-hidden="true"
     >
-      <div className="flex items-center gap-1.5">
+      <div className="hidden items-center gap-1.5 md:flex">
         {Array.from({ length: totalPages }).map((_, index) => (
           <span
             key={index}
@@ -313,7 +408,12 @@ function PageTurnCaption({
               }
         }
       />
-      Arrastra la esquina · o usa ← →
+      {/* En una pantalla táctil no hay flechas que usar: la mitad de la
+          pista sobraría y además no cabe. */}
+      <span>
+        Arrastra la esquina
+        <span className="[@media(pointer:coarse)]:hidden"> · o usa ← →</span>
+      </span>
       <motion.span
         className={ruleClass}
         initial={{ width: still ? 28 : 8 }}
@@ -337,13 +437,15 @@ function PageTurnCaption({
 function ClosedBookView({
   onOpen,
   still,
+  box,
 }: {
   onOpen: () => void
   still: boolean
+  box: Box
 }) {
   return (
     <motion.div
-      className={cx("relative min-w-[300px]", COVER_BOX)}
+      className="relative min-w-[300px]"
       initial={{
         opacity: 0,
         rotateX: 5,
@@ -361,6 +463,7 @@ function ClosedBookView({
       exit={{ opacity: 0, rotateY: -18, scale: 0.95, x: -24 }}
       transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
       style={{
+        ...box,
         transformStyle: "preserve-3d",
         filter: "drop-shadow(0 44px 78px rgba(24,20,16,0.28))",
       }}
@@ -424,31 +527,31 @@ function ClosedBookView({
           <span className="h-full w-1/4 bg-rojo" />
         </div>
 
-        <div className="relative z-10 flex h-full min-h-0 flex-col p-7 md:p-9">
+        <div className="relative z-10 flex h-full min-h-0 flex-col p-5 sm:p-7 md:p-9">
           <div className="flex items-center justify-between font-sans text-[10px] uppercase tracking-normal text-paper/62">
             <span>Crónica visual</span>
             <span>Derechos</span>
           </div>
 
           <div className="mt-auto max-w-[24rem]">
-            <p className="mb-4 font-sans text-[10px] uppercase text-paper/56">
+            <p className="mb-3 font-sans text-[10px] uppercase text-paper/56 md:mb-4">
               Libro interactivo
             </p>
-            <h2 className="font-serif text-[clamp(2.65rem,8vh,5rem)] leading-[0.88] text-paper">
+            <h2 className="font-serif text-[clamp(1.9rem,min(8vh,13vw),5rem)] leading-[0.88] text-paper">
               <span className="block italic font-normal">Los que</span>
               <span className="block">caminan</span>
               <span className="block italic font-normal text-paper/72">
                 todavía.
               </span>
             </h2>
-            <p className="mt-5 border-t border-paper/22 pt-5 font-serif text-[clamp(1.02rem,2.6vh,1.34rem)] leading-snug text-paper/82 text-pretty">
+            <p className="mt-4 border-t border-paper/22 pt-4 font-serif text-[clamp(0.95rem,min(2.6vh,4.2vw),1.34rem)] leading-snug text-paper/82 text-pretty md:mt-5 md:pt-5">
               Una lectura sobre desplazamiento, derechos y la posibilidad de
               volver a orientarse.
             </p>
 
             {/* El filete que crece hace de latido: señala que la cubierta es
                 una puerta, sin recurrir a un botón dentro del botón. */}
-            <p className="mt-6 flex items-center gap-2.5 font-sans text-[10px] uppercase tracking-[0.14em] text-paper/58 transition-colors group-hover:text-paper/86">
+            <p className="mt-4 flex items-center gap-2.5 font-sans text-[10px] uppercase tracking-[0.14em] text-paper/58 transition-colors group-hover:text-paper/86 md:mt-6">
               <motion.span
                 aria-hidden="true"
                 className="h-px bg-paper/45"
@@ -475,11 +578,11 @@ function ClosedBookView({
   )
 }
 
-function OpeningBookView() {
+function OpeningBookView({ box }: { box: Box }) {
   return (
     <motion.div
       key="opening-book"
-      className={cx("relative", BOOK_BOX)}
+      className="relative"
       initial={{
         opacity: 1,
         x: "-25%",
@@ -501,6 +604,7 @@ function OpeningBookView() {
         ease: [0.16, 1, 0.3, 1],
       }}
       style={{
+        ...box,
         transformStyle: "preserve-3d",
         filter: "drop-shadow(0 46px 84px rgba(24,20,16,0.3))",
       }}
@@ -577,7 +681,7 @@ function OpeningBookView() {
           <div className="absolute inset-0 bg-gradient-to-l from-ink/72 via-ink/16 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-ink/76 via-transparent to-ink/18" />
           <div className="absolute bottom-9 left-9 max-w-[25rem]">
-            <p className="mb-4 font-sans text-[10px] uppercase text-paper/56">
+            <p className="mb-3 font-sans text-[10px] uppercase text-paper/56 md:mb-4">
               Los que
             </p>
             <h2 className="font-serif text-[clamp(2.9rem,7.4vh,5.2rem)] leading-[0.88] text-paper">
@@ -642,10 +746,10 @@ function OpeningBookView() {
               <span>Derechos</span>
             </div>
             <div className="mt-auto max-w-[24rem]">
-              <p className="mb-4 font-sans text-[10px] uppercase text-paper/56">
+              <p className="mb-3 font-sans text-[10px] uppercase text-paper/56 md:mb-4">
                 Libro interactivo
               </p>
-              <h2 className="font-serif text-[clamp(2.65rem,8vh,5rem)] leading-[0.88] text-paper">
+              <h2 className="font-serif text-[clamp(1.9rem,min(8vh,13vw),5rem)] leading-[0.88] text-paper">
                 <span className="block italic font-normal">Los que</span>
                 <span className="block">caminan</span>
                 <span className="block italic font-normal text-paper/72">
@@ -701,11 +805,11 @@ function OpeningBookView() {
   )
 }
 
-function ClosingBookView() {
+function ClosingBookView({ box }: { box: Box }) {
   return (
     <motion.div
       key="closing-book"
-      className={cx("relative", BOOK_BOX)}
+      className="relative"
       initial={{
         opacity: 1,
         x: "0%",
@@ -727,6 +831,7 @@ function ClosingBookView() {
         ease: [0.3, 0, 0.68, 0.98],
       }}
       style={{
+        ...box,
         transformStyle: "preserve-3d",
         filter: "drop-shadow(0 46px 84px rgba(24,20,16,0.3))",
       }}
@@ -831,10 +936,10 @@ function ClosingBookView() {
               <span>Derechos</span>
             </div>
             <div className="mt-auto max-w-[24rem]">
-              <p className="mb-4 font-sans text-[10px] uppercase text-paper/56">
+              <p className="mb-3 font-sans text-[10px] uppercase text-paper/56 md:mb-4">
                 Libro interactivo
               </p>
-              <h2 className="font-serif text-[clamp(2.65rem,8vh,5rem)] leading-[0.88] text-paper">
+              <h2 className="font-serif text-[clamp(1.9rem,min(8vh,13vw),5rem)] leading-[0.88] text-paper">
                 <span className="block italic font-normal">Los que</span>
                 <span className="block">caminan</span>
                 <span className="block italic font-normal text-paper/72">
@@ -890,51 +995,63 @@ function ClosingBookView() {
   )
 }
 
-const FlipBookPage = forwardRef<HTMLDivElement, { page: FlipbookPageItem }>(
-  ({ page }, ref) => {
-    const Component = page.Component
+const FlipBookPage = forwardRef<
+  HTMLDivElement,
+  { page: FlipbookPageItem; single: boolean }
+>(({ page, single }, ref) => {
+  const Component = page.Component
 
-    return (
+  return (
+    <div
+      ref={ref}
+      className="relative h-full w-full overflow-hidden rounded-md border border-rule bg-paper shadow-2xl"
+      data-density={page.density ?? "soft"}
+    >
       <div
-        ref={ref}
-        className="relative h-full w-full overflow-hidden rounded-md border border-rule bg-paper shadow-2xl"
-        data-density={page.density ?? "soft"}
+        data-book-page-scroll
+        /* En hoja única la página crece con su contenido y es este
+           contenedor el que desplaza: clavarla a h-full hacía que el
+           overflow-hidden de la sección recortara el texto y que el pie se
+           subiera encima del cuerpo.
+           En el pliego se mantiene la altura exacta del papel, porque esas
+           páginas reparten el espacio con flex-1 y grid-rows-[auto_1fr]: sin
+           una altura definida las fotos crecen a su tamaño natural y empujan
+           el pie fuera de la hoja. */
+        className={cx(
+          "relative h-full w-full overflow-x-hidden overflow-y-auto overscroll-contain bg-paper [scrollbar-gutter:stable] [&>section]:min-h-full",
+          single ? "[&>section]:!h-auto" : "[&>section]:h-full"
+        )}
       >
-        <div
-          data-book-page-scroll
-          className="relative h-full w-full overflow-x-hidden overflow-y-auto overscroll-contain bg-paper [scrollbar-gutter:stable] [&>section]:h-full [&>section]:min-h-full"
-        >
-          <Component />
-        </div>
-
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-20 w-12"
-          style={{
-            background:
-              "linear-gradient(90deg, rgba(24, 20, 16, 0.16), transparent 72%)",
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-20 w-12"
-          style={{
-            background:
-              "linear-gradient(270deg, rgba(24, 20, 16, 0.12), transparent 72%)",
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(255,255,255,0.12), transparent 28%, transparent 76%, rgba(24,20,16,0.08))",
-          }}
-        />
+        <Component />
       </div>
-    )
-  }
-)
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-0 z-20 w-12"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(24, 20, 16, 0.16), transparent 72%)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 right-0 z-20 w-12"
+        style={{
+          background:
+            "linear-gradient(270deg, rgba(24, 20, 16, 0.12), transparent 72%)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-10"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(255,255,255,0.12), transparent 28%, transparent 76%, rgba(24,20,16,0.08))",
+        }}
+      />
+    </div>
+  )
+})
 
 FlipBookPage.displayName = "FlipBookPage"
 
@@ -944,6 +1061,11 @@ type BookPageProps = {
 
 export default function BookPage({ backgroundMode = false }: BookPageProps) {
   const prefersReducedMotion = useReducedMotion()
+  // Detrás del acceso institucional el libro es decorativo y va tapado por la
+  // hoja del formulario. Ahí se queda como pliego a cualquier tamaño: una
+  // hoja única agranda el texto fantasma que se transparenta bajo el
+  // formulario y lo vuelve ruido legible en vez de textura.
+  const { single, page, box, cover } = useBookGeometry(backgroundMode)
   const [bookPhase, setBookPhase] = useState<BookPhase>("open")
   const [openPageIndex, setOpenPageIndex] = useState(0)
   const [hintSeen, setHintSeen] = useState(readHintSeen)
@@ -1155,7 +1277,7 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
   return (
     <main
       className={cx(
-        "relative h-screen overflow-hidden px-4 pb-16 pt-[5.25rem] text-ink md:px-8 md:pb-[4.5rem] md:pt-[5.5rem]",
+        "relative h-dvh overflow-hidden px-4 pb-16 pt-[5.25rem] text-ink md:px-8 md:pb-[4.5rem] md:pt-[5.5rem]",
         onTable ? "bg-[oklch(0.29_0.04_58)]" : "bg-paper"
       )}
     >
@@ -1164,6 +1286,7 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
         currentPage={currentPage}
         progressIndex={progressIndex}
         totalPages={BOOK_PAGES.length}
+        width={box.width}
       />
 
       <section
@@ -1176,21 +1299,22 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
               key="closed-view"
               onOpen={openBook}
               still={Boolean(prefersReducedMotion)}
+              box={cover}
             />
           ) : null}
 
           {bookPhase === "opening" ? (
-            <OpeningBookView key="opening-view" />
+            <OpeningBookView key="opening-view" box={box} />
           ) : null}
 
           {bookPhase === "closing" ? (
-            <ClosingBookView key="closing-view" />
+            <ClosingBookView key="closing-view" box={box} />
           ) : null}
 
           {bookPhase === "open" ? (
             <motion.div
               key="open-book"
-              className={cx("relative", BOOK_BOX)}
+              className="relative"
               initial={
                 backgroundMode
                   ? false
@@ -1227,6 +1351,7 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
                   : { duration: 0.24, ease: [0.22, 1, 0.36, 1] }
               }
               style={{
+                ...box,
                 transformStyle: "preserve-3d",
                 filter: onTable
                   ? "drop-shadow(0 26px 44px rgba(10,7,4,0.52)) drop-shadow(0 3px 8px rgba(10,7,4,0.4))"
@@ -1298,20 +1423,28 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
               />
 
               <FlipBook
+                // react-pageflip congela sus medidas al inicializarse: sin
+                // esta llave, girar el teléfono deja el libro con la
+                // geometría del modo anterior.
+                key={single ? "una-hoja" : "pliego"}
                 ref={flipBookRef}
                 className="relative z-10 mx-auto"
                 style={{ transformStyle: "preserve-3d" }}
-                width={590}
-                height={780}
+                width={page.width}
+                height={page.height}
                 size="stretch"
-                minWidth={350}
-                maxWidth={650}
-                minHeight={520}
+                // En una sola hoja los suelos van deliberadamente bajos: si
+                // minWidth supera lo que mide la caja, page-flip lo impone
+                // igual y el libro se sale de la pantalla. En el pliego se
+                // mantienen los de siempre, que son los que dan hojas altas.
+                minWidth={single ? Math.round(page.width * 0.6) : 350}
+                maxWidth={single ? page.width : 650}
+                minHeight={single ? Math.round(page.height * 0.6) : 520}
                 maxHeight={880}
                 startPage={0}
                 drawShadow={true}
                 flippingTime={FLIPPING_TIME}
-                usePortrait={false}
+                usePortrait={single}
                 startZIndex={12}
                 autoSize={true}
                 maxShadowOpacity={0.62}
@@ -1353,8 +1486,8 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
                   setOpenPageIndex(initialIndex)
                 }}
               >
-                {OPEN_BOOK_PAGES.map((page) => (
-                  <FlipBookPage key={page.id} page={page} />
+                {OPEN_BOOK_PAGES.map((item) => (
+                  <FlipBookPage key={item.id} page={item} single={single} />
                 ))}
               </FlipBook>
             </motion.div>

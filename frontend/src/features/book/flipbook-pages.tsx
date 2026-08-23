@@ -1010,5 +1010,3 @@ export const BOOK_PAGES: FlipbookPageItem[] = [
     density: "hard",
   },
 ]
-
-export const PAGE_COUNT_LABEL = String(BOOK_PAGES.length).padStart(2, "0")
