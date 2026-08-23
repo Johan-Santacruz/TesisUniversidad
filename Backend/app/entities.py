@@ -151,32 +151,6 @@ class Analysis(TimestampMixin, Base):
     )
 
 
-class AnalysisStageRun(TimestampMixin, Base):
-    __tablename__ = "analysis_stage_runs"
-    __table_args__ = (
-        UniqueConstraint(
-            "analysis_id",
-            "stage",
-            name="uq_analysis_stage_runs_analysis_stage",
-        ),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    analysis_id: Mapped[str] = mapped_column(
-        ForeignKey("analyses.id", ondelete="CASCADE"), index=True
-    )
-    stage: Mapped[str] = mapped_column(String(32), nullable=False)
-    state: Mapped[str] = mapped_column(
-        String(24), default="pending", nullable=False
-    )
-    generation: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    attempt: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    failure_code: Mapped[str | None] = mapped_column(String(64))
-    terminal_event_sequence: Mapped[int | None] = mapped_column(Integer)
-
-
 class AnalysisEvent(EncryptedPayloadMixin, Base):
     __tablename__ = "analysis_events"
     __table_args__ = (
@@ -196,27 +170,6 @@ class AnalysisEvent(EncryptedPayloadMixin, Base):
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
-
-
-class ModelInvocation(EncryptedPayloadMixin, Base):
-    __tablename__ = "model_invocations"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    analysis_id: Mapped[str] = mapped_column(
-        ForeignKey("analyses.id", ondelete="CASCADE"), index=True
-    )
-    stage: Mapped[str] = mapped_column(String(32), nullable=False)
-    provider: Mapped[str] = mapped_column(String(32), nullable=False)
-    model: Mapped[str] = mapped_column(String(128), nullable=False)
-    prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
-    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String(24), nullable=False)
-    error_code: Mapped[str | None] = mapped_column(String(64))
-    started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    duration_ms: Mapped[int | None] = mapped_column(Integer)
 
 
 class CaseRecord(TimestampMixin, Base):

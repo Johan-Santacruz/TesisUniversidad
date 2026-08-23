@@ -14,8 +14,6 @@ from app.ai.contracts import (
     ProviderSignal,
     ProviderTimelineEvent,
     RouteType,
-    TranscriptResult,
-    TranscriptSegment,
 )
 from app.ai.providers import RawTranscriptChunk, RawTranscriptSegment
 from app.services.analysis import AnalysisService

@@ -1,4 +1,3 @@
-from pathlib import Path
 import os
 import sqlite3
 import threading
@@ -10,7 +9,7 @@ from sqlalchemy import select
 from app.database import Database
 from app.entities import PurgeJob
 from app.security.crypto import EnvelopeCipher
-from app.services.assets import EncryptedAssetStore, StoredAsset
+from app.services.assets import EncryptedAssetStore
 
 
 def _locked_sqlite_database(tmp_path, name: str):

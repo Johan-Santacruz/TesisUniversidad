@@ -46,12 +46,6 @@ class AnalysisStage(StrEnum):
     ROUTES = "routes"
 
 
-class ModelInvocationReferences(StrictModel):
-    input_segment_ids: list[str] = Field(default_factory=list)
-    input_source_ids: list[str] = Field(default_factory=list)
-    result_event_sequence: int | None = Field(default=None, ge=1)
-
-
 ScalarValue = str | int | float | bool | list[str] | None
 
 

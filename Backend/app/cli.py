@@ -15,7 +15,7 @@ from app.security.passwords import PasswordService
 from app.services.audit import AuditService
 from app.services.assets import EncryptedAssetStore
 from app.services.purges import PurgeService
-from app.services.rag import RagCatalog, seed_official_sources
+from app.services.rag import seed_official_sources
 from app.services.retention import RetentionService
 
 

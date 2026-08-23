@@ -5,8 +5,6 @@ import base64
 import pytest
 from pydantic import ValidationError
 
-from app.config import Settings
-
 
 def test_blank_provider_keys_are_not_configured(settings_factory):
     settings = settings_factory(openai_api_key="", anthropic_api_key=" ")

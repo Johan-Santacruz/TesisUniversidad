@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from cryptography.exceptions import InvalidTag
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import OperationalError
 
 from app.database import Database

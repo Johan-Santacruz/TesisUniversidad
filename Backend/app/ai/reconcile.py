@@ -6,7 +6,6 @@ from typing import Any
 
 from app.ai.contracts import (
     ConfidenceBand,
-    EvidenceRef,
     Origin,
     ProviderSignal,
     ReconciledSignal,

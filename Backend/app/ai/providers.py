@@ -8,7 +8,6 @@ from typing import Any, Callable, TypeVar
 
 from app.ai.contracts import (
     ProviderAnalysis,
-    TranscriptResult,
     TranscriptSegment,
 )
 
