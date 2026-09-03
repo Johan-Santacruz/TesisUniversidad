@@ -37,5 +37,15 @@ yarn-error.log*
 **/.ipynb_checkpoints/
 
 # Respaldos locales de artefactos del clasificador: los pesos .pt pesan 420 MB
-# cada uno y GitHub rechaza cualquier archivo de mas de 100 MB.
+# cada uno y GitHub rechaza cualquier archivo de mas de 100 MB. Los .pt ya los
+# ignora Backend/.gitignore, pero los joblib de los baselines suman ~47 MB por
+# respaldo y sin estas reglas entrarian al historial con un `git add .`.
 Backend/ml-artifacts/*-backup/
+Backend/ml-artifacts/*.bak-*/
+
+# Videos de prueba descargados. Ya no viven aqui —se movieron fuera del
+# repositorio, a donde apunte SENDA_MATERIAL_PRUEBAS— pero las reglas se quedan:
+# un script lanzado con una ruta relativa los recrearia, y son cientos de megas.
+Backend/prueba-videos/
+Backend/prueba-fotograma/
+videos-prueba/

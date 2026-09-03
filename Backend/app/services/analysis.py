@@ -21,6 +21,7 @@ from app.ai.contracts import (
     TranscriptResult,
 )
 from app.ai.providers import retry_call
+from app.ai.admissibility import evaluate_admissibility, resolve_screening
 from app.ai.reconcile import reconcile_readings
 from app.database import Database
 from app.logging import get_logger
@@ -47,7 +48,20 @@ from app.services.videos import VideoService
 ANALYSIS_STAGES = tuple(stage.value for stage in AnalysisStage)
 TERMINAL_ANALYSIS_STATES = {"completed", "partial", "failed"}
 logger = get_logger("senda.analysis")
+# Vocabulario canónico de señales. El prompt (app/ai/providers.py, "CLAVES
+# OBLIGATORIAS") le exige al modelo estas grafías exactas, y aquí se consumen por
+# nombre para tres cosas: separar la etapa de personas y lugares, marcar lo
+# crítico, y emparejar las lecturas de los dos proveedores en reconcile_readings.
+# Cuando el prompt no las nombraba, el modelo inventaba claves libres y las tres
+# cosas fallaban en silencio: people_places salía vacía, is_critical nunca era
+# verdadero y el cruce entre proveedores no encontraba pareja. Si tocas una de
+# las dos listas, toca también el prompt: tests/unit/test_claves_canonicas.py
+# comprueba que sigan de acuerdo.
 PEOPLE_PLACE_KEYS = {"people", "current_location", "origin_location", "places"}
+
+# Lo que condiciona una orientación segura: si esto está mal, la ruta que se
+# entrega puede ser peligrosa. Es lo que exige revisión humana antes de aprobar.
+CRITICAL_KEYS = {"urgency", "vulnerabilities"}
 
 
 class NoAudioError(ValueError):
@@ -995,6 +1009,19 @@ class AnalysisService:
         # El catálogo se recupera una vez y se entrega a ambos proveedores:
         # es lo que les permite citar fuentes reales en lugar de inventarlas.
         catalog = self.rag.groundable()
+        # Cribado en su propia llamada, antes del análisis: quien juzga si hay
+        # caso no puede ser el mismo prompt que tiene el encargo de encontrar
+        # hechos y rutas. Si falla, el análisis sigue sin él —perder el cribado
+        # degrada la decisión, no debe tumbar el caso.
+        screening = None
+        if self.gpt is not None:
+            try:
+                screening = self.gpt.screen(transcript.segments)
+            except Exception as exc:
+                logger.warning(
+                    "screening_failed",
+                    extra={"error_code": type(exc).__name__},
+                )
         gpt_reading, gpt_error = self._read_provider(
             self.gpt, transcript.segments, catalog, classification_input
         )
@@ -1015,7 +1042,7 @@ class AnalysisService:
                 {
                     "id": str(uuid4()),
                     **reconciled,
-                    "is_critical": key in {"urgency", "vulnerabilities"},
+                    "is_critical": key in CRITICAL_KEYS,
                 }
             )
         people_places = [
@@ -1085,6 +1112,20 @@ class AnalysisService:
             AnalysisStage.TIMELINE,
             {"state": "completed", "events": timeline},
         )
+        # Las rutas ya vienen calculadas —salen de la misma llamada al modelo que
+        # todo lo demás—, así que lo que se decide aquí no es si generarlas sino
+        # si entregarlas. A una receta de cocina el sistema le armaba tres rutas
+        # institucionales y le decía "esta ruta aplica por la clasificación de
+        # amenazas y control social contra la población".
+        admissibility = evaluate_admissibility(
+            facts=facts,
+            timeline=timeline,
+            canonical_keys=PEOPLE_PLACE_KEYS | CRITICAL_KEYS,
+            screening=resolve_screening(screening, known_segments),
+        )
+        if not admissibility.admissible:
+            routes = []
+
         critical_inconsistencies = sum(
             fact["is_critical"]
             and fact["verification_status"] == "inconsistent"
@@ -1107,8 +1148,11 @@ class AnalysisService:
                 "state": "completed",
                 "routes": routes,
                 "case_id": case_id,
-                "recommendation_status": "preliminary",
+                "recommendation_status": (
+                    "preliminary" if admissibility.admissible else "not_applicable"
+                ),
                 "critical_inconsistencies": critical_inconsistencies,
+                "admissibility": admissibility.model_dump(mode="json"),
             },
         )
         if self.memory_images is not None:

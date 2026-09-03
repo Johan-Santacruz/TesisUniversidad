@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
+
+def _hace(dias: int) -> str:
+    fecha = datetime.now(timezone.utc) - timedelta(days=dias)
+    return fecha.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _dentro_de(dias: int) -> str:
+    fecha = datetime.now(timezone.utc) + timedelta(days=dias)
+    return fecha.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 SOURCE_PAYLOAD = {
     "id": "alcaldia-popayan-demo",
@@ -9,8 +21,8 @@ SOURCE_PAYLOAD = {
     "requirements": "Confirmar requisitos con la entidad.",
     "contact": "Canal oficial de prueba.",
     "url": "https://www.popayan.gov.co/",
-    "verified_at": "2026-07-27T00:00:00Z",
-    "expires_at": "2026-08-26T00:00:00Z",
+    "verified_at": _hace(30),
+    "expires_at": _dentro_de(30),
     "source_kind": "contact",
     "route_types": ["emergency"],
     "status": "active",

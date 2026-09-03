@@ -13,6 +13,7 @@ from app.ai.contracts import (
     ProviderRouteStep,
     ProviderSignal,
     ProviderTimelineEvent,
+    RouteApplicability,
     RouteType,
 )
 from app.ai.providers import RawTranscriptChunk, RawTranscriptSegment
@@ -79,6 +80,7 @@ def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
     routes = [
         ProviderRoute(
             route_type=RouteType.EMERGENCY,
+            applicability=RouteApplicability.APPLIES,
             summary="Orientación inmediata.",
             steps=[
                 ProviderRouteStep(
@@ -96,6 +98,7 @@ def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
         ),
         ProviderRoute(
             route_type=RouteType.HOUSING_STABILIZATION,
+            applicability=RouteApplicability.APPLIES,
             summary="Revisar oferta institucional.",
             steps=[
                 ProviderRouteStep(
@@ -113,6 +116,7 @@ def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
         ),
         ProviderRoute(
             route_type=RouteType.RETURN_RELOCATION,
+            applicability=RouteApplicability.APPLIES,
             summary="Evaluar retorno o reubicación acompañada.",
             steps=[
                 ProviderRouteStep(

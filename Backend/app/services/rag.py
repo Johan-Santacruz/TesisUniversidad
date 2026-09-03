@@ -124,7 +124,14 @@ class RagCatalog:
             route_types=[
                 value for value in entry.route_types.split(",") if value
             ],
-            status="historical" if expired else entry.status,
+            # Retirar es una decision administrativa y manda sobre el
+            # vencimiento: una fuente retirada que ademas vencio se seguia
+            # presentando como "historica", que se lee como vigente-pero-vieja.
+            status=(
+                entry.status
+                if entry.status == "retired"
+                else ("historical" if expired else entry.status)
+            ),
             is_expired=expired,
             disclaimer=(
                 "Requiere confirmación con la entidad" if expired else None

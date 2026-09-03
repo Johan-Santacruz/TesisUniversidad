@@ -76,11 +76,16 @@ def reconcile_readings(
         if signal is not None and not _evidence_is_valid(signal, known_segments)
     ]
 
+    # "No lo dice el relato" no es un desacuerdo. La condición exigía que
+    # RESPONDIERAN LOS DOS proveedores, así que con uno solo un valor nulo caía
+    # hasta el INCONSISTENT del final: el sistema informaba de una contradicción
+    # entre proveedores donde sólo había uno, diciendo con claridad que el dato
+    # no estaba. Sobre 'urgency' y 'vulnerabilities', que son críticas, eso
+    # bloqueaba la aprobación de cualquier caso.
+    presentes = [signal for signal in available.values() if signal is not None]
     if (
-        gpt is not None
-        and claude is not None
-        and gpt.value is None
-        and claude.value is None
+        presentes
+        and all(signal.value is None for signal in presentes)
         and not invalid
     ):
         return ReconciledSignal(

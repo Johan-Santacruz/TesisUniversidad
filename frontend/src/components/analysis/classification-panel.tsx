@@ -10,6 +10,38 @@ function classificationValue(value: unknown): { label: string; confidence?: numb
 }
 
 
+/* Un "21%" impreso junto a una afirmación tan rotunda como "reclutamiento de
+ * menores" se lee como puntuación de demo, y ese es justo el dato que hay que
+ * matizar, no marcar. La palabra va delante y da la lectura a quien revisa;
+ * el número queda detrás, a la vista, porque es evidencia del clasificador y
+ * dentro de un tooltip no habría sobrevivido a una captura ni a una
+ * impresión.
+ *
+ * Vale para la categoría y sólo para ella: abajo está por qué la subcategoría
+ * se quedó sin número. */
+const CERTAINTY_FLOORS = [
+  [0.85, "lectura firme"],
+  [0.65, "lectura probable"],
+  [0.35, "lectura provisional"],
+] as const
+
+function certaintyWord(confidence: number) {
+  for (const [floor, word] of CERTAINTY_FLOORS) {
+    if (confidence >= floor) return word
+  }
+  return "lectura débil"
+}
+
+
+function Certainty({ confidence }: { confidence: number }) {
+  return (
+    <dd className="model-confidence">
+      {certaintyWord(confidence)} · {Math.round(confidence * 100)}% de confianza
+    </dd>
+  )
+}
+
+
 export function ClassificationPanel({
   classification,
 }: {
@@ -34,25 +66,27 @@ export function ClassificationPanel({
           <dt>Categoría</dt>
           <dd>{category?.label ?? "No disponible"}</dd>
           {category?.confidence !== undefined ? (
-            <dd className="model-confidence">
-              {Math.round(category.confidence * 100)}% de confianza
-            </dd>
+            <Certainty confidence={category.confidence} />
           ) : null}
         </div>
+        {/* La subcategoría no lleva porcentaje. El clasificador la elige
+            entre las que cuelgan de la categoría ya predicha, y su "confianza"
+            acaba siendo el inverso de cuántas había —1.0 cuando cuelga una
+            sola, 0.19 cuando cuelgan siete—, no una medida de qué tan seguro
+            está. Imprimir ese número sería inventar una precisión que no
+            existe, y ya pasó que una subcategoría equivocada se leyera como
+            dato del caso. Queda la etiqueta, con el aviso de qué hacer con
+            ella. */}
         <div>
           <dt>Subcategoría</dt>
           <dd>{subcategory?.label ?? "No disponible"}</dd>
-          {subcategory?.confidence !== undefined ? (
+          {subcategory ? (
             <dd className="model-confidence">
-              {Math.round(subcategory.confidence * 100)}% de confianza
+              sin calibrar · contrástela con el relato
             </dd>
           ) : null}
         </div>
       </dl>
-      <p>
-        Es una lectura automática del relato. La decisión final siempre queda
-        en manos de quien revisa el caso.
-      </p>
     </section>
   )
 }

@@ -97,6 +97,11 @@ export function AnalysisWorkspace({
   const [videoSource, setVideoSource] = useState<string | null>(null)
   const [videoMode, setVideoMode] = useState<VideoMode>("original")
   const [memoryImageSource, setMemoryImageSource] = useState<string | null>(null)
+  // Un caso puede llegar sin cierre: es anterior a la función, o su generación
+  // inicial se perdió. El panel lo resuelve pidiéndolo, y mientras tanto esta
+  // bandera es lo único que distingue "todavía no existe" de "viene en camino".
+  const [claimingClosing, setClaimingClosing] = useState(false)
+  const claimedClosingRef = useRef<string | null>(null)
   const [playbackError, setPlaybackError] = useState("")
   const [loadRemoteVideo, setLoadRemoteVideo] = useState(false)
   const [railCollapsed, setRailCollapsed] = useState(false)
@@ -445,6 +450,27 @@ export function AnalysisWorkspace({
     }
   }
 
+  // Un caso sin cierre no tiene por qué quedarse sin él. Los anteriores al
+  // pipeline actual nunca tuvieron fila de imagen, y el panel se limitaba a
+  // decirlo: se reclama aquí, al abrirlo. Una sola vez por caso —la generación
+  // cuesta una llamada al proveedor y más de un minuto—, y sólo para quien
+  // puede revisarla, que es quien el endpoint autoriza.
+  useEffect(() => {
+    if (!caseId || (role !== "validador" && role !== "admin")) return
+    if (memoryImage !== null || claimedClosingRef.current === caseId) return
+    claimedClosingRef.current = caseId
+    setClaimingClosing(true)
+    memoryImageAction("/memory-image/regenerate")
+      .catch(() => {
+        // Reclamarlo y no conseguirlo deja el caso como estaba; el panel
+        // ofrece el botón para intentarlo a mano.
+      })
+      .finally(() => setClaimingClosing(false))
+    // memoryImageAction se redefine en cada render y volvería a disparar el
+    // efecto; el guardia por caso es lo que gobierna cuándo corre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, memoryImage, role])
+
   const approve = async () => {
     if (!caseData) return
     const approved = await apiClient.request<components["schemas"]["CaseApprovalRead"]>(
@@ -520,7 +546,11 @@ export function AnalysisWorkspace({
   if (!caseData) {
     return (
       <AnimatePresence mode="wait">
-        <motion.div key="progress" className="desk-stage" {...phaseMotion(reduceMotion)}>
+        <motion.div
+          key="progress"
+          className="analysis-workspace analysis-live-workspace desk-stage"
+          {...phaseMotion(reduceMotion)}
+        >
           <DeskSurface />
           <AnalysisProgress
             events={stream.events}
@@ -646,6 +676,7 @@ export function AnalysisWorkspace({
                   memoryPanel={
                     <MemoryImagePanel
                       memoryImage={memoryImage}
+                      claiming={claimingClosing}
                       role={role}
                       imageSource={memoryImageSource}
                       videoMode={videoMode}
@@ -668,7 +699,6 @@ export function AnalysisWorkspace({
           </motion.div>
           <footer className="narrative-stage-actions">
             <p>
-              Los cambios quedan guardados en el caso.
               {/* El recorrido se ofrece una vez. Sin esta puerta queda visto y
                   enterrado: nadie encuentra otra vez lo que ya cerró. */}
               <button

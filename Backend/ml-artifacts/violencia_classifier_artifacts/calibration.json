@@ -1,0 +1,6 @@
+{
+  "category_temperature": 0.33995625376701355,
+  "subcategory_temperature": 1.0,
+  "subcategory_reason": "Sin calibrar: el CSV de subcategoría disponible no corresponde a estos artefactos (1806 filas y 10 clases frente a 2208 y 15).",
+  "fitted_on": "validación, split SEED 42 / 0.15 / 0.15, camino con ventanas"
+}

@@ -12,27 +12,45 @@
     "BASELINE_SOLVER": "lbfgs",
     "MIN_HIERARCHICAL_GROUP_SIZE": 35,
     "TARGET_MACRO_F1": 0.85,
-    "MAX_LEN_CAP": 256,
+    "MAX_LEN_CAP": 128,
     "MAX_LEN_PERCENTILE": 95,
     "BATCH_SIZE": 16,
-    "EPOCHS": 15,
-    "PATIENCE": 3,
+    "EPOCHS": 25,
+    "PATIENCE": 6,
     "MIN_DELTA": 0.0001,
-    "DROPOUT": 0.35,
-    "LABEL_SMOOTHING": 0.05,
-    "LR_TRANSFORMER": 2e-05,
-    "LR_HEAD": 0.0001,
-    "WEIGHT_DECAY_TRANSFORMER": 0.01,
-    "WEIGHT_DECAY_HEAD": 0.001,
+    "DROPOUT": 0.6,
+    "LABEL_SMOOTHING": 0.2,
+    "LR_TRANSFORMER": 5e-06,
+    "LR_HEAD": 3e-05,
+    "WEIGHT_DECAY_TRANSFORMER": 0.1,
+    "WEIGHT_DECAY_HEAD": 0.05,
     "FREEZE_EMBEDDINGS": true,
-    "FREEZE_LOWER_LAYERS": 4,
-    "USE_WEIGHTED_SAMPLER": true,
+    "FREEZE_LOWER_LAYERS": 11,
+    "USE_WEIGHTED_SAMPLER": false,
     "NUM_WORKERS": 0,
     "USE_HIERARCHY_FOR_SUBCATEGORY": true,
     "MASK_SUBCATEGORY_BY_CATEGORY": true,
-    "ARTIFACT_DIR": "/content/violencia_classifier_artifacts",
+    "ARTIFACT_DIR": "/content/drive/MyDrive/violencia_classifier_artifacts",
+    "LLRD_DECAY": 0.8,
+    "HEAD_HIDDEN": 64,
+    "RDROP_ALPHA": 2.0,
+    "AUGMENTAR_TRAIN": true,
+    "AUG_COPIAS": 4,
+    "AUG_PROB": 0.2,
     "MODEL_NAME": "dccuchile/bert-base-spanish-wwm-cased",
-    "MAX_LEN": 240
+    "MAX_LEN": 128
+  },
+  "config_categoria": {
+    "MODEL_NAME": "dccuchile/bert-base-spanish-wwm-cased",
+    "MAX_LEN": 128,
+    "HEAD_HIDDEN": 64,
+    "DROPOUT": 0.6
+  },
+  "config_subcategoria": {
+    "MODEL_NAME": "dccuchile/bert-base-spanish-wwm-cased",
+    "MAX_LEN": 160,
+    "HEAD_HIDDEN": 64,
+    "DROPOUT": 0.6
   },
   "n_events_total": 2870,
   "n_category_trainable": 2449,
@@ -233,14 +251,14 @@
     "f1_weighted": 0.8610567508717633
   },
   "transformer_category_test": {
-    "accuracy": 0.9375,
-    "f1_macro": 0.8963815351790159,
-    "f1_weighted": 0.9381167122075891
+    "accuracy": 0.9157608695652174,
+    "f1_macro": 0.889365036730065,
+    "f1_weighted": 0.9161098487439447
   },
   "transformer_subcategory_test": {
     "accuracy": 0.8795180722891566,
-    "f1_macro": 0.8425281351478555,
-    "f1_weighted": 0.8799472227782041
+    "f1_macro": 0.8404843619908602,
+    "f1_weighted": 0.8796228006363839
   },
   "robustez_lexica": {
     "solapamiento_lexico": {
@@ -250,23 +268,23 @@
       "Ataques contra la población civil": 0.5159194282001299,
       "Restricción al acceso humanitario": 0.4846938775510204
     },
-    "accuracy_original": 0.9375,
-    "accuracy_ablado": 0.8831521739130435,
-    "caida_por_ablacion": 0.05434782608695654,
+    "accuracy_original": 0.9157608695652174,
+    "accuracy_ablado": 0.8586956521739131,
+    "caida_por_ablacion": 0.057065217391304324,
     "caida_por_clase": {
       "Desplazamiento forzado": 0.2857142857142857,
-      "Uso de artefactos explosivos": 0.1515151515151516,
-      "Restricción al acceso humanitario": 0.1333333333333333,
+      "Uso de artefactos explosivos": 0.18181818181818188,
       "Acciones armadas": 0.10447761194029848,
-      "Ataques contra la población civil": 0.008658008658008587
+      "Restricción al acceso humanitario": 0.09999999999999998,
+      "Ataques contra la población civil": 0.012987012987012991
     }
   },
   "coherencia_jerarquica": {
-    "coherencia_sin_mascara": 0.9608433734939759,
+    "coherencia_sin_mascara": 0.9578313253012049,
     "coherencia_con_mascara": 1.0,
     "accuracy_sub_sin_mascara": 0.8795180722891566,
-    "accuracy_sub_con_mascara": 0.8975903614457831,
-    "f1_macro_sub_sin_mascara": 0.8425281351478555,
-    "f1_macro_sub_con_mascara": 0.871746250683123
+    "accuracy_sub_con_mascara": 0.8945783132530121,
+    "f1_macro_sub_sin_mascara": 0.8380978239429034,
+    "f1_macro_sub_con_mascara": 0.8559371861793418
   }
 }

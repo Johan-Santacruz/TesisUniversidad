@@ -28,8 +28,14 @@ const RUNNING_LABEL: Record<Action, string> = {
 }
 
 
-function statusMessage(memoryImage: MemoryImage | null): string {
-  if (!memoryImage) return "El cierre visual no está configurado para este caso."
+function statusMessage(memoryImage: MemoryImage | null, claiming: boolean): string {
+  // Sin fila de imagen el caso no está "mal configurado": todavía no tiene
+  // cierre. Decir lo contrario mandaba a revisar el .env, que estaba bien.
+  if (!memoryImage) {
+    return claiming
+      ? "Preparando la imagen de cierre…"
+      : "Este caso todavía no tiene imagen de cierre."
+  }
   switch (memoryImage.status) {
     case "generating":
       return "Preparando la imagen de cierre…"
@@ -38,10 +44,17 @@ function statusMessage(memoryImage: MemoryImage | null): string {
     case "rejected":
       return "La imagen fue descartada. El caso continúa sin cierre visual."
     case "failed":
-      return (
-        "No fue posible generar la imagen de cierre. "
-        + "El caso continúa sin cierre visual y se puede intentar otra generación."
-      )
+      // La falta de proveedor es lo único que de verdad se arregla en la
+      // configuración; el resto es un fallo de generación y se reintenta.
+      return memoryImage.failure_code === "image_provider_not_configured"
+        ? (
+          "El proveedor de imágenes no está configurado, así que el cierre "
+          + "visual no se puede generar en este entorno."
+        )
+        : (
+          "No fue posible generar la imagen de cierre. "
+          + "El caso continúa sin cierre visual y se puede intentar otra generación."
+        )
     case "approved":
       switch (memoryImage.render_status) {
         case "ready":
@@ -65,6 +78,7 @@ function statusMessage(memoryImage: MemoryImage | null): string {
 
 export function MemoryImagePanel({
   memoryImage,
+  claiming = false,
   role,
   imageSource,
   videoMode,
@@ -74,6 +88,7 @@ export function MemoryImagePanel({
   onVideoModeChange,
 }: {
   memoryImage: MemoryImage | null
+  claiming?: boolean
   role: Role
   imageSource: string | null
   videoMode: VideoMode
@@ -99,8 +114,14 @@ export function MemoryImagePanel({
   )
   // Regenerar sustituye la generación activa: sólo se ofrece mientras no haya
   // una aprobación en pie, para no descartar en silencio un cierre ya emitido.
+  // El caso sin fila entra aquí: antes se quedaba sin imagen y sin botón, así
+  // que no había forma de pedirla desde la interfaz.
   const canRegenerate = canReview
-    && (status === "pending_review" || status === "failed" || status === "rejected")
+    && !claiming
+    && (status === null
+      || status === "pending_review"
+      || status === "failed"
+      || status === "rejected")
   const canDecide = canReview && status === "pending_review"
   const canRetryRender = canReview && status === "approved" && renderStatus === "failed"
   const busy = running !== null
@@ -129,7 +150,7 @@ export function MemoryImagePanel({
       <header className="memory-image-header">
         <h3 id="memory-image-title">Cierre de memoria</h3>
         <p className="memory-image-status" role="status">
-          {statusMessage(memoryImage)}
+          {statusMessage(memoryImage, claiming)}
         </p>
       </header>
 
@@ -176,7 +197,7 @@ export function MemoryImagePanel({
               disabled={busy}
               onClick={() => void run("regenerate", onRegenerate)}
             >
-              {label("regenerate", "Generar otra")}
+              {label("regenerate", status === null ? "Generar cierre" : "Generar otra")}
             </button>
           ) : null}
           {canDecide ? (

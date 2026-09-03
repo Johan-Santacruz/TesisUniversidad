@@ -93,3 +93,25 @@ def test_both_explicitly_unidentified_values_group_as_not_identified():
     assert result.verification_status == "not_identified"
     assert result.confidence_band == "low"
 
+
+
+# Con un solo proveedor configurado —que es como corrieron las dos pruebas con
+# videos reales— un valor nulo caía en INCONSISTENT: el sistema reportaba una
+# contradicción entre proveedores donde sólo había uno, y encima diciendo con
+# toda claridad que el dato no aparecía en el relato.
+def test_un_solo_proveedor_que_no_encuentra_el_dato_no_es_una_contradiccion():
+    result = reconcile_readings(
+        gpt=ProviderSignal(
+            key="urgency",
+            label="qué tan urgente es la atención",
+            display_value="No se menciona",
+            value=None,
+            origin="mentioned",
+            evidence=[],
+        ),
+        claude=None,
+        known_segments={"segment-1"},
+    )
+
+    assert result.verification_status == "not_identified"
+    assert result.value is None

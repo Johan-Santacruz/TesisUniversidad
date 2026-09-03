@@ -7,12 +7,6 @@ import { motionTransition, staggerContainer, staggerItem } from "./motion"
 const MAX_BYTES = 500 * 1024 * 1024
 const ACCEPTED = ["video/mp4", "video/webm", "video/quicktime"]
 
-const STEPS = [
-  ["01", "Escuchar", "Recogemos el relato tal como fue contado."],
-  ["02", "Ordenar", "Separamos hechos, señales y contexto."],
-  ["03", "Trazar", "Construimos una ruta que podrás revisar."],
-] as const
-
 function readableSize(bytes: number) {
   const mb = bytes / (1024 * 1024)
   if (mb >= 1) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`
@@ -124,18 +118,18 @@ export function UploadPanel({
           onDragLeave={() => setDragging(false)}
           onDrop={drop}
         >
-          {/* Las perforaciones son la marca: dicen "cinta" sin recurrir a un
-              icono de widget de carga, y se dibujan en CSS. */}
-          <span className="intake-sprockets" aria-hidden="true" />
           <span className="intake-frame">
             <strong>Arrastra aquí el testimonio</strong>
             <span className="intake-alt">o elige un archivo del equipo</span>
-            <span id={hintId} className="intake-hint">
-              MP4, WebM o MOV · hasta 500 MB
-            </span>
           </span>
-          <span className="intake-sprockets" aria-hidden="true" />
         </button>
+
+        {/* Fuera del recuadro: es un dato de referencia, no una tercera línea
+            de invitación compitiendo con las dos de arriba. Sigue siendo la
+            descripción accesible de la zona. */}
+        <p id={hintId} className="intake-hint">
+          MP4, WebM o MOV · hasta 500 MB
+        </p>
 
         <input
           ref={inputRef}
@@ -215,21 +209,6 @@ export function UploadPanel({
           Ver primero el caso de demostración
         </button>
       </motion.div>
-
-      <motion.ol
-        className="intake-steps"
-        aria-label="Etapas del análisis"
-        variants={staggerItem}
-        transition={motionTransition(reduceMotion)}
-      >
-        {STEPS.map(([number, title, detail]) => (
-          <li key={number}>
-            <span>{number}</span>
-            <strong>{title}</strong>
-            <small>{detail}</small>
-          </li>
-        ))}
-      </motion.ol>
     </motion.section>
   )
 }

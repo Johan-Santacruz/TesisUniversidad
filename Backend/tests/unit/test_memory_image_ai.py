@@ -3,10 +3,12 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import asdict
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from app.ai import memory_images
 from app.ai.memory_images import (
     GeneratedImage,
     MemoryImageProviderError,
@@ -39,13 +41,14 @@ def _classification() -> dict[str, object]:
         "status": "available",
         "category": {"label": "Desplazamiento forzado", "confidence": 0.91},
         "subcategory": {
-            "label": "Amenazas (individuales/colectivas)",
+            "label": "Amenazas y control social sobre la población",
             "confidence": 0.87,
         },
     }
 
 
-def test_visual_context_exposes_only_allowlisted_categorical_values():
+def test_visual_context_carries_the_documented_detail_of_the_case():
+    """Breaks if two cases of the same category collapse into one plate."""
     context = build_visual_context(
         _classification(),
         [
@@ -64,9 +67,8 @@ def test_visual_context_exposes_only_allowlisted_categorical_values():
 
     assert context == VisualContext(
         category="Desplazamiento forzado",
-        subcategory="Amenazas (individuales/colectivas)",
+        subcategory="Amenazas y control social sobre la población",
         setting="rural a urbano",
-        # La dirección exacta se leyó aquí y sólo sobrevivió su región natural.
         region="andina",
         period="periodo reciente",
         scene=(
@@ -75,16 +77,15 @@ def test_visual_context_exposes_only_allowlisted_categorical_values():
         ),
         nuance="una casa dejada por precaución, con la puerta entornada",
         themes=("desarraigo", "tránsito", "búsqueda de protección"),
+        # El detalle real del caso viaja aparte de la taxonomía: es lo que
+        # distingue esta lámina de cualquier otra de la misma categoría.
+        place=PRIVATE_ADDRESS,
+        household=PRIVATE_NAME,
     )
     serialized = json.dumps(asdict(context), ensure_ascii=False)
-    for forbidden in (
-        PRIVATE_NAME,
-        PRIVATE_TESTIMONY,
-        PRIVATE_SEGMENT_ID,
-        PRIVATE_ADDRESS,
-        "people",
-        "current_location",
-    ):
+    # El relato completo y la trazabilidad al segmento siguen sin viajar: al
+    # proveedor va el detalle que ilustra, no el testimonio ni su evidencia.
+    for forbidden in (PRIVATE_TESTIMONY, PRIVATE_SEGMENT_ID, "current_location"):
         assert forbidden not in serialized
 
 
@@ -127,7 +128,7 @@ def test_visual_context_rejects_directly_supplied_private_values():
         )
 
 
-def test_memory_prompt_is_deterministic_and_prohibits_identifying_content():
+def test_memory_prompt_is_deterministic_and_still_refuses_the_act_itself():
     context = build_visual_context(
         _classification(),
         [
@@ -147,27 +148,26 @@ def test_memory_prompt_is_deterministic_and_prohibits_identifying_content():
         "16:9",
         "dibujada a mano",
         "No es una fotografía",
-        "zona tranquila en la parte inferior para",
+        "una franja inferior discreta",
+        "Huella: en primer plano",
+        "Acompaña su memoria",
         "sin escenas del hecho",
-        "sin menores reconocibles",
         "sin violencia explícita",
-        "sin personas identificables",
         "sin texto generado",
         "sin logotipos",
         "sin banderas",
         "sin escudos",
-        "sin encuadres probatorios de ubicaciones exactas",
         "sin sensacionalismo",
         "sin afirmaciones de documentación real",
     ):
         assert required in prompt
-    for forbidden in (
-        PRIVATE_NAME,
-        PRIVATE_TESTIMONY,
-        PRIVATE_ADDRESS,
-        "Bogotá, Colombia",
-    ):
-        assert forbidden not in prompt
+    # Lo que dejó de prohibirse: el prototipo ilustra el caso concreto, con su
+    # lugar documentado y con las personas que habitaban ese sitio.
+    assert PRIVATE_ADDRESS in prompt
+    assert "Puede haber personas" in prompt
+    # Lo que se mantiene: la lámina acompaña la memoria, no narra el hecho.
+    for forbidden in ("sin escenas del hecho", "sin armas", "sin cuerpos"):
+        assert forbidden in prompt
 
 
 def test_memory_prompt_rejects_an_unvalidated_context_lookalike():
@@ -260,7 +260,7 @@ def test_each_documented_category_produces_its_own_scene_and_themes():
     prompts = {}
     for category, subcategory in (
         ("Acciones armadas", "Combates"),
-        ("Ataques contra la población civil", "Amenazas (individuales/colectivas)"),
+        ("Ataques contra la población civil", "Amenazas y control social sobre la población"),
         ("Desplazamiento forzado", "Hostigamiento"),
         ("Restricción al acceso humanitario", "Secuestro"),
         ("Uso de artefactos explosivos", "Mina antipersonal - MAP"),
@@ -279,8 +279,8 @@ def test_each_documented_category_produces_its_own_scene_and_themes():
     assert len(set(prompts.values())) == len(prompts)
 
 
-def test_each_region_reaches_the_prompt_only_as_a_natural_region():
-    """Breaks if an exact place survives into the provider request."""
+def test_the_documented_place_reaches_the_prompt_with_its_natural_region():
+    """Breaks if the documented place stops reaching the illustration."""
     for place, landscape in (
         ("Vereda El Mirador, El Tambo, Cauca", "andino"),
         ("Corregimiento La Playa, Riohacha, La Guajira", "caribe"),
@@ -294,9 +294,10 @@ def test_each_region_reaches_the_prompt_only_as_a_natural_region():
         )
         prompt = build_memory_prompt(context)
 
+        # El paisaje natural sigue encuadrando la escena y, además, el lugar
+        # documentado entra tal cual: es lo que hace única a cada lámina.
         assert landscape in prompt
-        for fragment in place.split(", "):
-            assert fragment not in prompt
+        assert place in prompt
 
 
 def test_an_unmapped_place_falls_back_to_a_neutral_landscape():
@@ -326,3 +327,28 @@ def test_the_prompt_never_asks_for_the_act_itself():
             prohibitions = prompt[prompt.index("Prohibiciones:"):]
             assert forbidden not in prompt[: prompt.index("Prohibiciones:")]
             assert forbidden in prohibitions or forbidden == "combatiente"
+
+
+# El diccionario de matices se escribió cuando el clasificador tenía 10
+# subcategorías y el modelo terminó con 15. Las seis que faltaban caían en
+# silencio al matiz genérico —entre ellas el desplazamiento forzado, que es el
+# caso central del sistema—, de modo que el cierre de memoria de esos casos era
+# siempre el mismo umbral abierto. Que falle aquí y no en la ilustración.
+def test_every_trained_subcategory_has_its_own_nuance():
+    config = (
+        Path("ml-artifacts")
+        / "violencia_classifier_artifacts"
+        / "metrics_config_singlelabel.json"
+    )
+    if not config.exists():
+        pytest.skip("artefactos del clasificador no disponibles")
+    mapping = json.loads(config.read_text(encoding="utf-8"))
+    entrenadas = {
+        sub
+        for subs in mapping["category_to_subcategories"].values()
+        for sub in subs
+    }
+
+    sin_matiz = sorted(entrenadas - set(memory_images._SUBCATEGORY_NUANCE))
+
+    assert not sin_matiz, f"subcategorías sin matiz propio: {sin_matiz}"

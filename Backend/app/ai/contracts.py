@@ -76,6 +76,29 @@ class TranscriptResult(StrictModel):
     segments: list[TranscriptSegment]
 
 
+class ScreeningVerdict(StrEnum):
+    """Qué es este texto, antes de tratarlo como un caso.
+
+    La separación que importa no es "conflicto sí / conflicto no": es si alguien
+    NARRA un hecho victimizante. Una víctima real puede hablar durante cuatro
+    minutos de su cooperativa de café sin narrar ninguno, y el sistema le armaba
+    igual una ruta de protección.
+    """
+
+    NARRATED_EVENT = "narrated_event"
+    VICTIM_WITHOUT_EVENT = "victim_without_event"
+    OUT_OF_DOMAIN = "out_of_domain"
+
+
+class ProviderScreening(StrictModel):
+    verdict: ScreeningVerdict
+    # Obligar a señalar DÓNDE se narra el hecho es lo que impide que el veredicto
+    # sea una opinión: las referencias se validan contra los segmentos reales, y
+    # un "narrated_event" que cite un segmento inexistente no se acepta.
+    evidence: list[EvidenceRef]
+    reason: str
+
+
 class ProviderSignal(StrictModel):
     key: str
     # Rótulo y valor tal como los leerá una persona: la clave técnica sirve
@@ -113,8 +136,24 @@ class ProviderRouteStep(StrictModel):
     claims: list[GroundedClaim]
 
 
+class RouteApplicability(StrEnum):
+    """Si esta ruta le sirve a esta persona.
+
+    El prompt obligaba a construir las tres siempre, así que el modelo emitía
+    rutas que no creía pertinentes y se cubría con condicionales dentro del
+    texto: "Esta ruta aplica sólo si usted desea volver…". Decirlo en un campo
+    es más honesto que esconderlo en la redacción, y deja que quien lee sepa de
+    entrada cuál de las tres es la suya.
+    """
+
+    APPLIES = "applies"
+    CONDITIONAL = "conditional"
+    NOT_APPLICABLE = "not_applicable"
+
+
 class ProviderRoute(StrictModel):
     route_type: RouteType
+    applicability: RouteApplicability
     summary: str
     steps: list[ProviderRouteStep]
 
@@ -149,3 +188,14 @@ class BetoClassification(StrictModel):
     category: LabelProbability | None = None
     subcategory: LabelProbability | None = None
     unavailable_reason: str | None = None
+
+
+class MemoryPhrase(StrictModel):
+    """El texto que acompaña la lámina de cierre.
+
+    Lo escribe el modelo a partir de los hechos documentados del caso: no es
+    una cita de la persona, así que no se entrecomilla ni se le atribuye.
+    """
+
+    phrase: str = Field(min_length=20, max_length=140)
+    context_line: str = Field(default="", max_length=90)

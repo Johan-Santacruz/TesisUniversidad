@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 from pydantic import ValidationError
@@ -10,11 +11,14 @@ from app.ai.contracts import (
     Origin,
     ProviderAnalysis,
     ProviderSignal,
+    TranscriptSegment,
 )
 from app.ai.providers import WhisperAdapter
 from app.ai.providers import (
+    ANALYSIS_INSTRUCTIONS,
     AnthropicAnalysisAdapter,
     OpenAIAnalysisAdapter,
+    _analysis_input,
     retry_call,
 )
 
@@ -191,3 +195,40 @@ def test_retry_call_propagates_after_the_configured_limit():
         )
 
     assert calls == 2
+
+
+# La confianza de subcategoría no mide certeza: con la máscara jerárquica
+# puesta sale pegada al inverso de cuántas subcategorías cuelgan de la
+# categoría predicha. Delante del modelo ese número sólo sirve para que trate
+# una etiqueta floja como si fuera firme, así que no viaja en el prompt.
+def test_subcategory_confidence_never_reaches_the_prompt():
+    payload = json.loads(
+        _analysis_input(
+            [
+                TranscriptSegment(
+                    id="s1", start_ms=0, end_ms=1000, text="Nos tocó salir."
+                )
+            ],
+            [],
+            {
+                "status": "available",
+                "category": {
+                    "label": "Ataques contra la población civil",
+                    "confidence": 0.87,
+                },
+                "subcategory": {"label": "Secuestro", "confidence": 0.187},
+            },
+        )
+    )
+    classification = payload["case_classification"]
+
+    assert classification["subcategory"] == {"label": "Secuestro"}
+    # La categoría sí está calibrada y conserva su número.
+    assert classification["category"]["confidence"] == 0.87
+
+
+def test_prompt_forbids_citing_the_classification_as_evidence():
+    # El caso que motivó el cambio: una subcategoría equivocada ("Secuestro")
+    # salió citada textualmente en la ruta que lee la víctima.
+    assert "NO CITES LA CLASIFICACIÓN." in ANALYSIS_INSTRUCTIONS
+    assert "trátala como una hipótesis" in ANALYSIS_INSTRUCTIONS

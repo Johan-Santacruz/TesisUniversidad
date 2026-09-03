@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import type { Transition, Variants } from "framer-motion"
 
 
@@ -92,4 +93,53 @@ export function narrativeStageTransition(reduceMotion: boolean): Transition {
         duration: NARRATIVE_STAGE_PHASE_SECONDS,
         ease: [0.16, 1, 0.3, 1],
       }
+}
+
+
+/* Los grids de señales y rutas no son una cronología, así que el ritmo "set"
+ * los entra casi a la vez para no insinuar una prioridad que no existe. Pero
+ * en la pantalla en vivo cada tarjeta aparece cuando el análisis la acaba de
+ * encontrar: aquí el escalonado no dice "esta importa más", dice "esta acaba
+ * de llegar". Por eso sí se separan, a un paso corto. */
+const ARRIVAL_STEP_SECONDS = 0.055
+
+export type ArrivalRhythm = NarrativeRhythm | "arrival"
+
+
+/* Los resultados en vivo no llegan de una vez: el servidor emite un evento
+ * con doce fragmentos y más tarde otro con cuatro. Un contenedor con
+ * staggerChildren sólo escalona su propia animación de entrada, así que el
+ * primer lote cascadea y todos los siguientes aterrizan de una pieza —que es
+ * justo lo que se veía plano—.
+ *
+ * El retardo se cuenta sobre la posición dentro del lote recién llegado, no
+ * sobre el índice absoluto: el fragmento 40 de un testimonio largo no espera
+ * tres segundos, y cada lote nuevo vuelve a entrar uno por uno.
+ */
+export function useBatchCascade(
+  count: number,
+  reduceMotion: boolean,
+  rhythm: ArrivalRhythm = "arrival",
+) {
+  const rendered = useRef(0)
+  // Se lee durante el render: en el render que estrena un lote todavía vale
+  // el total anterior, que es exactamente dónde empieza lo nuevo.
+  const alreadyIn = rendered.current
+
+  useEffect(() => {
+    rendered.current = count
+  }, [count])
+
+  return (index: number): number => {
+    if (reduceMotion) return 0
+    const step = rhythm === "sequence"
+      ? SEQUENCE_STEP_SECONDS
+      : rhythm === "set"
+        ? SET_STEP_CAP_SECONDS
+        : ARRIVAL_STEP_SECONDS
+    return Math.min(
+      Math.max(0, index - alreadyIn) * step,
+      SEQUENCE_TOTAL_CAP_SECONDS,
+    )
+  }
 }

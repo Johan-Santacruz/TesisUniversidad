@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from app.api import admin, analyses, auth, cases, sources, videos
 from app.ai.beto import BetoAdapter
-from app.ai.memory_images import OpenAIMemoryImageAdapter
+from app.ai.memory_images import OpenAIMemoryImageAdapter, OpenAIMemoryPhraseAdapter
 from app.ai.narration import ElevenLabsNarrationAdapter
 from app.services.media import MediaPipeline
 from app.services.transcription import TranscriptionService
@@ -161,6 +161,15 @@ def create_app(
                     client=openai_client,
                     max_bytes=app_settings.memory_image_max_bytes,
                     model=app_settings.openai_image_model,
+                )
+                if openai_client is not None
+                else None
+            ),
+            # La frase la escribe el modelo de texto, no el de imagen.
+            phrase_adapter=(
+                OpenAIMemoryPhraseAdapter(
+                    client=openai_client,
+                    model=app_settings.openai_analysis_model,
                 )
                 if openai_client is not None
                 else None

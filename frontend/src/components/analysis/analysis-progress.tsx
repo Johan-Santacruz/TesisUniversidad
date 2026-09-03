@@ -2,6 +2,7 @@ import type { CSSProperties } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 
 import type { AnalysisEvent, AnalysisStage } from "../../hooks/use-analysis-events"
+import { LiveAnalysisResults } from "./live-analysis-results"
 import { motionTransition, staggerContainer, staggerItem } from "./motion"
 
 
@@ -72,7 +73,10 @@ export function AnalysisProgress({
   const currentLabel = stages.find((stage) => stage.id === currentStage)?.label
 
   return (
-    <section className="processing-view" aria-labelledby="progress-title">
+    <div className="narrative-workspace-grid live-analysis-grid">
+      <span className="book-spine" aria-hidden="true" />
+      <aside className="documentary-rail live-processing-ledger">
+      <section className="processing-view" aria-labelledby="progress-title">
       <header className="processing-head">
         <p className="eyebrow">Procesamiento protegido</p>
         <h1 id="progress-title">Construyendo la lectura del caso</h1>
@@ -181,9 +185,14 @@ export function AnalysisProgress({
         })}
       </motion.ol>
 
-      <p className="processing-note">
-        Puedes mantener esta ventana abierta mientras avanza el análisis.
-      </p>
-    </section>
+        <p className="processing-note">
+          Los resultados parciales quedan visibles mientras continúa el análisis.
+        </p>
+      </section>
+      </aside>
+      <main className="narrative-sheet live-analysis-sheet">
+        <LiveAnalysisResults events={events} />
+      </main>
+    </div>
   )
 }

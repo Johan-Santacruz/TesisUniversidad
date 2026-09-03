@@ -102,7 +102,7 @@ describe("AnalysisWorkspace", () => {
     const opener = await screen.findByRole("button", {
       name: /atención inmediata/i,
     })
-    expect(screen.getByTestId("route-artwork-emergency")).toBeInTheDocument()
+    expect(await screen.findByTestId("route-artwork-emergency")).toBeInTheDocument()
 
     await act(async () => {
       fireEvent.click(opener)
@@ -111,8 +111,13 @@ describe("AnalysisWorkspace", () => {
       await new Promise((resolve) => setTimeout(resolve, 30))
     })
 
+    // Los 30 ms de arriba asumen que la animación ya terminó, y con la máquina
+    // cargada no siempre es así. Se espera al estado estable —la tarjeta
+    // abierta— y sólo entonces se afirma que la fotografía sigue puesta.
+    await waitFor(() => {
+      expect(opener.closest("article")).toHaveClass("is-open")
+    })
     expect(screen.getByTestId("route-artwork-emergency")).toBeInTheDocument()
-    expect(opener.closest("article")).toHaveClass("is-open")
 
     fireEvent.click(opener)
 
@@ -636,7 +641,22 @@ describe("AnalysisWorkspace memory closing", () => {
     expect(request).not.toHaveBeenCalled()
   })
 
-  it("keeps the closing panel out of the case when there is no image", async () => {
+  it("claims the closing when the case arrives without an image", async () => {
+    // Breaks if a case older than the closing pipeline is left with no image
+    // and no way to ask for one.
+    vi.spyOn(apiClient, "download").mockResolvedValue(new Blob(["imagen"]))
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memory-image")
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    // Reclamar el cierre dispara dos llamadas: la generación y la relectura
+    // del caso. Devolver lo mismo a las dos dejaba el caso sin hechos.
+    const request = vi
+      .spyOn(apiClient, "request")
+      .mockImplementation(async (path: string) =>
+        path.includes("/memory-image/regenerate")
+          ? { memory_image: memoryImageFixture }
+          : withMemoryImage(memoryImageFixture),
+      )
+
     render(
       <AnalysisWorkspace
         initialCase={withMemoryImage(null)}
@@ -645,14 +665,42 @@ describe("AnalysisWorkspace memory closing", () => {
     )
     await openRouteStage()
 
+    await waitFor(() => {
+      expect(request).toHaveBeenCalledWith(
+        expect.stringContaining("/memory-image/regenerate"),
+        expect.objectContaining({ method: "POST" }),
+      )
+    })
     // La etapa entra con opacidad 0: se espera a que termine para afirmar que
-    // el mensaje queda realmente visible, no sólo montado.
+    // la imagen queda realmente visible, no sólo montada.
     await waitFor(() => {
       expect(
-        screen.getByText("El cierre visual no está configurado para este caso."),
+        screen.getByRole("img", {
+          name: "Imagen representativa del cierre de memoria del caso",
+        }),
       ).toBeVisible()
     })
-    expect(screen.queryByRole("button", { name: "Aprobar" })).toBeNull()
+  })
+
+  it("never claims a closing on behalf of someone who cannot review it", async () => {
+    // Breaks if an operator's visit spends a generation the endpoint would
+    // refuse them anyway.
+    const request = vi.spyOn(apiClient, "request")
+
+    render(
+      <AnalysisWorkspace
+        initialCase={withMemoryImage(null)}
+        role="operador"
+      />,
+    )
+    await openRouteStage()
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Este caso todavía no tiene imagen de cierre."),
+      ).toBeVisible()
+    })
+    expect(request).not.toHaveBeenCalled()
   })
 })
 

@@ -8,6 +8,7 @@ from typing import Any, Callable, TypeVar
 
 from app.ai.contracts import (
     ProviderAnalysis,
+    ProviderScreening,
     TranscriptSegment,
 )
 
@@ -82,6 +83,31 @@ class WhisperAdapter:
         )
 
 
+def _classification_for_prompt(
+    classification: dict[str, Any],
+) -> dict[str, Any]:
+    """Le quita a la subcategoría el número de confianza antes de enseñársela
+    al modelo.
+
+    Ese número no mide certeza. Con la máscara jerárquica puesta, la confianza
+    de subcategoría queda pegada al inverso de cuántas subcategorías cuelgan de
+    la categoría predicha: 1.0 cuando cuelga una sola, ~0.19 cuando cuelgan
+    siete. Encima la subcategoría nunca llegó a calibrarse. Puestos delante del
+    modelo, un 0.87 y un 0.19 lo empujan a tratar la primera etiqueta como
+    firme y la segunda como dudosa, y ninguna de las dos lecturas se sostiene.
+    La etiqueta viaja; el número se queda.
+    """
+    trimmed = dict(classification)
+    subcategory = trimmed.get("subcategory")
+    if isinstance(subcategory, dict):
+        trimmed["subcategory"] = {
+            key: value
+            for key, value in subcategory.items()
+            if key != "confidence"
+        }
+    return trimmed
+
+
 def _analysis_input(
     segments: list[TranscriptSegment],
     sources: list[Any] | None = None,
@@ -110,7 +136,9 @@ def _analysis_input(
     # respondan al caso concreto en vez de servir tres plantillas iguales.
     # Antes se calculaba después de llamar al modelo, así que nunca le llegaba.
     if classification is not None:
-        payload["case_classification"] = classification
+        payload["case_classification"] = _classification_for_prompt(
+            classification
+        )
 
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
@@ -129,6 +157,19 @@ ANALYSIS_INSTRUCTIONS = (
     "nunca true/false ni términos en inglés. 'value' conserva el dato "
     "canónico para poder compararlo entre proveedores."
     "\n\n"
+    "CLAVES OBLIGATORIAS. Estas seis 'key' son fijas y el sistema las usa por "
+    "su nombre exacto: 'people' (quiénes componen el hogar), "
+    "'current_location' (dónde está ahora), 'origin_location' (de dónde "
+    "salió), 'places' (otros lugares del relato), 'urgency' (qué tan urgente "
+    "es la atención) y 'vulnerabilities' (niñas, niños o adolescentes, "
+    "personas mayores, embarazo, discapacidad o enfermedad). Emítelas SIEMPRE "
+    "con esa grafía exacta cuando el relato dé la información, y con value "
+    "null cuando no la dé; no las traduzcas, no las renombres, no las "
+    "fusiones. El resto de señales las nombras libremente. Dos motivos: el "
+    "sistema separa personas y lugares del resto por estas claves, y cruza "
+    "las lecturas de los dos proveedores emparejándolas por 'key' — una clave "
+    "inventada distinta en cada proveedor no se puede contrastar."
+    "\n\n"
     "LÍNEA DE TIEMPO. Reconstruye los momentos que hacen avanzar la historia: "
     "qué ocurrió, dónde y en qué orden. Incluye sólo hechos con peso narrativo "
     "—amenazas, un intento de reclutamiento, una muerte, la salida del "
@@ -138,20 +179,39 @@ ANALYSIS_INSTRUCTIONS = (
     "que lo sustenta. Es la pieza central del análisis: no la dejes vacía si "
     "el relato contiene hechos."
     "\n\n"
-    "RUTAS. Construye las tres (emergency, housing_stabilization, "
-    "return_relocation) citando en cada afirmación un source_entry_id tomado "
+    "RUTAS. Evalúa las tres (emergency, housing_stabilization, "
+    "return_relocation) y devuélvelas siempre, cada una con su "
+    "'applicability': 'applies' si le sirve a esta persona con lo que el "
+    "relato dice, 'conditional' si depende de algo que el relato no aclara, y "
+    "'not_applicable' si no le corresponde. No inventes pertinencia: si una "
+    "ruta no aplica, dilo en el campo y explica por qué en 'summary', en lugar "
+    "de escribirla como si aplicara y cubrirte con un condicional dentro del "
+    "texto. Cita en cada afirmación un source_entry_id tomado "
     "literalmente de source_catalog; nunca inventes uno ni cites una entidad "
     "que no aparezca ahí. Si el catálogo no sustenta un paso, omítelo en "
     "lugar de improvisarlo."
     "\n\n"
-    "PARTE DE LA CLASIFICACIÓN. Cuando el input traiga 'case_classification' "
-    "con la categoría y subcategoría del desplazamiento, ése es tu punto de "
-    "partida: las tres rutas deben responder a ese tipo de caso y no ser "
-    "plantillas intercambiables. En 'summary' de cada ruta di en una frase "
-    "por qué esa ruta aplica a este caso, nombrando la circunstancia concreta "
-    "que la justifica (el tipo de desplazamiento, quiénes viajan, qué se "
-    "perdió, dónde está ahora). Si dos casos distintos podrían recibir el "
-    "mismo texto, no has usado la clasificación."
+    "PARTE DE LA CLASIFICACIÓN. Cuando el input traiga 'case_classification', "
+    "te sirve para orientarte, no para argumentar. La categoría sale de un "
+    "clasificador entrenado. La subcategoría es apenas la etiqueta más "
+    "probable entre las que cuelgan de esa categoría, y cuando cuelgan "
+    "muchas puede repetirse entre casos distintos casi por descarte: "
+    "trátala como una hipótesis. Si los segmentos no la sostienen, sigue el "
+    "relato y deja la etiqueta de lado."
+    "\n\n"
+    "NO CITES LA CLASIFICACIÓN. En 'summary' nunca escribas que 'la "
+    "clasificación señala' algo ni nombres la categoría o la subcategoría "
+    "como si fueran un hecho probado del caso: quien lee la ruta no tiene "
+    "cómo saber que esa etiqueta es una predicción y la va a leer como "
+    "diagnóstico. Lo que justifica una ruta es siempre la circunstancia que "
+    "la persona contó —quién salió, de dónde, qué perdió, dónde está ahora, "
+    "qué necesita—, dicha con las palabras del relato. Si al tapar la "
+    "etiqueta el 'summary' se queda sin razón, la razón no estaba en el "
+    "relato y esa ruta no está sustentada."
+    "\n\n"
+    "Las tres rutas tienen que responder a este caso y no ser plantillas "
+    "intercambiables: si dos casos distintos podrían recibir el mismo texto, "
+    "no has leído el relato."
     "\n\n"
     "CÓMO ESCRIBIR LAS RUTAS. Le hablas a la persona que vivió los hechos, no "
     "a un funcionario. Usa 'usted' y dirígete a ella directamente: 'Lleve "
@@ -187,6 +247,43 @@ ANALYSIS_INSTRUCTIONS = (
 )
 
 
+# Deliberadamente separado de ANALYSIS_INSTRUCTIONS y sin una palabra sobre
+# hechos, rutas ni categorías: quien juzga si hay caso no debe ser el mismo
+# prompt que tiene el encargo de encontrarlos. Con las instrucciones de análisis
+# delante, el modelo llega predispuesto a que sí haya algo.
+SCREENING_INSTRUCTIONS = (
+    "Recibes la transcripción de un video, segmento por segmento, con su "
+    "identificador. Tu única tarea es decir qué clase de texto es. No extraigas "
+    "datos, no clasifiques nada, no propongas nada."
+    "\n\n"
+    "Responde con uno de tres veredictos:"
+    "\n\n"
+    "'narrated_event': alguien narra un hecho victimizante concreto que le "
+    "ocurrió a una persona o a una comunidad —una amenaza, un desplazamiento, "
+    "un reclutamiento, una desaparición, un homicidio, un confinamiento, un "
+    "ataque—. Tiene que ser un hecho ocurrido y contado, no una cifra, no una "
+    "denuncia general, no un anuncio de política pública."
+    "\n\n"
+    "'victim_without_event': el texto trata del conflicto armado o de sus "
+    "víctimas, pero nadie narra un hecho concreto. Entran aquí los testimonios "
+    "de reparación y superación, las piezas institucionales, los informes con "
+    "estadísticas y las entrevistas a expertos. Que quien habla SEA víctima no "
+    "convierte el texto en un relato de su hecho."
+    "\n\n"
+    "'out_of_domain': el texto no trata del conflicto armado. Una receta, un "
+    "partido, una clase, una nota de economía."
+    "\n\n"
+    "EVIDENCIA. Si respondes 'narrated_event' tienes que citar los segmentos "
+    "donde se narra el hecho, con su segment_id exacto y sus milisegundos. Si "
+    "no puedes señalar el segmento, el veredicto no es 'narrated_event'. Para "
+    "los otros dos veredictos deja la lista vacía."
+    "\n\n"
+    "En 'reason', una frase sobre por qué. Si dudas entre 'narrated_event' y "
+    "'victim_without_event', elige el segundo: es preferible pedir una "
+    "revisión humana que afirmar un hecho que nadie contó."
+)
+
+
 class OpenAIAnalysisAdapter:
     def __init__(self, *, client: Any, model: str) -> None:
         self.client = client
@@ -210,6 +307,19 @@ class OpenAIAnalysisAdapter:
             raise ProviderUnavailable("OpenAI did not return structured output")
         if parsed.provider != "gpt":
             parsed = parsed.model_copy(update={"provider": "gpt"})
+        return parsed
+
+    def screen(self, segments: list[TranscriptSegment]) -> ProviderScreening:
+        response = self.client.responses.parse(
+            model=self.model,
+            instructions=SCREENING_INSTRUCTIONS,
+            input=_analysis_input(segments, None, None),
+            text_format=ProviderScreening,
+            store=False,
+        )
+        parsed = response.output_parsed
+        if parsed is None:
+            raise ProviderUnavailable("OpenAI did not return a screening verdict")
         return parsed
 
 
@@ -243,4 +353,19 @@ class AnthropicAnalysisAdapter:
             raise ProviderUnavailable("Anthropic did not return structured output")
         if parsed.provider != "claude":
             parsed = parsed.model_copy(update={"provider": "claude"})
+        return parsed
+
+    def screen(self, segments: list[TranscriptSegment]) -> ProviderScreening:
+        response = self.client.messages.parse(
+            model=self.model,
+            max_tokens=1000,
+            system=SCREENING_INSTRUCTIONS,
+            messages=[
+                {"role": "user", "content": _analysis_input(segments, None, None)}
+            ],
+            output_format=ProviderScreening,
+        )
+        parsed = response.parsed_output
+        if parsed is None:
+            raise ProviderUnavailable("Anthropic did not return a screening verdict")
         return parsed

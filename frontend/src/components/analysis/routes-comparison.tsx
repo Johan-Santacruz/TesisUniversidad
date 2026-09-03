@@ -524,7 +524,6 @@ export function RoutesComparison({
                   }`
                 : "La revisión crítica está completa"}
             </strong>
-            <p>La aprobación programa la eliminación del video a siete días.</p>
           </div>
           <div className="approval-action">
             <button

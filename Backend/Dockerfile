@@ -1,10 +1,10 @@
-# FFmpeg y FFprobe no son opcionales: el análisis extrae el audio del
+# FFmpeg y la fuente DejaVu no son opcionales: el análisis extrae el audio del
 # testimonio y el cierre de memoria renderiza el video derivado. Sin ellos la
 # aplicación levanta y falla después, en mitad de un análisis.
 FROM python:3.12-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

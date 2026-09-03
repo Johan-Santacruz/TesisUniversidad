@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Barrier, Event, Lock, Thread
 from uuid import uuid4
@@ -493,3 +494,52 @@ def test_stale_decision_cannot_approve_a_generation_rejected_by_regeneration(cip
         2,
         "pending_review",
     )
+
+
+def test_a_generation_abandoned_mid_flight_stops_blocking_the_case(cipher):
+    """Breaks if a crashed generation locks its case out of ever having a closing."""
+    database = Database("sqlite://")
+    database.create_schema()
+    case_id, actor = _create_case(database, cipher, is_demo=True)
+    service = _service(database, cipher, CapturingAssetStore(writes=[]), None)
+    service.generate_initial(case_id, is_demo=True)
+    # Así queda un caso cuyo proceso murió con la imagen a medias: la fila
+    # sigue en `generating` y el índice parcial no admite una segunda activa.
+    stranded = datetime.now(timezone.utc) - timedelta(hours=3)
+    with database.session() as session:
+        image = session.scalars(
+            select(MemoryImage).where(MemoryImage.case_id == case_id)
+        ).one()
+        image.status = "generating"
+        image.created_at = stranded
+        image.updated_at = stranded
+
+    reclaimed = service.regenerate(case_id, actor=actor)
+
+    assert reclaimed.status == "pending_review"
+    abandoned, fresh = _images(database, case_id)
+    assert (abandoned.status, abandoned.failure_code) == (
+        "failed",
+        "generation_abandoned",
+    )
+    assert (fresh.id, fresh.generation) == (reclaimed.id, 2)
+
+
+def test_a_generation_still_running_is_never_evicted_by_a_second_request(cipher):
+    """Breaks if a slow but live provider call is discarded and paid for twice."""
+    database = Database("sqlite://")
+    database.create_schema()
+    case_id, actor = _create_case(database, cipher, is_demo=True)
+    service = _service(database, cipher, CapturingAssetStore(writes=[]), None)
+    service.generate_initial(case_id, is_demo=True)
+    with database.session() as session:
+        image = session.scalars(
+            select(MemoryImage).where(MemoryImage.case_id == case_id)
+        ).one()
+        image.status = "generating"
+
+    joined = service.regenerate(case_id, actor=actor)
+
+    # La generación en curso se devuelve tal cual: ni se desaloja ni se duplica.
+    assert joined.status == "generating"
+    assert [image.generation for image in _images(database, case_id)] == [1]

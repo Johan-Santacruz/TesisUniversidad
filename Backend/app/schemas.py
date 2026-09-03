@@ -13,6 +13,7 @@ from app.ai.contracts import (
     EvidenceRef,
     Origin,
     ProviderRouteStep,
+    RouteApplicability,
     RouteType,
     ScalarValue,
     TranscriptSegment,
@@ -137,6 +138,10 @@ class FactReviewRequest(BaseModel):
 class RouteRead(BaseModel):
     id: str
     route_type: RouteType
+    # Las tres rutas se evalúan siempre, pero no siempre aplican las tres. Sin
+    # este campo el modelo se veía obligado a escribirlas como si aplicaran y se
+    # cubría con condicionales dentro del texto.
+    applicability: RouteApplicability = RouteApplicability.APPLIES
     title: str
     summary: str
     steps: list[ProviderRouteStep]

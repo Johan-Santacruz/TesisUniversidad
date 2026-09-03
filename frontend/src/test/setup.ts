@@ -1,7 +1,22 @@
 import "@testing-library/jest-dom/vitest"
-import { cleanup } from "@testing-library/react"
+import { cleanup, configure } from "@testing-library/react"
+import { MotionGlobalConfig } from "framer-motion"
 import { afterEach } from "vitest"
 
+
+// Las animaciones del espacio de trabajo se resuelven contra el reloj real, y
+// bajo carga tardan mas que cualquier espera razonable: la suite perdia una o
+// dos pruebas por corrida sin que nada estuviera roto. Saltarlas deja el estado
+// final de inmediato, que es lo unico que las pruebas afirman.
+MotionGlobalConfig.skipAnimations = true
+
+
+// El espacio de trabajo entra con animaciones de framer-motion, y `findBy*`
+// espera 1 s por defecto. Con la maquina cargada —varios archivos de prueba en
+// paralelo— esas transiciones tardan mas y las pruebas fallaban con "element is
+// not visible" sin que nada estuviera roto. Cinco segundos no ralentizan nada:
+// solo se agotan cuando algo de verdad no aparece.
+configure({ asyncUtilTimeout: 5000 })
 
 afterEach(cleanup)
 

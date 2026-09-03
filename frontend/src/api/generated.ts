@@ -663,8 +663,22 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * RouteApplicability
+         * @description Si esta ruta le sirve a esta persona.
+         *
+         *     El prompt obligaba a construir las tres siempre, así que el modelo emitía
+         *     rutas que no creía pertinentes y se cubría con condicionales dentro del
+         *     texto: "Esta ruta aplica sólo si usted desea volver…". Decirlo en un campo
+         *     es más honesto que esconderlo en la redacción, y deja que quien lee sepa de
+         *     entrada cuál de las tres es la suya.
+         * @enum {string}
+         */
+        RouteApplicability: "applies" | "conditional" | "not_applicable";
         /** RouteRead */
         RouteRead: {
+            /** @default applies */
+            applicability: components["schemas"]["RouteApplicability"];
             confidence_band: components["schemas"]["ConfidenceBand"];
             /** Id */
             id: string;

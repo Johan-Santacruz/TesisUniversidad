@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
 import struct
 from typing import Any, Literal
@@ -26,14 +27,41 @@ from app.entities import AnalysisEvent, CaseRecord, Fact, MemoryImage, RenderedV
 from app.security.crypto import EnvelopeCipher
 from app.services.assets import EncryptedAssetStore, StoredAsset
 from app.services.audit import AuditService
+from app.services.memory_caption import compose_caption
 from app.services.memory_video import MemoryVideoRenderer
+from app.services.reference_frames import (
+    ReferenceFrameExtractor,
+    ReferenceFrameUnavailable,
+)
 from app.services.purges import PurgeService
 from app.services.videos import VideoService
 
 
+logger = logging.getLogger(__name__)
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 _METADATA_PURPOSE = "memory_image_metadata"
 _ASSET_PURPOSE = "memory-image"
+
+# Una generación que murió a mitad —el proceso se cayó, el contenedor se
+# reinició— deja su fila en `generating` para siempre, y el índice parcial de
+# `memory_images` impide crear otra para el mismo caso: ese caso se quedaba sin
+# cierre y sin forma de pedirlo. Pasado este plazo la fila se da por perdida.
+# El margen es amplio a propósito: generar tarda más de un minuto y jamás debe
+# desalojarse una generación que sigue viva.
+_ABANDONED_GENERATION_SECONDS = 15 * 60
+
+
+def _is_abandoned(image: MemoryImage, *, now: datetime | None = None) -> bool:
+    """¿Lleva esta generación tanto parada que nadie la va a terminar?"""
+    reference = now or datetime.now(timezone.utc)
+    touched = image.updated_at or image.created_at
+    if touched is None:
+        return False
+    # SQLite devuelve la marca sin zona; compararla tal cual restaría horas.
+    if touched.tzinfo is None:
+        touched = touched.replace(tzinfo=timezone.utc)
+    return (reference - touched).total_seconds() >= _ABANDONED_GENERATION_SECONDS
 
 
 @dataclass(frozen=True)
@@ -42,6 +70,9 @@ class _GenerationWork:
     prompt: str
     metadata: dict[str, Any]
     is_demo: bool
+    reference: bytes | None = None
+    phrase: str = ""
+    context_line: str = ""
 
 
 @dataclass(frozen=True)
@@ -75,6 +106,7 @@ class MemoryImageService:
         cipher: EnvelopeCipher,
         assets: EncryptedAssetStore,
         adapter: Any | None,
+        phrase_adapter: Any | None = None,
         audit: AuditService,
         model: str,
         prompt_version: str,
@@ -87,10 +119,16 @@ class MemoryImageService:
         self.cipher = cipher
         self.assets = assets
         self.adapter = adapter
+        self.phrase_adapter = phrase_adapter
         self.audit = audit
         self.model = model
         self.prompt_version = prompt_version
         self.demo_image_path = Path(demo_image_path)
+        self.reference_frames = (
+            ReferenceFrameExtractor(video_service=video_service)
+            if video_service is not None
+            else None
+        )
         self.video_service = video_service
         self.renderer = renderer
         self.purges = purges
@@ -386,7 +424,7 @@ class MemoryImageService:
                         raise KeyError(case.video_id)
                     is_demo = video.is_demo
                     active = session.scalar(
-                        select(MemoryImage.id)
+                        select(MemoryImage)
                         .where(
                             MemoryImage.case_id == case_id,
                             MemoryImage.status == "generating",
@@ -394,8 +432,14 @@ class MemoryImageService:
                         .order_by(MemoryImage.generation.desc())
                         .limit(1)
                     )
+                    if active is not None and not _is_abandoned(active):
+                        return _ExistingGeneration(image_id=active.id)
                     if active is not None:
-                        return _ExistingGeneration(image_id=active)
+                        # Nadie va a terminarla: liberarla es lo único que
+                        # devuelve el caso a un estado del que se puede salir.
+                        active.status = "failed"
+                        active.failure_code = "generation_abandoned"
+                        session.flush()
                     previous = session.scalar(
                         select(MemoryImage)
                         .where(
@@ -410,11 +454,23 @@ class MemoryImageService:
                         session.flush()
 
                 context = self._visual_context(session, case)
-                prompt = build_memory_prompt(context)
+                # El fotograma se toma aqui, dentro de la transaccion, porque el
+                # prompt guardado en los metadatos tiene que ser el que de verdad
+                # se envio. Descifrar el video y llamar a ffmpeg tarda unos
+                # segundos; con un solo analista trabajando es asumible, y si un
+                # dia deja de serlo esto se mueve fuera de la sesion.
+                reference = (
+                    None if is_demo else self._reference_frame(session, case.video_id)
+                )
+                prompt = build_memory_prompt(context, with_reference=reference is not None)
+                phrase, context_line = self._memory_phrase(context, is_demo=is_demo)
                 image_id = str(uuid4())
                 metadata: dict[str, Any] = {
                     "context": asdict(context),
                     "prompt": prompt,
+                    "reference_frame": reference is not None,
+                    "phrase": phrase,
+                    "context_line": context_line,
                 }
                 encrypted = self.cipher.encrypt_json(image_id, _METADATA_PURPOSE, metadata)
                 last_generation = session.scalar(
@@ -476,6 +532,9 @@ class MemoryImageService:
             prompt=prompt,
             metadata=metadata,
             is_demo=is_demo,
+            reference=reference,
+            phrase=phrase,
+            context_line=context_line,
         )
 
     def _latest_image_id(self, case_id: str) -> str:
@@ -496,6 +555,23 @@ class MemoryImageService:
         if image is None:
             raise KeyError(image_id)
         return image
+
+    def _reference_frame(self, session: Any, video_id: str) -> bytes | None:
+        """Fotograma del testimonio para anclar la ilustracion, o None.
+
+        Nunca interrumpe la generacion: si no hay servicio de video, si ffmpeg no
+        esta, si el video no se puede leer o si ningun cuadro trae informacion
+        suficiente, el cierre se dibuja como siempre, solo con el contexto.
+        """
+        if self.reference_frames is None:
+            return None
+        try:
+            video = session.get(Video, video_id)
+            if video is None:
+                return None
+            return self.reference_frames.extract(video).data
+        except (ReferenceFrameUnavailable, OSError, ValueError):
+            return None
 
     def _visual_context(self, session: Any, case: CaseRecord) -> VisualContext:
         event = session.scalar(
@@ -529,6 +605,12 @@ class MemoryImageService:
     def _generate(self, work: _GenerationWork) -> MemoryImage:
         try:
             generated = self._source_image(work)
+            # La frase se sobreimprime aqui, sobre la lamina ya recibida: el
+            # modelo de imagen no escribe el texto porque deforma las tildes.
+            generated = GeneratedImage(
+                data=compose_caption(generated.data, work.phrase, work.context_line),
+                mime_type=generated.mime_type,
+            )
             width, height = _png_dimensions(generated.data)
             if generated.mime_type != "image/png" or (width, height) != (1536, 864):
                 raise ValueError("memory image must be a 1536x864 PNG")
@@ -542,12 +624,30 @@ class MemoryImageService:
             return self._mark_failed(work, failure_code=code, diagnostic=type(exc).__name__)
         return self._mark_pending(work.image_id, stored, generated, width, height)
 
+    def _memory_phrase(self, context: Any, *, is_demo: bool) -> tuple[str, str]:
+        """La linea que se sobreimprime; vacia si no se puede escribir.
+
+        Que falle el redactor no debe costar la lamina: sin frase la imagen
+        sigue siendo un cierre valido, y el fallo queda en el log.
+        """
+        if is_demo or self.phrase_adapter is None:
+            return "", ""
+        try:
+            return self.phrase_adapter.write(context)
+        except Exception:
+            logger.exception("memory_phrase_failed")
+            return "", ""
+
     def _source_image(self, work: _GenerationWork) -> GeneratedImage:
         if work.is_demo:
             return GeneratedImage(data=self.demo_image_path.read_bytes(), mime_type="image/png")
         if self.adapter is None:
             raise RuntimeError("image provider not configured")
-        return self.adapter.generate(work.prompt)
+        # El segundo argumento sólo se pasa cuando hay fotograma: un adaptador
+        # con la firma antigua, generate(prompt), sigue funcionando igual.
+        if work.reference is None:
+            return self.adapter.generate(work.prompt)
+        return self.adapter.generate(work.prompt, work.reference)
 
     def _mark_pending(
         self,

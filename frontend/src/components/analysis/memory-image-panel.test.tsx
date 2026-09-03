@@ -227,13 +227,36 @@ describe("MemoryImagePanel", () => {
     expect(screen.queryByRole("img", { name: ALT_TEXT })).toBeNull()
   })
 
-  it("says the closing is not configured when the case has no image", () => {
+  it("offers to generate the closing when the case has no image yet", () => {
     panel(null)
 
+    // "No configurado" mandaba a revisar el entorno; lo que falta es la imagen.
     expect(screen.getByRole("status")).toHaveTextContent(
-      "El cierre visual no está configurado para este caso.",
+      "Este caso todavía no tiene imagen de cierre.",
     )
-    expect(screen.queryByRole("button", { name: "Generar otra" })).toBeNull()
+    // Sin este botón el caso quedaba sin imagen y sin forma de pedirla.
+    expect(screen.getByRole("button", { name: "Generar cierre" })).toBeEnabled()
+  })
+
+  it("reports a claim in flight instead of offering the button twice", () => {
+    panel(null, { claiming: true })
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Preparando la imagen de cierre…",
+    )
+    expect(screen.queryByRole("button", { name: "Generar cierre" })).toBeNull()
+  })
+
+  it("names the environment only when the provider is the thing that is missing", () => {
+    panel({
+      ...memoryImageFixture,
+      status: "failed",
+      failure_code: "image_provider_not_configured",
+    })
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "El proveedor de imágenes no está configurado",
+    )
   })
 
   it("disables every control while a request is running and restores focus", async () => {

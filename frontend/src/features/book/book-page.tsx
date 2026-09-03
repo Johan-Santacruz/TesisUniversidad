@@ -1277,7 +1277,7 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
   return (
     <main
       className={cx(
-        "relative h-dvh overflow-hidden px-4 pb-16 pt-[5.25rem] text-ink md:px-8 md:pb-[4.5rem] md:pt-[5.5rem]",
+        "book-typeset relative h-dvh overflow-hidden px-4 pb-16 pt-[5.25rem] text-ink md:px-8 md:pb-[4.5rem] md:pt-[5.5rem]",
         onTable ? "bg-[oklch(0.29_0.04_58)]" : "bg-paper"
       )}
     >

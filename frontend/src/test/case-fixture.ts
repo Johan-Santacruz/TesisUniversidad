@@ -131,6 +131,7 @@ export const caseFixture: components["schemas"]["CaseRead"] = {
       origin: "contrasted",
       verification_status: "pending",
       confidence_band: "medium",
+      applicability: "applies",
       provider_options: null,
       steps: [
         {
@@ -154,6 +155,7 @@ export const caseFixture: components["schemas"]["CaseRead"] = {
       origin: "inferred",
       verification_status: "pending",
       confidence_band: "medium",
+      applicability: "applies",
       provider_options: null,
       steps: [],
     },
@@ -165,6 +167,7 @@ export const caseFixture: components["schemas"]["CaseRead"] = {
       origin: "inferred",
       verification_status: "pending",
       confidence_band: "medium",
+      applicability: "applies",
       provider_options: null,
       steps: [],
     },

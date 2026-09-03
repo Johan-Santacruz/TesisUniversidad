@@ -21,6 +21,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Por encima del asyncUtilTimeout de src/test/setup.ts (5 s). Si fueran
+    // iguales, una espera lenta agotaria el presupuesto del test y este
+    // moriria por timeout antes de que la consulta pudiera resolverse.
+    testTimeout: 15000,
     setupFiles: "./src/test/setup.ts",
     css: true,
     exclude: ["node_modules/**", "dist/**"],

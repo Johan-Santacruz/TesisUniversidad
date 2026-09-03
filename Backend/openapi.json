@@ -748,8 +748,22 @@
         "title": "ProviderRouteStep",
         "type": "object"
       },
+      "RouteApplicability": {
+        "description": "Si esta ruta le sirve a esta persona.\n\nEl prompt obligaba a construir las tres siempre, así que el modelo emitía\nrutas que no creía pertinentes y se cubría con condicionales dentro del\ntexto: \"Esta ruta aplica sólo si usted desea volver…\". Decirlo en un campo\nes más honesto que esconderlo en la redacción, y deja que quien lee sepa de\nentrada cuál de las tres es la suya.",
+        "enum": [
+          "applies",
+          "conditional",
+          "not_applicable"
+        ],
+        "title": "RouteApplicability",
+        "type": "string"
+      },
       "RouteRead": {
         "properties": {
+          "applicability": {
+            "$ref": "#/components/schemas/RouteApplicability",
+            "default": "applies"
+          },
           "confidence_band": {
             "$ref": "#/components/schemas/ConfidenceBand"
           },
