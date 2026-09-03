@@ -73,6 +73,16 @@
             "title": "Ffprobe Available",
             "type": "boolean"
           },
+          "link_ingest_enabled": {
+            "default": false,
+            "title": "Link Ingest Enabled",
+            "type": "boolean"
+          },
+          "link_ingest_max_seconds": {
+            "default": 1800,
+            "title": "Link Ingest Max Seconds",
+            "type": "integer"
+          },
           "max_video_bytes": {
             "title": "Max Video Bytes",
             "type": "integer"
@@ -1521,6 +1531,22 @@
         "title": "VerificationStatus",
         "type": "string"
       },
+      "VideoLinkCreate": {
+        "description": "El enlace tal como lo pegó quien analiza; se normaliza en el servicio.",
+        "properties": {
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "VideoLinkCreate",
+        "type": "object"
+      },
       "VideoRead": {
         "properties": {
           "created_at": {
@@ -2900,6 +2926,53 @@
           }
         ],
         "summary": "Create Demo Video",
+        "tags": [
+          "videos"
+        ]
+      }
+    },
+    "/api/v1/videos/link": {
+      "post": {
+        "description": "Baja el video del enlace y lo mete por el mismo camino que un archivo.\n\nLos errores de descarga se traducen a 422 con el motivo tal cual: quien pega\nun enlace privado, uno que no es de YouTube o uno que dura una hora tiene\nque poder leer cuál de las tres cosas pasó.",
+        "operationId": "create_video_from_link_api_v1_videos_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoLinkCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Video From Link",
         "tags": [
           "videos"
         ]

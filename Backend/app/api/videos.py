@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import CurrentUser, OperatorUser, get_session
 from app.entities import User, Video
-from app.schemas import VideoRead
+from app.schemas import VideoLinkCreate, VideoRead
 from app.services.videos import (
     InvalidVideoError,
     VideoService,
@@ -29,6 +29,12 @@ from app.services.media import (
     MediaToolUnavailableError,
     NoAudioTrackError,
 )
+from app.services.video_links import (
+    DownloaderUnavailableError,
+    LinkIngestDisabledError,
+    VideoLinkError,
+    VideoLinkService,
+)
 
 
 router = APIRouter(prefix="/videos", tags=["videos"])
@@ -36,6 +42,10 @@ router = APIRouter(prefix="/videos", tags=["videos"])
 
 def get_video_service(request: Request) -> VideoService:
     return request.app.state.videos
+
+
+def get_video_link_service(request: Request) -> VideoLinkService:
+    return request.app.state.video_links
 
 
 @router.post("", response_model=VideoRead, status_code=status.HTTP_201_CREATED)
@@ -58,6 +68,47 @@ def upload_video(
         )
     except EmptyMediaError:
         raise HTTPException(status_code=422, detail="El video está vacío")
+    except MediaToolUnavailableError:
+        raise HTTPException(
+            status_code=503,
+            detail="El servicio de validación audiovisual no está disponible",
+        )
+    except InvalidVideoError as exc:
+        raise HTTPException(status_code=415, detail=str(exc))
+    except VideoTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc))
+
+
+@router.post("/link", response_model=VideoRead, status_code=status.HTTP_201_CREATED)
+def create_video_from_link(
+    operator: OperatorUser,
+    session: Annotated[Session, Depends(get_session)],
+    service: Annotated[VideoService, Depends(get_video_service)],
+    links: Annotated[VideoLinkService, Depends(get_video_link_service)],
+    payload: VideoLinkCreate,
+) -> Video:
+    """Baja el video del enlace y lo mete por el mismo camino que un archivo.
+
+    Los errores de descarga se traducen a 422 con el motivo tal cual: quien pega
+    un enlace privado, uno que no es de YouTube o uno que dura una hora tiene
+    que poder leer cuál de las tres cosas pasó.
+    """
+    try:
+        with links.fetch(payload.url) as descarga:
+            return service.create(session, user=operator, source=descarga.source)
+    except LinkIngestDisabledError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except DownloaderUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except VideoLinkError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except NoAudioTrackError:
+        raise HTTPException(
+            status_code=422,
+            detail="El video del enlace no contiene una pista de audio",
+        )
+    except EmptyMediaError:
+        raise HTTPException(status_code=422, detail="El video del enlace está vacío")
     except MediaToolUnavailableError:
         raise HTTPException(
             status_code=503,

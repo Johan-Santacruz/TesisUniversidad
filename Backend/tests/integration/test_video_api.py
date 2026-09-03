@@ -155,3 +155,101 @@ def test_stream_rejects_multiple_or_unsatisfiable_ranges(
     assert multiple.status_code == 416
     assert beyond.status_code == 416
     assert beyond.headers["content-range"] == f"bytes */{len(tiny_video_bytes)}"
+
+
+# ── Ingesta por enlace ─────────────────────────────────────────────────────
+
+
+class _DescargaFalsa:
+    """Deja en disco el mismo MP4 de las demás pruebas, sin salir a la red."""
+
+    def __init__(self, payload: bytes, duration: int = 120) -> None:
+        self.payload = payload
+        self.duration = duration
+        self.downloaded: list[str] = []
+
+    def probe_duration(self, url: str) -> int:
+        return self.duration
+
+    def download(self, url: str, destination):
+        from app.services.video_links import RemoteVideo
+
+        self.downloaded.append(url)
+        archivo = destination / "descargado.mp4"
+        archivo.write_bytes(self.payload)
+        return RemoteVideo(path=archivo, title="Testimonio", duration_seconds=self.duration)
+
+
+def _encender_enlaces(client, payload: bytes, duration: int = 120) -> _DescargaFalsa:
+    from app.services.video_links import VideoLinkService
+
+    descargador = _DescargaFalsa(payload, duration)
+    client.app.state.video_links = VideoLinkService(
+        enabled=True,
+        max_duration_seconds=1800,
+        downloader=descargador,
+    )
+    return descargador
+
+
+def test_un_enlace_de_youtube_entra_por_el_mismo_camino_que_un_archivo(
+    operator_client, tiny_video_bytes
+):
+    """Lo que importa no es que responda 201, sino que el video quede igual."""
+    descargador = _encender_enlaces(operator_client, tiny_video_bytes)
+
+    creado = operator_client.post(
+        "/api/v1/videos/link",
+        json={"url": "https://youtu.be/E6ikYBkI2QE&t=10"},
+    )
+
+    assert creado.status_code == 201
+    # El enlace llegó normalizado al descargador, sin la marca de tiempo.
+    assert descargador.downloaded == ["https://www.youtube.com/watch?v=E6ikYBkI2QE"]
+
+    servido = operator_client.get(f"/api/v1/videos/{creado.json()['id']}/stream")
+    assert servido.status_code == 200
+    assert servido.content == tiny_video_bytes
+
+
+def test_sin_el_interruptor_el_enlace_no_se_descarga(operator_client):
+    """Estado por omisión del servidor: la ruta existe y dice que está apagada."""
+    respuesta = operator_client.post(
+        "/api/v1/videos/link",
+        json={"url": "https://youtu.be/E6ikYBkI2QE"},
+    )
+
+    assert respuesta.status_code == 503
+    assert "desactivada" in respuesta.json()["detail"]
+
+
+def test_un_enlace_que_no_es_de_youtube_se_explica(operator_client, tiny_video_bytes):
+    _encender_enlaces(operator_client, tiny_video_bytes)
+
+    respuesta = operator_client.post(
+        "/api/v1/videos/link",
+        json={"url": "https://vimeo.com/12345678"},
+    )
+
+    assert respuesta.status_code == 422
+    assert "YouTube" in respuesta.json()["detail"]
+
+
+def test_un_video_mas_largo_que_el_tope_no_se_baja(operator_client, tiny_video_bytes):
+    descargador = _encender_enlaces(operator_client, tiny_video_bytes, duration=5400)
+
+    respuesta = operator_client.post(
+        "/api/v1/videos/link",
+        json={"url": "https://youtu.be/E6ikYBkI2QE"},
+    )
+
+    assert respuesta.status_code == 422
+    assert "minutos" in respuesta.json()["detail"]
+    assert descargador.downloaded == []
+
+
+def test_la_disponibilidad_del_enlace_se_publica_en_readiness(operator_client):
+    listo = operator_client.get("/api/v1/analyses/readiness").json()
+
+    assert listo["link_ingest_enabled"] is False
+    assert listo["link_ingest_max_seconds"] == 1800

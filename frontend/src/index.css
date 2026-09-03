@@ -3059,6 +3059,94 @@
   color: var(--ink);
 }
 
+/* ── La segunda puerta: el enlace ──────────────────────────────────────── */
+/* Va debajo del recuadro y con menos peso: el archivo sigue siendo el camino
+   principal. La regla de "o" separa las dos vías sin encabezarlas, que sería
+   convertir una pantalla de un solo gesto en un formulario de dos campos. */
+
+.intake-link {
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.intake-link-or {
+  display: block;
+  margin-bottom: 0.6rem;
+  color: var(--ink-faded);
+  font-family: var(--font-narrative);
+  font-size: 0.78rem;
+}
+
+.intake-link-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.intake-link-row input {
+  min-width: 0;
+  flex: 1;
+  min-height: 46px;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid color-mix(in oklch, var(--ink) 22%, var(--rule));
+  border-radius: 0.7rem;
+  background: color-mix(in oklch, var(--paper-white) 88%, transparent);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  transition: border-color 170ms ease, background 170ms ease, box-shadow 170ms ease;
+}
+
+.intake-link-row input:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--ink) 40%, var(--rule));
+}
+
+.intake-link-row input:focus {
+  outline: none;
+  border-color: var(--azul);
+  background: var(--paper-white);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--azul) 14%, transparent);
+}
+
+.intake-link-row input:disabled {
+  color: var(--ink-faded);
+  cursor: not-allowed;
+}
+
+.intake-link-start {
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding: 0 1.1rem;
+  border: 1px solid color-mix(in oklch, var(--ink) 30%, var(--rule));
+  border-radius: 0.7rem;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: border-color 170ms ease, background 170ms ease;
+}
+
+.intake-link-start:hover:not(:disabled) {
+  border-color: var(--azul);
+  background: color-mix(in oklch, var(--azul) 7%, transparent);
+  color: var(--azul);
+}
+
+.intake-link-start:disabled {
+  border-color: var(--rule);
+  color: var(--ink-faded);
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .intake-link-row {
+    flex-direction: column;
+  }
+}
+
 .intake-problem {
   margin: 0.75rem 0 0;
   padding: 0.65rem 0.8rem;

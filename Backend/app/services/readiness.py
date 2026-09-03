@@ -29,6 +29,8 @@ class AnalysisReadinessService:
         )
         return AnalysisReadinessRead(
             can_upload=role in {UserRole.OPERATOR, UserRole.ADMIN},
+            link_ingest_enabled=self.settings.link_ingest_enabled,
+            link_ingest_max_seconds=self.settings.link_ingest_max_seconds,
             openai_configured=self.settings.openai_configured,
             anthropic_configured=self.settings.anthropic_configured,
             beto_available=beto_available,

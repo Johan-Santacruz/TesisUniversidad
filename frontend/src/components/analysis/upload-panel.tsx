@@ -28,24 +28,52 @@ export function validateVideo(file: File): string | null {
 }
 
 
+/* El servidor sólo acepta YouTube, así que la interfaz rechaza aquí lo que allá
+ * volvería con un 422: pegar un enlace de Vimeo y esperar la ida y vuelta para
+ * que le digan que no, es una espera que no hacía falta. */
+export function validateLink(raw: string): string | null {
+  const candidate = raw.trim()
+  if (!candidate) return "Pega el enlace del video."
+  let url: URL
+  try {
+    url = new URL(candidate.includes("://") ? candidate : `https://${candidate}`)
+  } catch {
+    return "Ese no parece un enlace."
+  }
+  const host = url.hostname.toLowerCase().replace(/^www\./, "")
+  if (!["youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(host)) {
+    return "Por ahora sólo se aceptan enlaces de YouTube."
+  }
+  return null
+}
+
+
 export function UploadPanel({
   busy,
   error = "",
+  linkIngestEnabled = false,
+  linkMaxSeconds = 1800,
   onUpload,
+  onLink,
   onDemo,
 }: {
   busy: boolean
   error?: string
+  linkIngestEnabled?: boolean
+  linkMaxSeconds?: number
   onUpload: (file: File) => Promise<void> | void
+  onLink?: (url: string) => Promise<void> | void
   onDemo: () => Promise<void> | void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [link, setLink] = useState("")
   const [dragging, setDragging] = useState(false)
   const [rejection, setRejection] = useState("")
   const reduceMotion = useReducedMotion() ?? false
   const hintId = useId()
   const problemId = useId()
+  const linkId = useId()
 
   const state = busy
     ? "uploading"
@@ -65,6 +93,17 @@ export function UploadPanel({
     }
     setRejection("")
     setFile(selected)
+    setLink("")
+  }
+
+  const submitLink = () => {
+    const problem = validateLink(link)
+    if (problem) {
+      setRejection(problem)
+      return
+    }
+    setRejection("")
+    void onLink?.(link.trim())
   }
 
   const drop = (event: DragEvent<HTMLElement>) => {
@@ -168,6 +207,53 @@ export function UploadPanel({
             </motion.div>
           ) : null}
         </AnimatePresence>
+
+        {/* El enlace es la segunda puerta, no la principal: quien tiene el
+            archivo lo suelta arriba, y quien tiene el video en YouTube pega la
+            dirección aquí. Sólo aparece si el servidor la tiene encendida. */}
+        {linkIngestEnabled && onLink ? (
+          <div className="intake-link">
+            <span className="intake-link-or">o pega un enlace de YouTube</span>
+            <div className="intake-link-row">
+              <label className="visually-hidden" htmlFor={linkId}>
+                Enlace del video en YouTube
+              </label>
+              <input
+                id={linkId}
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="https://www.youtube.com/watch?v=…"
+                value={link}
+                disabled={busy}
+                onChange={(event) => {
+                  setLink(event.target.value)
+                  setRejection("")
+                  setFile(null)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
+                    submitLink()
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="intake-link-start"
+                disabled={busy || !link.trim()}
+                onClick={submitLink}
+              >
+                {busy ? "Trayendo…" : "Analizar"}
+              </button>
+            </div>
+            <p className="intake-hint">
+              El servidor lo descarga en 480p. Hasta{" "}
+              {Math.round(linkMaxSeconds / 60)} minutos de duración.
+            </p>
+          </div>
+        ) : null}
 
         {problem ? (
           <p id={problemId} className="intake-problem" role="alert">

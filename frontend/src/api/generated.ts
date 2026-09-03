@@ -385,6 +385,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/videos/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Video From Link
+         * @description Baja el video del enlace y lo mete por el mismo camino que un archivo.
+         *
+         *     Los errores de descarga se traducen a 422 con el motivo tal cual: quien pega
+         *     un enlace privado, uno que no es de YouTube o uno que dura una hora tiene
+         *     que poder leer cuál de las tres cosas pasó.
+         */
+        post: operations["create_video_from_link_api_v1_videos_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/videos/{video_id}/analyses": {
         parameters: {
             query?: never;
@@ -449,6 +473,16 @@ export interface components {
             ffmpeg_available: boolean;
             /** Ffprobe Available */
             ffprobe_available: boolean;
+            /**
+             * Link Ingest Enabled
+             * @default false
+             */
+            link_ingest_enabled: boolean;
+            /**
+             * Link Ingest Max Seconds
+             * @default 1800
+             */
+            link_ingest_max_seconds: number;
             /** Max Video Bytes */
             max_video_bytes: number;
             /** Openai Configured */
@@ -929,6 +963,14 @@ export interface components {
          * @enum {string}
          */
         VerificationStatus: "confirmed" | "pending" | "not_identified" | "inconsistent";
+        /**
+         * VideoLinkCreate
+         * @description El enlace tal como lo pegó quien analiza; se normaliza en el servicio.
+         */
+        VideoLinkCreate: {
+            /** Url */
+            url: string;
+        };
         /** VideoRead */
         VideoRead: {
             /**
@@ -1825,6 +1867,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoRead"];
+                };
+            };
+        };
+    };
+    create_video_from_link_api_v1_videos_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VideoLinkCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

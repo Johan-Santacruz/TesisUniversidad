@@ -56,6 +56,12 @@ class Settings(BaseSettings):
 
     video_chunk_bytes: int = Field(default=1024 * 1024, ge=64 * 1024)
     max_video_bytes: int = Field(default=500 * 1024 * 1024, ge=1024)
+    # Traer el testimonio desde un enlace de YouTube. Apagado por omisión: en un
+    # dominio público, con la cuenta de demostración a la vista, sería un
+    # descargador de videos ajeno con la IP del servidor. Se enciende en el
+    # equipo donde la descarga es parte del método de trabajo.
+    link_ingest_enabled: bool = False
+    link_ingest_max_seconds: int = Field(default=1800, ge=60, le=7200)
     video_retention_days: int = Field(default=7, ge=1, le=365)
     narration_max_bytes: int = Field(default=2 * 1024 * 1024, ge=1024)
     memory_image_max_bytes: int = Field(

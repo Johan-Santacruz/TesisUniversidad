@@ -42,6 +42,7 @@ from app.services.narration import NarrationService
 from app.services.memory_video import MemoryVideoRenderer
 from app.services.purges import PurgeService
 from app.services.videos import VideoService
+from app.services.video_links import VideoLinkService, YtDlpDownloader
 
 
 logger = logging.getLogger(__name__)
@@ -297,6 +298,13 @@ def create_app(
         audit=application.state.audit,
         media_validator=MediaValidator(),
         purges=application.state.purges,
+    )
+    # La descarga por enlace se construye siempre; lo que decide si funciona es
+    # el interruptor de configuración, que el propio servicio consulta.
+    application.state.video_links = VideoLinkService(
+        enabled=app_settings.link_ingest_enabled,
+        max_duration_seconds=app_settings.link_ingest_max_seconds,
+        downloader=YtDlpDownloader(max_bytes=app_settings.max_video_bytes),
     )
 
     application.add_middleware(

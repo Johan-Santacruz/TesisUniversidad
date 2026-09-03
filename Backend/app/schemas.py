@@ -92,8 +92,19 @@ class AnalysisRead(BaseModel):
     events_url: str
 
 
+class VideoLinkCreate(BaseModel):
+    """El enlace tal como lo pegó quien analiza; se normaliza en el servicio."""
+
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class AnalysisReadinessRead(BaseModel):
     can_upload: bool
+    # Si la interfaz debe ofrecer el campo de enlace. Va aquí y no en una ruta
+    # aparte porque es una capacidad del servidor, como ffmpeg o BETO: la
+    # pantalla de ingesta ya pregunta por todas de una vez.
+    link_ingest_enabled: bool = False
+    link_ingest_max_seconds: int = 1800
     openai_configured: bool
     anthropic_configured: bool
     beto_available: bool

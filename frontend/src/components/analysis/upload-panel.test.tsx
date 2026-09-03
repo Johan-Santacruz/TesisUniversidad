@@ -6,7 +6,7 @@ import {
 } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
-import { UploadPanel, validateVideo } from "./upload-panel"
+import { UploadPanel, validateLink, validateVideo } from "./upload-panel"
 
 
 function fakeFile(name: string, type: string, sizeBytes: number) {
@@ -100,5 +100,95 @@ describe("UploadPanel", () => {
     )
 
     expect(onDemo).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("validateLink", () => {
+  it("acepta las formas normales de un enlace de YouTube", () => {
+    expect(validateLink("https://www.youtube.com/watch?v=E6ikYBkI2QE")).toBeNull()
+    expect(validateLink("https://youtu.be/E6ikYBkI2QE")).toBeNull()
+    expect(validateLink("youtube.com/watch?v=E6ikYBkI2QE")).toBeNull()
+  })
+
+  it("rechaza otros sitios antes de molestar al servidor", () => {
+    expect(validateLink("https://vimeo.com/12345678")).toMatch(/YouTube/i)
+  })
+
+  it("pide el enlace cuando está vacío", () => {
+    expect(validateLink("   ")).toMatch(/pega el enlace/i)
+  })
+})
+
+describe("UploadPanel · enlace", () => {
+  const enlace = () =>
+    screen.getByLabelText("Enlace del video en YouTube") as HTMLInputElement
+
+  it("no ofrece el campo si el servidor no lo tiene encendido", () => {
+    render(
+      <UploadPanel
+        busy={false}
+        onUpload={vi.fn()}
+        onLink={vi.fn()}
+        onDemo={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.queryByLabelText("Enlace del video en YouTube"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("envía el enlace recortado cuando el servidor lo ofrece", () => {
+    const onLink = vi.fn()
+    render(
+      <UploadPanel
+        busy={false}
+        linkIngestEnabled
+        onUpload={vi.fn()}
+        onLink={onLink}
+        onDemo={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(enlace(), {
+      target: { value: "  https://youtu.be/E6ikYBkI2QE  " },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Analizar" }))
+
+    expect(onLink).toHaveBeenCalledWith("https://youtu.be/E6ikYBkI2QE")
+  })
+
+  it("explica el rechazo sin llamar al servidor", () => {
+    const onLink = vi.fn()
+    render(
+      <UploadPanel
+        busy={false}
+        linkIngestEnabled
+        onUpload={vi.fn()}
+        onLink={onLink}
+        onDemo={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(enlace(), { target: { value: "https://vimeo.com/123" } })
+    fireEvent.click(screen.getByRole("button", { name: "Analizar" }))
+
+    expect(onLink).not.toHaveBeenCalled()
+    expect(screen.getByRole("alert")).toHaveTextContent(/YouTube/i)
+  })
+
+  it("dice el tope de duración que impone el servidor", () => {
+    render(
+      <UploadPanel
+        busy={false}
+        linkIngestEnabled
+        linkMaxSeconds={900}
+        onUpload={vi.fn()}
+        onLink={vi.fn()}
+        onDemo={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/Hasta 15 minutos/i)).toBeInTheDocument()
   })
 })

@@ -34,6 +34,13 @@ ml = [
   # Dejarlo en 4.x haría que la imagen instalara una versión distinta de la probada.
   "transformers>=4.49,<6",
 ]
+links = [
+  # Ingesta por enlace. Es un extra y no una dependencia base porque la función
+  # viene apagada (SENDA_LINK_INGEST_ENABLED): sin el interruptor, el paquete no
+  # se importa nunca. yt-dlp cambia de versión casi cada semana porque persigue
+  # los cambios de YouTube, así que el pin es flexible a propósito.
+  "yt-dlp>=2025.1",
+]
 test = [
   "httpx>=0.28,<1",  # la usa fastapi.testclient.TestClient
   "pytest>=8.3,<9",

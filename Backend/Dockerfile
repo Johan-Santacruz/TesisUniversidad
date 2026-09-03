@@ -24,6 +24,9 @@ import tomllib
 proyecto = tomllib.load(open("pyproject.toml", "rb"))["project"]
 dependencias = list(proyecto["dependencies"])
 dependencias += proyecto.get("optional-dependencies", {}).get("ml", [])
+# El extra de enlaces viaja en la imagen aunque la función venga apagada: así
+# encenderla en el servidor es cambiar una variable, no reconstruir.
+dependencias += proyecto.get("optional-dependencies", {}).get("links", [])
 open("/tmp/requisitos.txt", "w").write("\n".join(dependencias) + "\n")
 PY
 

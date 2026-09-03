@@ -28,6 +28,7 @@ type FactReview = components["schemas"]["FactReviewRequest"]
 type Role = components["schemas"]["UserRole"]
 type VideoRead = components["schemas"]["VideoRead"]
 type AnalysisRead = components["schemas"]["AnalysisRead"]
+type AnalysisReadinessRead = components["schemas"]["AnalysisReadinessRead"]
 type Fact = components["schemas"]["FactRead"]
 type MemoryImage = components["schemas"]["MemoryImageRead"]
 type MemoryImageDecision = components["schemas"]["MemoryImageDecisionRead"]
@@ -382,6 +383,34 @@ export function AnalysisWorkspace({
     }
   }
 
+  /* Qué sabe hacer este servidor. Hoy sólo se consulta por la ingesta desde
+     enlace, que viene apagada: sin preguntar, la interfaz ofrecería un campo
+     que devuelve 503. Si la consulta falla, no se ofrece y no se avisa —es una
+     capacidad de más, no un fallo del análisis. */
+  const [linkIngest, setLinkIngest] = useState<{ enabled: boolean; maxSeconds: number }>(
+    { enabled: false, maxSeconds: 1800 },
+  )
+
+  const uploadLink = async (url: string) => {
+    setBusy(true)
+    setError("")
+    setNarrativeStage("listening")
+    setSelectedFactId(null)
+    try {
+      const video = await apiClient.request<VideoRead>("/api/v1/videos/link", {
+        method: "POST",
+        body: JSON.stringify({ url }),
+        headers: { "Content-Type": "application/json" },
+      })
+      await startAnalysis(video)
+    } catch (caught) {
+      setBusy(false)
+      setError(
+        caught instanceof Error ? caught.message : "No se pudo traer el video",
+      )
+    }
+  }
+
   const upload = async (file: File) => {
     setBusy(true)
     setError("")
@@ -497,6 +526,25 @@ export function AnalysisWorkspace({
 
   const onIntake = !caseData && !eventsUrl
 
+  useEffect(() => {
+    if (!onIntake) return
+    let vigente = true
+    apiClient
+      .request<AnalysisReadinessRead>("/api/v1/analyses/readiness")
+      .then((readiness) => {
+        if (!vigente) return
+        setLinkIngest({
+          enabled: readiness.link_ingest_enabled,
+          maxSeconds: readiness.link_ingest_max_seconds,
+        })
+      })
+      .catch(() => {})
+    return () => {
+      vigente = false
+    }
+  }, [onIntake])
+
+
   // El recorrido se ofrece con el caso ya analizado, que es donde hay algo que
   // aprender: la pantalla de subida se entiende sola. Espera a que la lámina
   // del cierre termine de retirarse para no encimarse con ella.
@@ -535,7 +583,10 @@ export function AnalysisWorkspace({
           <UploadPanel
             busy={busy}
             error={error}
+            linkIngestEnabled={linkIngest.enabled}
+            linkMaxSeconds={linkIngest.maxSeconds}
             onUpload={upload}
+            onLink={uploadLink}
             onDemo={useDemo}
           />
         </motion.div>
