@@ -28,14 +28,21 @@
   --destructive: var(--rojo);
   --input: var(--rule);
   --ring: var(--azul);
+
+  /* Voz sans del lado narrativo —libro y login—: geométrica, frente a la
+     grotesca institucional de --font-ui en el módulo de análisis. Los
+     titulares y la prosa de ambos siguen en serif. */
+  --font-narrative: "Poppins", "Public Sans", Inter, system-ui, sans-serif;
 }
 
 @theme inline {
   --font-serif: "Libre Caslon Text", "EB Garamond", Georgia, serif;
   --font-sans: "Public Sans", Inter, system-ui, sans-serif;
-  /* Voz de producto para el módulo de análisis: una grotesca institucional,
-     distinta del registro editorial que el libro sí necesita. */
-  --font-ui: "Archivo", "Public Sans", Inter, system-ui, sans-serif;
+  /* Era una grotesca institucional (Archivo) a propósito distinta de la voz
+     del libro. Esa separación se retiró: el producto entero habla con la
+     misma geométrica. El token se conserva porque nombra el papel —voz de
+     producto— y no la familia, así que volver a separarlas es una línea. */
+  --font-ui: var(--font-narrative);
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -136,17 +143,26 @@
   align-items: center;
   gap: clamp(2rem, 3.2vw, 3.5rem);
   margin-inline: auto;
-  padding: clamp(1rem, 3vw, 3rem);
-  overflow: clip;
+  /* El aire lateral se mide en ancho y el vertical en alto de ventana: con un
+     solo clamp para los cuatro lados, en un portátil el panel se comía el
+     margen de abajo y la tarjeta salía cortada. */
+  padding: clamp(0.9rem, 2.4vh, 2.5rem) clamp(1rem, 3vw, 3rem);
+  overflow-x: clip;
+  overflow-y: visible;
   background: transparent;
   backdrop-filter: blur(0.35px);
   -webkit-backdrop-filter: blur(0.35px);
-  font-family: "Manrope", "Public Sans", Inter, system-ui, sans-serif;
+  font-family: var(--font-narrative);
   /* Entra después del fundido de ruta y con más recorrido: a 420ms el panel
      aparecía de golpe justo cuando la página anterior acababa de irse. */
   animation: login-surface-in 780ms 120ms both cubic-bezier(0.22, 1, 0.36, 1);
 }
 .duotone-ink { filter: grayscale(1) contrast(1.05) sepia(0.08); }
+
+/* Solo dentro del libro: font-sans resuelve a la geométrica. */
+.book-typeset .font-sans {
+  font-family: var(--font-narrative);
+}
 
 /* Polvo en suspensión sobre la mesa del libro. Sólo transform y opacity, para
    que las 56 motas se compongan en GPU y no toquen el layout. */
@@ -221,52 +237,6 @@
   text-transform: uppercase;
 }
 
-.workspace-header {
-  position: sticky;
-  z-index: 40;
-  top: 0;
-  display: flex;
-  min-height: 68px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.65rem clamp(1rem, 3vw, 3rem);
-  border-bottom: 1px solid var(--rule);
-  background: color-mix(in oklch, var(--paper) 94%, transparent);
-  backdrop-filter: blur(14px);
-}
-
-.workspace-identity > span {
-  text-align: right;
-}
-
-.workspace-identity small {
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.workspace-identity {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  color: var(--ink-soft);
-  font-size: 0.77rem;
-}
-
-.workspace-header button {
-  min-height: 44px;
-  padding: 0.4rem 0.9rem;
-  border: 0;
-  border-left: 1px solid var(--rule);
-  border-radius: 0;
-  background: transparent;
-  font-size: 0.72rem;
-}
-
-.workspace-header button:hover {
-  color: var(--azul);
-}
-
 .analysis-app {
   min-height: 100vh;
 }
@@ -277,7 +247,10 @@
   isolation: isolate;
   min-height: 100vh;
   min-height: 100svh;
-  overflow: clip;
+  /* Sólo se recorta a lo ancho: si el formulario no cabe en una pantalla
+     baja, la página se recorre en vez de cortarle el borde inferior. */
+  overflow-x: clip;
+  overflow-y: visible;
   background: var(--paper);
 }
 
@@ -326,7 +299,10 @@
 .login-page::before {
   position: absolute;
   z-index: -1;
-  inset: 0;
+  /* Se estira a todo el ancho de la ventana, no al de la columna de 1140 px:
+     encajado en la caja dejaba una costura vertical donde el papel cambiaba
+     de tono a media pantalla. */
+  inset: 0 calc(50% - 50vw);
   background:
     linear-gradient(90deg, transparent 0 54%, rgb(239 235 224 / 16%) 72%, rgb(239 235 224 / 38%)),
     radial-gradient(circle at 90% 12%, color-mix(in oklch, var(--amarillo) 6%, transparent), transparent 26rem),
@@ -340,7 +316,9 @@
 .login-collage {
   position: relative;
   width: 100%;
-  height: clamp(28rem, 78svh, 46rem);
+  /* El segundo término es el techo real: el mosaico nunca pasa del alto de
+     la ventana, así que no arrastra la página a un scroll que no hace falta. */
+  height: min(clamp(28rem, 78svh, 46rem), calc(100svh - 5rem));
   overflow: hidden;
   border: 1px solid var(--login-border);
   border-radius: var(--login-radius);
@@ -490,7 +468,7 @@
   align-items: center;
   justify-self: center;
   margin-left: 0;
-  padding: clamp(1.75rem, 2.6vw, 2.35rem);
+  padding: clamp(1.5rem, 2.2vw, 2.1rem);
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 72%);
   border-radius: clamp(1.35rem, 2vw, 1.85rem);
@@ -543,14 +521,14 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
   padding: 0.5rem 0.9rem 0.5rem 0.75rem;
   border: 1px solid color-mix(in oklch, var(--rule) 90%, white);
   border-radius: 999px;
   background: color-mix(in oklch, var(--paper-white) 70%, transparent);
   color: var(--ink);
   cursor: pointer;
-  font-family: "Manrope", "Public Sans", sans-serif;
+  font-family: var(--font-narrative);
   font-size: 0.74rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -577,7 +555,7 @@
 }
 
 .login-form-heading {
-  margin-bottom: 1.35rem;
+  margin-bottom: 1.1rem;
 }
 
 .login-eyebrow {
@@ -627,7 +605,7 @@
 .login-form-shell h1 {
   max-width: 10.5ch;
   font-family: "Newsreader", "Libre Caslon Text", Georgia, serif;
-  font-size: clamp(2.55rem, 3.4vw, 3.15rem);
+  font-size: clamp(2.15rem, 2.9vw, 2.8rem);
   font-weight: 500;
   letter-spacing: -0.055em;
   line-height: 0.94;
@@ -636,7 +614,7 @@
 
 .login-intro {
   max-width: 27rem;
-  margin: 0.85rem 0 0;
+  margin: 0.7rem 0 0;
   color: color-mix(in oklch, var(--ink) 72%, var(--paper));
   font-size: 0.86rem;
   line-height: 1.62;
@@ -644,7 +622,7 @@
 
 .login-form-shell form {
   display: grid;
-  gap: 0.82rem;
+  gap: 0.72rem;
 }
 .fact-review-form { padding-top: 0.75rem; border-top: 1px dashed var(--rule); }
 
@@ -666,8 +644,8 @@
 
 .login-form-shell input {
   width: 100%;
-  min-height: 50px;
-  padding: 0.78rem 0.95rem;
+  min-height: 47px;
+  padding: 0.7rem 0.95rem;
   border: 1px solid color-mix(in oklch, var(--ink) 24%, var(--rule));
   border-radius: 0.9rem;
   background: rgb(255 255 255 / 70%);
@@ -733,8 +711,8 @@
 }
 
 .login-submit {
-  min-height: 52px;
-  margin-top: 0.4rem;
+  min-height: 48px;
+  margin-top: 0.35rem;
   border: 1px solid var(--azul);
   border-radius: 0.9rem;
   background: var(--azul);
@@ -771,7 +749,7 @@
 
 .login-demo-fill {
   width: 100%;
-  min-height: 44px;
+  min-height: 42px;
   padding: 0 1rem;
   border: 1px dashed color-mix(in oklch, var(--ink) 36%, transparent);
   border-radius: 0.8rem;
@@ -1070,6 +1048,32 @@
   }
 }
 
+/* Portátil corriente: la ventana ronda los 800–900 px y el panel llegaba
+   justo al borde. Se recorta el aire, no el contenido. */
+@media (min-width: 768px) and (max-height: 900px) {
+  .login-page {
+    padding-block: 1rem;
+  }
+
+  .login-form-shell h1 {
+    font-size: clamp(2rem, 2.5vw, 2.45rem);
+  }
+
+  .login-form-heading {
+    margin-bottom: 0.95rem;
+  }
+
+  .login-intro {
+    margin-top: 0.6rem;
+    font-size: 0.83rem;
+    line-height: 1.55;
+  }
+
+  .login-form-shell form {
+    gap: 0.66rem;
+  }
+}
+
 @media (min-width: 768px) and (max-height: 720px) {
   .login-page {
     padding-block: 0.75rem;
@@ -1364,7 +1368,14 @@
   position: relative;
   display: grid;
   padding-left: 1.35rem;
-  gap: 0.65rem;
+  gap: 0.8rem;
+  /* Las dos claves para que el texto no se salga de la tarjeta: las filas se
+     miden por su contenido y la lista se apila desde arriba. Sin esto, al
+     vivir la lista dentro de un contenedor de alto fijo que se recorre, las
+     filas se reparten el alto disponible y los fragmentos largos desbordan
+     su propio borde. */
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
 .documentary-fragments::before {
@@ -1379,9 +1390,11 @@
   position: relative;
   display: grid;
   width: 100%;
-  min-height: 72px;
-  padding: 0.85rem;
+  height: auto;
+  min-height: 0;
+  padding: 0.8rem 0.9rem;
   grid-template-columns: 46px 1fr;
+  align-items: start;
   gap: 0.45rem;
   border: 1px solid var(--rule);
   border-radius: 15px;
@@ -1434,7 +1447,8 @@
 .documentary-fragments button span {
   font-family: var(--font-ui);
   font-size: 0.9rem;
-  line-height: 1.45;
+  line-height: 1.5;
+  text-wrap: pretty;
 }
 
 .listening-stage {
@@ -1578,12 +1592,13 @@
    el papel sin bloque de color que compita con las señales. */
 .classification-summary {
   display: grid;
-  padding: 0.9rem 1rem;
-  grid-template-columns: minmax(11rem, 0.6fr) minmax(18rem, 1.4fr);
-  gap: 1rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.9rem;
-  background: color-mix(in oklch, var(--paper-deep) 45%, transparent);
+  padding: 0.9rem 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.7rem;
+  border: 0;
+  border-block: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
 }
 
 .classification-summary h2,
@@ -1596,17 +1611,30 @@
   line-height: 1.2;
 }
 
+.classification-summary h2 {
+  font-size: 1.02rem;
+}
+
 .classification-summary dl {
   display: grid;
   margin: 0;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.65rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .classification-summary dl > div {
-  padding: 0.75rem;
-  border-left: 3px solid var(--azul);
-  background: var(--paper-white);
+  display: grid;
+  padding: 0.5rem 0;
+  grid-template-columns: minmax(6rem, 7.5rem) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.15rem 1rem;
+  border: 0;
+  border-top: 1px dotted var(--rule);
+  background: transparent;
+}
+
+.classification-summary dl > div:first-child {
+  border-top: 0;
 }
 
 .classification-summary dt {
@@ -1617,17 +1645,20 @@
 }
 
 .classification-summary dd {
-  margin: 0.25rem 0;
+  margin: 0;
+  color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .classification-summary .model-confidence {
+  grid-column: 2;
   margin: 0;
   color: var(--ink-faded);
   font-family: var(--font-ui);
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 400;
 }
 
@@ -2065,10 +2096,6 @@
     scroll-snap-align: start;
   }
 
-  .classification-summary {
-    grid-template-columns: 1fr;
-  }
-
   .evidence-grid,
   .route-stage .route-grid {
     grid-template-columns: 1fr;
@@ -2100,10 +2127,6 @@
 
   .workspace-identity {
     gap: 0;
-  }
-
-  .workspace-identity button {
-    padding-right: 0;
   }
 
   .narrative-workspace-grid {
@@ -2163,10 +2186,6 @@
 
   .narrative-stage-title-row h1 {
     font-size: clamp(2.35rem, 14vw, 3.4rem);
-  }
-
-  .classification-summary dl {
-    grid-template-columns: 1fr;
   }
 
   .stage-section-heading,
@@ -2586,9 +2605,10 @@
 
 .route-stops {
   --nodo: 1.9rem;
-  /* Alto reservado al rótulo a cada lado de la línea: dos renglones. */
-  --banda: 2.8rem;
-  --hueco: 0.6rem;
+  /* Alto reservado al rótulo a cada lado de la línea: dos renglones holgados.
+     Con 2.8rem los títulos de dos líneas llegaban a tocar el nodo. */
+  --banda: 3.5rem;
+  --hueco: 0.85rem;
   display: grid;
   grid-auto-flow: row;
   margin: 0;
@@ -2728,7 +2748,7 @@
   .route-stops[data-diagrama] {
     grid-auto-flow: column;
     grid-auto-columns: minmax(0, 1fr);
-    padding: 0.25rem 0 0.5rem;
+    padding: 0.6rem 0 0.9rem;
   }
 
   .route-stops[data-diagrama] .route-stop-card {
@@ -2747,8 +2767,12 @@
   .route-stops[data-diagrama] .route-stop-mark { grid-row: 2; }
 
   .route-stops[data-diagrama] .route-stop-title {
-    max-width: 13rem;
+    /* Nunca más ancho que su propia columna: así el rótulo de la última
+       parada no se sale por el borde derecho de la tarjeta. */
+    max-width: min(13rem, 100%);
     padding-top: 0;
+    line-height: 1.3;
+    text-wrap: balance;
   }
 
   /* Impares debajo de la línea, pares encima. */
@@ -2926,58 +2950,7 @@
   margin-top: 1.75rem;
 }
 
-.intake-dropzone {
-  display: grid;
-  width: 100%;
-  min-height: 0;
-  padding: 2.1rem 1.5rem;
-  border: 1px dashed color-mix(in oklch, var(--ink) 28%, var(--rule));
-  border-radius: 1rem;
-  background: color-mix(in oklch, var(--paper-white) 68%, transparent);
-  cursor: pointer;
-  justify-items: center;
-  gap: 0.5rem;
-  text-align: center;
-  transition:
-    border-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    background 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    translate 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.intake-dropzone:hover {
-  border-color: color-mix(in oklch, var(--ink) 46%, var(--rule));
-  background: color-mix(in oklch, var(--paper-white) 88%, transparent);
-}
-
-.intake-dropzone.is-dragging {
-  border-color: var(--azul);
-  border-style: solid;
-  background: color-mix(in oklch, var(--azul) 6%, var(--paper-white));
-  translate: 0 -3px;
-  box-shadow: 0 16px 32px color-mix(in oklch, var(--azul) 16%, transparent);
-}
-
-.intake-dropzone strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1.06rem;
-  font-weight: 500;
-}
-
-.intake-hint {
-  color: var(--ink-faded);
-  font-size: 0.74rem;
-}
-
 /* ── Ficha del archivo elegido ─────────────────────
-
-.intake-dropzone strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1.06rem;
-  font-weight: 500;
-}
 
 .intake-file {
   display: flex;
@@ -3106,48 +3079,7 @@
 
 /* ── Las tres etapas, ahora como pie y no como protagonista ────────────── */
 
-.intake-steps {
-  display: grid;
-  margin: 2.25rem 0 0;
-  padding: 1.25rem 0 0;
-  gap: 1.25rem;
-  border-top: 1px solid var(--rule);
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  list-style: none;
-}
-
-.intake-steps li {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.intake-steps span {
-  color: var(--azul);
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
-}
-
-.intake-steps strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.intake-steps small {
-  color: var(--ink-soft);
-  font-size: 0.76rem;
-  line-height: 1.45;
-}
-
 /* ── Procesamiento ───────────────────────────────────────────────
-
-.intake-steps strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1rem;
-  font-weight: 500;
-}
 
 .processing-status {
   display: grid;
@@ -3351,10 +3283,6 @@
   .intake-actions {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .intake-or {
-    display: none;
   }
 }
 
@@ -3906,17 +3834,6 @@
   list-style: none;
 }
 
-.intake-file {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  margin-top: 0.85rem;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.8rem;
-  background: var(--paper-white);
-}
-
 /* ── Lo único que no puede fallar en cada paso ─────────────────────────── */
 
 /* Vive fuera del detalle plegado y por delante de las instrucciones: quien lee
@@ -3961,17 +3878,6 @@
 /* Los tres pasos comparten rejilla: si cada uno se apila por su cuenta, los
    títulos quedan a alturas distintas cuando las descripciones ocupan
    diferente número de líneas. */
-.intake-steps {
-  align-items: start;
-}
-
-.intake-steps li {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-  align-content: start;
-  row-gap: 0.2rem;
-}
-
 /* ── Barra del módulo: misma pieza flotante que la del libro ───────────── */
 
 .workspace-header {
@@ -3982,6 +3888,11 @@
   padding: 1rem 1rem 0;
   border: 0;
   background: transparent;
+  pointer-events: none;
+}
+
+.workspace-bar {
+  pointer-events: auto;
 }
 
 @media (min-width: 768px) {
@@ -4004,19 +3915,33 @@
     inset 0 1px 0 rgb(255 255 255 / 62%);
 }
 
+/* Misma voz que la barra del libro: micro-rótulos en versalitas espaciadas y
+   ningún botón. Antes el correo iba en negrita y era lo más fuerte de la barra
+   —más que el contexto de la pantalla— mientras que cerrar sesión, que se usa
+   una vez, llevaba píldora con borde y volver al inicio, que sí se usa, era
+   sólo texto. Las dos acciones comparten ahora el mismo tratamiento en cada
+   extremo. */
+.workspace-back,
+.workspace-identity small,
+.workspace-identity button {
+  font-family: var(--font-ui);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .workspace-back {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.76rem;
-  font-weight: 600;
   text-decoration: none;
-  white-space: nowrap;
+  transition: color 160ms ease;
 }
 
-.workspace-back:hover { color: var(--azul); }
+.workspace-back:hover { color: var(--rojo); }
 
 .workspace-bar-rule {
   width: 1px;
@@ -4025,10 +3950,9 @@
 }
 
 .workspace-context {
-  color: var(--ink-faded);
+  color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 0.72rem;
-  letter-spacing: 0.02em;
+  font-size: 0.78rem;
   white-space: nowrap;
 }
 
@@ -4036,47 +3960,45 @@
   display: flex;
   align-items: center;
   margin-left: auto;
-  gap: 0.9rem;
+  gap: 1.1rem;
 }
 
-.workspace-identity > span {
-  display: grid;
-  gap: 0;
-  text-align: right;
-}
-
-.workspace-identity strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.74rem;
-  font-weight: 600;
+.workspace-account {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+  color: var(--ink-faded);
 }
 
 .workspace-identity small {
   color: var(--ink-faded);
-  font-size: 0.64rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+}
+
+/* En minúscula y sin negrita: una dirección de correo en versalitas se lee
+   peor y no es un rótulo, es un dato de comprobación. */
+.workspace-account-email {
+  overflow: hidden;
+  color: var(--ink-faded);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-identity button {
   min-height: 0;
-  padding: 0.4rem 0.8rem;
-  border: 1px solid color-mix(in oklch, var(--ink) 22%, transparent);
-  border-radius: 999px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 600;
-  white-space: nowrap;
+  transition: color 160ms ease;
 }
 
 .workspace-identity button:hover {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
+  color: var(--rojo);
 }
 
 /* La barra flota encima: el contenido arranca por debajo de ella. */
@@ -4090,9 +4012,9 @@
   .workspace-bar-rule { display: none; }
 }
 
-/* Raíz tipográfica del módulo: lo que no declare familia propia hereda
-   Archivo, no la serif del <body>. Es lo que evita que queden palabras
-   sueltas en otra letra. */
+/* Raíz tipográfica del módulo: lo que no declare familia propia hereda la
+   sans de producto, no la serif del <body>. Es lo que evita que queden
+   palabras sueltas en otra letra. */
 .analysis-app,
 .analysis-app input,
 .analysis-app textarea,
@@ -4747,7 +4669,6 @@
 
 /* Único tratamiento con espaciado: los antetítulos en versalitas. */
 .analysis-app .eyebrow,
-.analysis-app .workspace-identity small,
 .analysis-app .route-stop-detail-which,
 .analysis-app .source-inspector dt {
   font-size: var(--t-meta);
@@ -4758,7 +4679,6 @@
 
 /* Los dos datos que sí deben destacar sobre el cuerpo. */
 .analysis-app .fact-value,
-.analysis-app .classification-summary dd:not(.model-confidence),
 .analysis-app .listening-body strong,
 .analysis-app .route-stop-title,
 .analysis-app .route-journey-toggle h3 {
@@ -5302,22 +5222,8 @@
 /* Pedía 11rem + 18rem mínimos, más de lo que da el recto: la rejilla
    desbordaba y el panel salía cortado. Se reordena en dos filas. */
 .analysis-workspace .classification-summary {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.75rem;
-  padding: 0.9rem 1.05rem;
-  border-radius: 0.5rem;
-}
-
-.analysis-workspace .classification-summary dl {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.75rem;
-  margin: 0;
-}
-
-.analysis-workspace .classification-summary dl > div {
-  padding-left: 0.75rem;
-  border-left: 2px solid color-mix(in oklch, var(--azul) 55%, var(--rule));
+  gap: 0.6rem;
+  padding: 0.85rem 0;
 }
 
 /* La guía por voz vive en la cabecera del recorrido, junto a la posición: es
@@ -5343,73 +5249,121 @@
 
 /* ══════════════════════════════════════════════════════════════════════════
    El fotograma de entrada
-   El testimonio llega como cinta, no como "archivo adjunto". Las
-   perforaciones lo dicen sin un icono de widget de carga, y se dibujan con
-   un degradado repetido: nada que descargar, nada que se vea borroso.
+   No es una caja: son cuatro escuadras, como las marcas de corte de una
+   imprenta. El recuadro cerrado con un icono centrado es el patrón por
+   defecto de cualquier dropzone; aquí la zona sólo delimita, y al arrastrar
+   las escuadras crecen hasta juntarse en un marco completo.
    ══════════════════════════════════════════════════════════════════════════ */
 .intake-dropzone {
+  --mark-len: clamp(18px, 2.6vw, 26px);
+  --mark-color: color-mix(in oklch, var(--ink) 32%, transparent);
+  position: relative;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 22px;
-  align-items: stretch;
-  gap: 0;
+  width: 100%;
   padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--rule);
-  border-radius: 14px;
-  background: var(--paper-white);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: background 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* La banda es el soporte de la cinta y los agujeros son papel troquelado.
-   Con `background-clip: content-box` el degradado quedaba recortado a 8 px y
-   al 26 % sobre papel claro: se dibujaba, pero no se veia. */
-.intake-sprockets {
-  /* La zona centra sus items, y un span vacio mide 0: sin estirarlo, la
-     banda existia en la rejilla pero no ocupaba un solo pixel. */
-  justify-self: stretch;
-  width: 100%;
-  height: 100%;
-  background-color: color-mix(in oklch, var(--ink) 86%, transparent);
-  background-image: repeating-linear-gradient(
-    to bottom,
-    var(--paper-white) 0 11px,
-    transparent 11px 26px
-  );
-  background-position: center;
-  background-repeat: repeat-y;
-  background-size: 9px 100%;
+/* Cuatro esquinas y sólo dos pseudo-elementos por caja: dos los pone la zona
+   y dos el marco interior. Cada una es un cuadrado con dos bordes. */
+.intake-dropzone::before,
+.intake-dropzone::after,
+.intake-frame::before,
+.intake-frame::after {
+  position: absolute;
+  width: var(--mark-len);
+  height: var(--mark-len);
+  border: 0 solid var(--mark-color);
+  content: "";
+  transition:
+    width 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.intake-dropzone::before {
+  top: 0;
+  left: 0;
+  border-top-width: 1.5px;
+  border-left-width: 1.5px;
+}
+
+.intake-frame::before {
+  top: 0;
+  right: 0;
+  border-top-width: 1.5px;
+  border-right-width: 1.5px;
+}
+
+.intake-frame::after {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 1.5px;
+  border-left-width: 1.5px;
+}
+
+.intake-dropzone::after {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: 1.5px;
+  border-right-width: 1.5px;
 }
 
 .intake-frame {
   display: grid;
   gap: 0.3rem;
-  padding: clamp(1.6rem, 3.4vw, 2.6rem) 1.25rem;
-  place-items: center;
+  padding: clamp(2.2rem, 4.5vw, 3.4rem) clamp(1.6rem, 3vw, 2.6rem);
+  justify-items: center;
   text-align: center;
 }
 
 .intake-frame strong {
-  font-family: var(--font-serif);
-  font-size: clamp(1.05rem, 1.7vw, 1.3rem);
+  color: var(--ink);
+  font-family: var(--font-narrative);
+  font-size: clamp(1rem, 1.5vw, 1.14rem);
+  font-weight: 500;
 }
 
 .intake-alt {
   color: var(--ink-soft);
-  font-family: var(--font-ui);
-  font-size: 0.82rem;
+  font-family: var(--font-narrative);
+  font-size: 0.85rem;
 }
 
+.intake-dropzone:hover {
+  --mark-color: color-mix(in oklch, var(--ink) 58%, transparent);
+  background: color-mix(in oklch, var(--paper-white) 42%, transparent);
+}
+
+/* Llegar con teclado tiene que verse tan claro como soltar el archivo: es la
+   misma acción por otra vía. */
+.intake-dropzone:focus-visible {
+  outline: 2px solid var(--azul);
+  outline-offset: 4px;
+}
+
+/* Al 50% las cuatro escuadras se tocan: el marco se cierra solo. */
 .intake-dropzone.is-dragging {
-  border-color: var(--azul);
-  background: color-mix(in oklch, var(--azul) 4%, var(--paper-white));
+  --mark-len: 50%;
+  --mark-color: var(--azul);
+  background: color-mix(in oklch, var(--azul) 5%, var(--paper-white));
 }
 
-.intake-dropzone.is-dragging .intake-sprockets {
-  /* La zona centra sus items, y un span vacio mide 0: sin estirarlo, la
-     banda existia en la rejilla pero no ocupaba un solo pixel. */
-  justify-self: stretch;
-  width: 100%;
-  height: 100%;
-  background-color: var(--azul);
+.intake-dropzone.is-dragging .intake-frame strong {
+  color: var(--azul);
+}
+
+/* Fuera del encuadre y en escala de metadato: es una referencia, no una
+   tercera línea de invitación. */
+.intake-hint {
+  margin: 0.8rem 0 0;
+  color: var(--ink-faded);
+  font-family: var(--font-narrative);
+  font-size: 0.76rem;
 }
 
 /* La acción principal aparece cuando hay algo que analizar; la demostración
@@ -5428,7 +5382,7 @@
   border-radius: 0.7rem;
   background: var(--azul);
   color: white;
-  font-family: var(--font-ui);
+  font-family: var(--font-narrative);
   font-size: 0.92rem;
 }
 
@@ -5440,7 +5394,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--ink-soft);
-  font-family: var(--font-ui);
+  font-family: var(--font-narrative);
   font-size: 0.86rem;
 }
 
@@ -6032,5 +5986,421 @@
     width: calc(100vw - 2rem);
     max-width: none;
     translate: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Análisis progresivo · el libro se abre desde la primera etapa
+   El flujo SSE ya entrega resultados parciales. Esta composición conserva el
+   mismo pliego de la revisión final y deja que cada hallazgo aparezca en la
+   página derecha, en vez de esconderlo detrás de una pantalla de espera.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.analysis-live-workspace .live-processing-ledger {
+  overflow-y: auto;
+}
+
+/* Dentro del pliego, el progreso deja de ser otra hoja superpuesta. */
+.analysis-live-workspace .live-processing-ledger .processing-view {
+  display: block;
+  width: auto;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.analysis-live-workspace .live-processing-ledger .processing-view::before,
+.analysis-live-workspace .live-processing-ledger .processing-view::after {
+  display: none;
+}
+
+.analysis-live-workspace .processing-head h1 {
+  margin-top: 0.3rem;
+  font-size: 1.3rem;
+  line-height: 1.2;
+}
+
+.analysis-live-workspace .processing-lede {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.analysis-live-workspace .processing-status {
+  margin-top: 1.25rem;
+  padding: 0.9rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.analysis-live-workspace .processing-readout strong {
+  font-size: 1.2rem;
+}
+
+.analysis-live-workspace .processing-chapters {
+  margin-top: 1.2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
+}
+
+.analysis-live-workspace .processing-chapters > li {
+  padding: 0.85rem;
+  background: color-mix(in oklch, var(--paper-white) 38%, transparent);
+}
+
+.analysis-live-workspace .processing-note {
+  margin-top: 1.15rem;
+}
+
+.analysis-live-workspace .live-analysis-sheet {
+  overflow: hidden;
+}
+
+.live-analysis-results {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.live-results-header {
+  flex: 0 0 auto;
+}
+
+.live-results-header > .eyebrow {
+  margin: 0 0 0.65rem;
+  color: var(--green);
+  text-align: center;
+}
+
+.live-results-header .narrative-stage-title-row h2 {
+  margin: 1rem 0 0;
+  font-family: var(--font-ui);
+  font-size: clamp(1.45rem, 2vw, 1.9rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+/* El punto lleno indica que esa sección ya tiene algo revisable. */
+.live-results-header nav button.is-ready:not(.is-current)
+  .narrative-stage-marker {
+  background: var(--green);
+  transform: scale(1.15);
+}
+
+.live-results-header nav button.is-waiting:not(.is-current) {
+  color: var(--ink-faded);
+}
+
+.live-results-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 1.35rem;
+  padding-right: 0.35rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.live-result-empty {
+  display: flex;
+  min-height: 14rem;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  border-block: 1px solid var(--rule);
+  color: var(--ink-soft);
+}
+
+.live-result-empty h3,
+.live-result-empty p {
+  margin: 0;
+}
+
+.live-result-empty h3 {
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+}
+
+.live-result-empty p {
+  max-width: 34rem;
+  margin-top: 0.25rem;
+  line-height: 1.55;
+}
+
+.live-result-pulse {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--amarillo);
+  box-shadow: 0 0 0 0 color-mix(in oklch, var(--amarillo) 55%, transparent);
+  animation: live-result-pulse 1.8s ease-in-out infinite;
+}
+
+.live-result-summary {
+  display: flex;
+  align-items: baseline;
+  padding-bottom: 0.9rem;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+}
+
+.live-result-summary strong {
+  position: relative;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-result-summary small {
+  margin-left: auto;
+  color: var(--green);
+}
+
+.live-transcript-list,
+.live-timeline ol {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-transcript-list li {
+  display: grid;
+  align-items: start;
+  padding: 1rem 0;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.live-result-index,
+.live-transcript-list time,
+.live-timeline time {
+  color: var(--ink-faded);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-transcript-list p {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+.live-subsection-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.live-subsection-heading h3,
+.live-subsection-heading span {
+  margin: 0;
+}
+
+.live-timeline li {
+  display: grid;
+  padding: 0.85rem 0;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
+  gap: 0.9rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.live-timeline strong,
+.live-timeline p {
+  margin: 0;
+}
+
+.live-timeline p {
+  margin-top: 0.2rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.live-classification {
+  display: grid;
+  margin: 1rem 0 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.live-classification > div {
+  padding: 0.85rem;
+  border-left: 3px solid var(--azul);
+  background: color-mix(in oklch, var(--paper-white) 62%, transparent);
+}
+
+.live-classification dt {
+  color: var(--ink-faded);
+  font-size: 0.7rem;
+}
+
+.live-classification dd {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+
+.live-fact-grid,
+.live-route-grid {
+  display: grid;
+  margin-top: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.live-fact-grid article,
+.live-route-grid article {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--rule);
+  background: color-mix(in oklch, var(--paper-white) 82%, transparent);
+}
+
+.live-fact-grid article {
+  border-radius: 0.85rem;
+}
+
+.live-fact-grid article > span,
+.live-route-grid article > span {
+  color: var(--ink-faded);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.live-fact-grid article > span.is-critical {
+  color: var(--rojo);
+}
+
+.live-fact-grid h3,
+.live-route-grid h3 {
+  margin: 0.55rem 0 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+}
+
+.live-fact-grid p,
+.live-route-grid p {
+  margin: 0.45rem 0 0;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.live-fact-grid small,
+.live-route-grid small {
+  display: block;
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-faded);
+}
+
+.live-routes-disclaimer {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.live-route-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.live-route-grid article {
+  border-top: 4px solid var(--route-accent, var(--ink));
+  border-radius: 0.9rem;
+}
+
+.live-route-grid .route-housing_stabilization {
+  --route-accent: var(--azul);
+}
+
+.live-route-grid .route-return_relocation {
+  --route-accent: var(--rojo);
+}
+
+.live-results-note {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  gap: 0.65rem;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-faded);
+}
+
+.live-results-note p {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+@keyframes live-result-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--amarillo) 50%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in oklch, var(--amarillo) 0%, transparent); }
+}
+
+@media (max-width: 1000px) {
+  .analysis-live-workspace .live-processing-ledger {
+    overflow: visible;
+  }
+
+  .analysis-live-workspace .live-processing-ledger .processing-view {
+    min-height: 0;
+  }
+
+  .analysis-live-workspace .live-analysis-sheet {
+    overflow: visible;
+  }
+
+  .live-analysis-results,
+  .live-results-body {
+    height: auto;
+    overflow: visible;
+  }
+
+  .analysis-live-workspace .processing-chapters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .analysis-live-workspace .processing-chapters,
+  .live-classification,
+  .live-fact-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .live-transcript-list li {
+    grid-template-columns: 1.65rem minmax(0, 1fr);
+  }
+
+  .live-transcript-list time {
+    grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-result-pulse,
+  .live-transcript-list li,
+  .live-fact-grid article,
+  .live-route-grid article {
+    animation: none;
   }
 }
