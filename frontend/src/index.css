@@ -2548,6 +2548,24 @@
    partes del ancho se quedaban vacías.
    ══════════════════════════════════════════════════════════════════════════ */
 
+/* La cabecera de la ruta trae su propio margen interno (1.35rem 1.5rem), pero
+   el recorrido cuelga de la tarjeta sin envoltorio: la cabecera de paradas, el
+   diagrama y el panel de la parada eran hijos directos de .route-journey y se
+   pegaban al borde. El margen se lo damos aquí, con el mismo valor lateral de
+   la cabecera para que todo caiga sobre la misma línea. */
+.route-journey > .route-stops-head,
+.route-journey > .route-stops,
+.route-journey > .route-stop-detail,
+.route-journey > .route-empty,
+.route-journey > .action-error {
+  margin-inline: 1.5rem;
+}
+
+/* Y aire abajo: el panel de la parada terminaba contra el borde inferior. */
+.route-journey.is-open {
+  padding-bottom: 1.5rem;
+}
+
 .route-stops-head {
   display: flex;
   flex-wrap: wrap;
@@ -2745,10 +2763,42 @@
    menos; por encima, el recorrido se queda de pie. */
 
 @media (min-width: 720px) {
+  /* Flex y no rejilla porque las paradas no miden lo mismo: las de en medio se
+     reparten el ancho y la última ocupa sólo su nodo. Con columnas iguales el
+     último nodo caía al principio de su columna, así que con dos paradas la
+     línea moría en el centro y la mitad derecha de la tarjeta quedaba vacía. */
   .route-stops[data-diagrama] {
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
+    display: flex;
     padding: 0.6rem 0 0.9rem;
+  }
+
+  .route-stops[data-diagrama] .route-stop {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* El término de la línea: el nodo se apoya en el borde derecho y su rótulo
+     se cuelga hacia dentro, alineado a la derecha, como en un mapa de metro. */
+  .route-stops[data-diagrama] .route-stop:last-child {
+    flex: 0 0 var(--nodo);
+    min-width: 0;
+  }
+
+  .route-stops[data-diagrama] .route-stop:last-child .route-stop-card {
+    padding: 0;
+    /* La columna mide el nodo y nada más. Sin fijarla, la pista automática
+       crecía hasta el ancho del rótulo (13rem) y empujaba el nodo fuera de la
+       tarjeta, que lo recortaba: la línea terminaba sin su última estación. */
+    grid-template-columns: var(--nodo);
+    justify-items: end;
+  }
+
+  .route-stops[data-diagrama] .route-stop:last-child .route-stop-title {
+    /* Sin el tope del 100%: su columna mide lo que el nodo, y el rótulo tiene
+       que poder salirse hacia la izquierda. */
+    width: max-content;
+    max-width: 13rem;
+    text-align: right;
   }
 
   .route-stops[data-diagrama] .route-stop-card {
