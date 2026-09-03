@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { useId, useRef, useState, type DragEvent } from "react"
 
 import { motionTransition, staggerContainer, staggerItem } from "./motion"
+import { NARRATIVE_STAGES } from "./narrative-stage"
 
 
 const MAX_BYTES = 500 * 1024 * 1024
@@ -124,6 +125,14 @@ export function UploadPanel({
       variants={staggerContainer}
       aria-labelledby="upload-title"
     >
+      {/* El lomo cae entre las dos páginas: es lo que convierte dos columnas en
+          un pliego. Va aquí y no en una de ellas para que se dibuje encima de
+          las dos. */}
+      <span className="book-spine" aria-hidden="true" />
+      {/* Verso: quién eres, qué va a pasar. El recorrido se anuncia como el
+          índice de un libro —tres entradas numeradas— y no como una promesa en
+          prosa: quien llega por primera vez sabe en qué termina esto antes de
+          entregar el testimonio. */}
       <motion.header
         className="intake-head"
         variants={staggerItem}
@@ -135,8 +144,27 @@ export function UploadPanel({
           Selecciona el video del testimonio. El sistema lo escuchará, separará
           los hechos y construirá una ruta que podrás revisar paso a paso.
         </p>
+
+        <ol className="intake-index" aria-label="Lo que hará el sistema">
+          {NARRATIVE_STAGES.map((stage) => (
+            <li key={stage.id}>
+              <span className="intake-index-number" aria-hidden="true">
+                {stage.number}
+              </span>
+              <span className="intake-index-body">
+                <strong>{stage.shortTitle}</strong>
+                <small>{stage.description}</small>
+              </span>
+            </li>
+          ))}
+        </ol>
+
+        <p className="intake-note">
+          Nada se publica. El video queda cifrado y se borra a los siete días.
+        </p>
       </motion.header>
 
+      {/* Recto: la única acción de la pantalla. */}
       <motion.div
         className="intake-dropzone-wrap"
         variants={staggerItem}
@@ -158,6 +186,26 @@ export function UploadPanel({
           onDrop={drop}
         >
           <span className="intake-frame">
+            {/* Un fotograma con sus perforaciones: dice "video" sin recurrir a
+                un icono de biblioteca, que en una pantalla de tipografía y
+                papel se leería como pegado de otra parte. */}
+            <svg
+              className="intake-mark"
+              viewBox="0 0 64 40"
+              width="64"
+              height="40"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              aria-hidden="true"
+            >
+              <rect x="0.7" y="0.7" width="62.6" height="38.6" rx="3" />
+              <path d="M12 0.7V39.3M52 0.7V39.3" />
+              <g strokeWidth="1.1">
+                <path d="M4.5 6.5h3M4.5 14.5h3M4.5 22.5h3M4.5 30.5h3" />
+                <path d="M56.5 6.5h3M56.5 14.5h3M56.5 22.5h3M56.5 30.5h3" />
+              </g>
+            </svg>
             <strong>Arrastra aquí el testimonio</strong>
             <span className="intake-alt">o elige un archivo del equipo</span>
           </span>

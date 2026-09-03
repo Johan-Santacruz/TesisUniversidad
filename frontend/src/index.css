@@ -2976,6 +2976,126 @@
   align-content: center;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   LA INGESTA COMO PLIEGO
+   Era una página suelta con el contenido apilado en el tercio de arriba: un
+   recuadro vacío ocupando media hoja y el resto en blanco. Pasa a ser el mismo
+   libro abierto que el análisis —dos páginas y un lomo—, con el recorrido
+   anunciado a la izquierda y la única acción de la pantalla a la derecha. Lo
+   que llenaba el vacío no era un adorno sino una respuesta: quien llega por
+   primera vez no sabe qué va a pasar con su testimonio.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 900px) {
+  .intake {
+    --module-column: 66rem;
+    grid-template-columns: 0.92fr 1.08fr;
+    /* La derecha manda: la fila de arriba la fija el recuadro y la de abajo
+       queda para el pie. */
+    grid-template-rows: auto auto;
+    align-content: center;
+    column-gap: clamp(2.5rem, 4.5vw, 4rem);
+    row-gap: 1.25rem;
+  }
+
+  .intake-head {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .intake-dropzone-wrap {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+  }
+
+  .intake-actions {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0.35rem;
+  }
+
+  /* La regla general de `.desk-stage .intake > *` devuelve al flujo a todo
+     hijo directo —position: relative—, y con eso el lomo desaparecía: hay que
+     ganarle en especificidad para volver a sacarlo del flujo. */
+  .desk-stage .intake > .book-spine {
+    display: block;
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    bottom: 0;
+    left: 47%;
+  }
+}
+
+/* El índice de etapas: tres entradas numeradas, como el sumario de un libro.
+   No es decoración, es el contrato de lo que el sistema va a hacer. */
+.intake-index {
+  display: grid;
+  margin: 1.6rem 0 0;
+  padding: 0;
+  gap: 0.95rem;
+  list-style: none;
+  counter-reset: etapa;
+}
+
+.intake-index li {
+  display: grid;
+  grid-template-columns: 2.15rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.15rem 0.7rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in oklch, var(--rule) 70%, transparent);
+}
+
+.intake-index li:first-child {
+  padding-top: 0.75rem;
+}
+
+.intake-index-number {
+  color: var(--ink-faded);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding-top: 0.12rem;
+}
+
+.intake-index-body {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.intake-index-body strong {
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.intake-index-body small {
+  color: var(--ink-soft);
+  font-family: var(--font-narrative);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* La promesa que faltaba decir en voz alta, al pie de la página izquierda. */
+.intake-note {
+  margin: 1.5rem 0 0;
+  padding-left: 0.7rem;
+  border-left: 2px solid color-mix(in oklch, var(--amarillo) 70%, var(--rule));
+  color: var(--ink-faded);
+  font-family: var(--font-narrative);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
 .intake-head h1,
 .processing-head h1 {
   margin: 0;
@@ -5449,6 +5569,26 @@
   right: 0;
   border-bottom-width: 1.5px;
   border-right-width: 1.5px;
+}
+
+/* Sin dos páginas no hay lomo: apilada, la ingesta es una hoja sola y una
+   banda vertical a media altura no sería más que una raya. */
+.intake > .book-spine {
+  display: none;
+}
+
+.intake-mark {
+  margin-bottom: 0.55rem;
+  color: color-mix(in oklch, var(--ink) 26%, transparent);
+  transition: color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.intake-dropzone:hover .intake-mark {
+  color: color-mix(in oklch, var(--ink) 45%, transparent);
+}
+
+.intake-dropzone.is-dragging .intake-mark {
+  color: var(--azul);
 }
 
 .intake-frame {
