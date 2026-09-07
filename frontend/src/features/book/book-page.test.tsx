@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { expect, it } from "vitest"
 
@@ -34,4 +34,20 @@ it("ofrece un control visible para avanzar de página", () => {
   const siguiente = screen.getByRole("button", { name: "Página siguiente" })
 
   expect(siguiente).toBeInTheDocument()
+})
+
+
+it("deja apagar el sonido del papel desde el propio libro", () => {
+  renderBook()
+
+  const interruptor = screen.getByRole("button", {
+    name: "Silenciar el paso de página",
+  })
+  expect(interruptor).toHaveAttribute("aria-pressed", "true")
+
+  fireEvent.click(interruptor)
+
+  expect(
+    screen.getByRole("button", { name: "Activar el sonido del papel" }),
+  ).toHaveAttribute("aria-pressed", "false")
 })

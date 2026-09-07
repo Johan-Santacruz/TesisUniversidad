@@ -12,6 +12,7 @@ import {
 } from "react"
 import HTMLFlipBook from "react-pageflip"
 import { DeskSurface } from "../../components/desk-surface"
+import { cambiarSonido, pageTurn, sonidoHabilitado } from "../../audio/sonidos"
 import { Link } from "react-router-dom"
 import {
   BOOK_PAGES,
@@ -247,6 +248,52 @@ function PageTurnButton({
   )
 }
 
+/* El interruptor vive junto a los botones de pasar página porque es el único
+ * sitio de la aplicación que suena. Sin él, el sonido sería algo que le ocurre
+ * a la persona en vez de algo que decide. */
+function SoundToggle() {
+  const [activo, setActivo] = useState(sonidoHabilitado)
+
+  return (
+    <button
+      type="button"
+      aria-pressed={activo}
+      aria-label={activo ? "Silenciar el paso de página" : "Activar el sonido del papel"}
+      onClick={() => {
+        const siguiente = !activo
+        cambiarSonido(siguiente)
+        setActivo(siguiente)
+      }}
+      className={cx(
+        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+        "border-ink/12 bg-paper-white/70 transition-colors duration-200",
+        "hover:border-ink/35 focus-visible:outline focus-visible:outline-2",
+        "focus-visible:outline-offset-2 focus-visible:outline-azul",
+        activo ? "text-ink" : "text-ink/30",
+      )}
+    >
+      <svg
+        viewBox="0 0 16 16"
+        width="13"
+        height="13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M4 6H2v4h2l3.5 2.5v-9L4 6Z" />
+        {activo ? (
+          <path d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6 6 0 0 1 0 9" />
+        ) : (
+          <path d="M10.5 6.5 14 9.5M14 6.5l-3.5 3" />
+        )}
+      </svg>
+    </button>
+  )
+}
+
 function BookHeader({
   currentPage,
   progressIndex,
@@ -306,6 +353,7 @@ function BookHeader({
             disabled={turnDisabled || !canTurnNext}
             onTurn={onTurn}
           />
+          <SoundToggle />
         </div>
 
         <Link
@@ -1258,6 +1306,11 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
       if (!pageFlip) return
 
       isTurningRef.current = true
+
+      // Aquí y no en el manejador del botón: en este punto ya se descartaron
+      // el libro cerrado, el giro en curso y la página que no existe, así que
+      // el sonido acompaña un giro que de verdad ocurre.
+      pageTurn()
 
       if (direction === "next") {
         pageFlip.flipNext("bottom")

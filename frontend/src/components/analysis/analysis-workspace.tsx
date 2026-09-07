@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import { apiClient } from "../../api/client"
+import { analysisReady } from "../../audio/sonidos"
 import type { components } from "../../api/generated"
 import { useAnalysisEvents } from "../../hooks/use-analysis-events"
 import { AnalysisProgress } from "./analysis-progress"
@@ -525,6 +526,16 @@ export function AnalysisWorkspace({
   }
 
   const onIntake = !caseData && !eventsUrl
+
+  /* El análisis tarda cerca de un minuto y en ese rato la persona se va a
+     mirar otra cosa. El aviso suena una sola vez, cuando el caso llega: la
+     referencia guarda que ya sonó para que un re-render no lo repita. */
+  const avisoSonadoRef = useRef(false)
+  useEffect(() => {
+    if (!caseData || avisoSonadoRef.current) return
+    avisoSonadoRef.current = true
+    analysisReady()
+  }, [caseData])
 
   useEffect(() => {
     if (!onIntake) return
