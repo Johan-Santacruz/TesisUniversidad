@@ -200,16 +200,69 @@ function useBookGeometry(forceSpread: boolean): BookGeometry {
   return geometry
 }
 
+/* Pasar la página tenía tres caminos y ninguno existe en un teléfono: la rueda
+ * horizontal del trackpad, las flechas del teclado y arrastrar la esquina. Y el
+ * arrastre hacia atrás lo intercepta el navegador, que en el borde izquierdo
+ * entiende su propio gesto de "volver". Por eso el libro se podía avanzar pero
+ * no devolver. Estos dos botones son el único camino que funciona en todas
+ * partes, y de paso lo vuelven alcanzable con lector de pantalla. */
+function PageTurnButton({
+  direction,
+  disabled,
+  onTurn,
+}: {
+  direction: TurnDirection
+  disabled: boolean
+  onTurn: (direction: TurnDirection) => void
+}) {
+  const previous = direction === "previous"
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={previous ? "Página anterior" : "Página siguiente"}
+      onClick={() => onTurn(direction)}
+      className={cx(
+        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+        "border-ink/12 bg-paper-white/70 text-ink transition-colors duration-200",
+        "hover:border-ink/35 hover:text-rojo focus-visible:outline focus-visible:outline-2",
+        "focus-visible:outline-offset-2 focus-visible:outline-azul",
+        "disabled:cursor-not-allowed disabled:border-ink/8 disabled:text-ink/25",
+      )}
+    >
+      <svg
+        viewBox="0 0 16 16"
+        width="13"
+        height="13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d={previous ? "M10 3.5 5.5 8 10 12.5" : "M6 3.5 10.5 8 6 12.5"} />
+      </svg>
+    </button>
+  )
+}
+
 function BookHeader({
   currentPage,
   progressIndex,
   totalPages,
   width,
+  canTurnNext,
+  turnDisabled,
+  onTurn,
 }: {
   currentPage: FlipbookPageItem
   progressIndex: number
   totalPages: number
   width: number
+  canTurnNext: boolean
+  turnDisabled: boolean
+  onTurn: (direction: TurnDirection) => void
 }) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 md:px-8 md:pt-5">
@@ -235,11 +288,25 @@ function BookHeader({
         </div>
 
         {/* El listón vive en la misma banda que el título: como una sola línea
-            devuelve al pliego los ~40px verticales que antes ocupaba solo. */}
-        <BookProgressRibbon
-          progressIndex={progressIndex}
-          totalPages={totalPages}
-        />
+            devuelve al pliego los ~40px verticales que antes ocupaba solo. Los
+            dos botones lo flanquean porque el sitio donde se lee en qué página
+            vas es el mismo donde se espera poder cambiarla. */}
+        <div className="flex shrink-0 items-center gap-2 md:gap-3">
+          <PageTurnButton
+            direction="previous"
+            disabled={turnDisabled}
+            onTurn={onTurn}
+          />
+          <BookProgressRibbon
+            progressIndex={progressIndex}
+            totalPages={totalPages}
+          />
+          <PageTurnButton
+            direction="next"
+            disabled={turnDisabled || !canTurnNext}
+            onTurn={onTurn}
+          />
+        </div>
 
         <Link
           to="/conversar"
@@ -1080,6 +1147,13 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
   const progressIndex = bookPhase === "closed" || bookPhase === "closing"
     ? 0
     : Math.min(openPageIndex + 1, BOOK_PAGES.length - 1)
+
+  // Con el libro cerrado, "siguiente" es abrirlo. Abierto, depende de que
+  // quede pliego por delante. "Anterior" nunca se agota: en la primera página
+  // cierra el libro, que es de donde se venía.
+  const canTurnNext = bookPhase === "closed"
+    ? true
+    : Boolean(OPEN_BOOK_PAGES[openPageIndex + 1])
   const currentPage = bookPhase === "closed" || bookPhase === "closing"
     ? BOOK_PAGES[0]
     : OPEN_BOOK_PAGES[openPageIndex] ?? OPEN_BOOK_PAGES[0]
@@ -1287,6 +1361,9 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
         progressIndex={progressIndex}
         totalPages={BOOK_PAGES.length}
         width={box.width}
+        canTurnNext={canTurnNext}
+        turnDisabled={bookPhase === "opening" || bookPhase === "closing"}
+        onTurn={requestTurn}
       />
 
       <section
