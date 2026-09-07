@@ -1188,6 +1188,9 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
   const flipBookRef = useRef<FlipBookRef>(null)
   const openPageIndexRef = useRef(0)
   const isTurningRef = useRef(false)
+  // Estado anterior del flipbook, para distinguir el comienzo de un giro de
+  // los avisos repetidos que llegan mientras se arrastra la hoja.
+  const estadoLibroRef = useRef("read")
   const lastWheelAtRef = useRef(0)
   const turnUnlockTimerRef = useRef<number | null>(null)
   const isInitialLoadRef = useRef(true)
@@ -1313,11 +1316,6 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
       if (!pageFlip) return
 
       isTurningRef.current = true
-
-      // Aquí y no en el manejador del botón: en este punto ya se descartaron
-      // el libro cerrado, el giro en curso y la página que no existe, así que
-      // el sonido acompaña un giro que de verdad ocurre.
-      pageTurn()
 
       if (direction === "next") {
         pageFlip.flipNext("bottom")
@@ -1608,6 +1606,20 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
                 }}
                 onChangeState={(event) => {
                   const state = String(event.data)
+
+                  /* El sonido vive aquí y no en requestTurn porque aquel sólo
+                     cubre la rueda, el teclado y los botones. Arrastrar la
+                     hoja —que es como se pasa la página de verdad, y lo único
+                     que existe en un teléfono— lo resuelve react-pageflip por
+                     dentro y nunca pasaba por ahí. Este evento es el único
+                     punto por el que pasan los cuatro caminos. Se compara con
+                     el estado anterior para que suene al empezar el giro y una
+                     sola vez, no en cada aviso del arrastre. */
+                  if (state === "flipping" && estadoLibroRef.current !== "flipping") {
+                    pageTurn()
+                  }
+                  estadoLibroRef.current = state
+
                   if (state === "read") {
                     releaseTurnLock()
                     return
