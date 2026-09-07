@@ -1248,6 +1248,11 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
   const openBook = useCallback(() => {
     if (bookPhase !== "closed") return
 
+    // Abrir y cerrar también son papel moviéndose, y son el primer gesto que
+    // hace cualquiera que llega. Van aquí, después de la guarda, para que sólo
+    // suenen cuando el libro de verdad se mueve.
+    pageTurn()
+
     isTurningRef.current = false
     openPageIndexRef.current = 0
     lastWheelAtRef.current = Date.now()
@@ -1267,6 +1272,8 @@ export default function BookPage({ backgroundMode = false }: BookPageProps) {
 
   const closeBook = useCallback(() => {
     if (bookPhase === "closing" || bookPhase === "closed") return
+
+    pageTurn()
 
     releaseTurnLock()
     openPageIndexRef.current = 0
