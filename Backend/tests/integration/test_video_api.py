@@ -168,12 +168,14 @@ class _DescargaFalsa:
         self.duration = duration
         self.downloaded: list[str] = []
 
-    def probe_duration(self, url: str) -> int:
-        return self.duration
+    def fetch(self, url: str, destination, max_seconds: int):
+        from app.services.video_links import RemoteVideo, VideoTooLongError
 
-    def download(self, url: str, destination):
-        from app.services.video_links import RemoteVideo
-
+        if self.duration > max_seconds:
+            raise VideoTooLongError(
+                f"El video dura {self.duration // 60} minutos y el máximo son "
+                f"{max_seconds // 60}."
+            )
         self.downloaded.append(url)
         archivo = destination / "descargado.mp4"
         archivo.write_bytes(self.payload)

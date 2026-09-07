@@ -5,12 +5,14 @@ from pathlib import Path
 import pytest
 
 from app.services.video_links import (
+    DownloadFailedError,
     LinkIngestDisabledError,
     RemoteVideo,
     UnsupportedHostError,
     VideoLinkError,
     VideoLinkService,
     VideoTooLongError,
+    YtDlpDownloader,
     normalize_link,
 )
 
@@ -20,15 +22,15 @@ class DownloaderDeMentira:
 
     def __init__(self, *, duration: int = 120) -> None:
         self.duration = duration
-        self.probed: list[str] = []
-        self.downloaded: list[str] = []
+        self.calls: list[str] = []
 
-    def probe_duration(self, url: str) -> int:
-        self.probed.append(url)
-        return self.duration
-
-    def download(self, url: str, destination: Path) -> RemoteVideo:
-        self.downloaded.append(url)
+    def fetch(self, url: str, destination: Path, max_seconds: int) -> RemoteVideo:
+        self.calls.append(url)
+        if self.duration > max_seconds:
+            raise VideoTooLongError(
+                f"El video dura {self.duration // 60} minutos y el máximo son "
+                f"{max_seconds // 60}."
+            )
         archivo = destination / "video.mp4"
         archivo.write_bytes(b"video")
         return RemoteVideo(path=archivo, title="Testimonio", duration_seconds=self.duration)
@@ -80,12 +82,11 @@ def test_el_servicio_apagado_no_toca_la_red():
     with pytest.raises(LinkIngestDisabledError):
         servicio.fetch("https://youtu.be/E6ikYBkI2QE")
 
-    assert descargador.probed == []
-    assert descargador.downloaded == []
+    assert descargador.calls == []
 
 
-def test_un_video_demasiado_largo_se_rechaza_antes_de_bajarlo():
-    """La duración se consulta sin descargar: el tope se aplica antes del gasto."""
+def test_un_video_demasiado_largo_se_rechaza(tmp_path):
+    """El tope viaja hasta el descargador, que lo aplica antes de traer nada."""
     descargador = DownloaderDeMentira(duration=3600)
     servicio = VideoLinkService(
         enabled=True,
@@ -94,11 +95,11 @@ def test_un_video_demasiado_largo_se_rechaza_antes_de_bajarlo():
     )
 
     with pytest.raises(VideoTooLongError) as error:
-        servicio.fetch("https://youtu.be/E6ikYBkI2QE")
+        with servicio.fetch("https://youtu.be/E6ikYBkI2QE"):
+            pass
 
     assert "60 minutos" in str(error.value)
-    assert descargador.probed  # sí preguntó
-    assert descargador.downloaded == []  # y no bajó nada
+    assert not list(tmp_path.iterdir())  # no quedó ningún archivo suelto
 
 
 def test_el_temporal_desaparece_al_salir_del_contexto():
@@ -114,3 +115,52 @@ def test_el_temporal_desaparece_al_salir_del_contexto():
         assert ruta.exists()
 
     assert not ruta.exists()
+
+
+# ── La sesión: cookies para que YouTube no pida verificación ───────────────
+
+
+def test_sin_cookies_la_peticion_va_anonima(tmp_path):
+    descargador = YtDlpDownloader(max_bytes=1024)
+
+    opciones = descargador._options(tmp_path, 1800)
+
+    assert "cookiefile" not in opciones
+    assert "cookiesfrombrowser" not in opciones
+
+
+def test_el_archivo_de_cookies_llega_a_yt_dlp(tmp_path):
+    galletas = tmp_path / "youtube-cookies.txt"
+    galletas.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    descargador = YtDlpDownloader(max_bytes=1024, cookie_file=galletas)
+
+    opciones = descargador._options(tmp_path, 1800)
+
+    assert opciones["cookiefile"] == str(galletas)
+
+
+def test_un_archivo_de_cookies_que_no_existe_se_explica(tmp_path):
+    descargador = YtDlpDownloader(max_bytes=1024, cookie_file=tmp_path / "no-esta.txt")
+
+    with pytest.raises(DownloadFailedError) as error:
+        descargador._options(tmp_path, 1800)
+
+    assert "no-esta.txt" in str(error.value)
+
+
+def test_el_navegador_llega_como_tupla(tmp_path):
+    """yt-dlp espera (navegador, perfil, contenedor, palabra), no una cadena."""
+    descargador = YtDlpDownloader(max_bytes=1024, cookies_from_browser="chrome")
+
+    opciones = descargador._options(tmp_path, 1800)
+
+    assert opciones["cookiesfrombrowser"] == ("chrome",)
+
+
+def test_el_tope_de_duracion_lo_aplica_el_filtro_de_yt_dlp(tmp_path):
+    """Un solo viaje: el rechazo por duración ocurre sin una petición aparte."""
+    descargador = YtDlpDownloader(max_bytes=1024)
+    filtro = descargador._options(tmp_path, 600)["match_filter"]
+
+    assert filtro({"duration": 300}) is None
+    assert "60 minutos" in filtro({"duration": 3600})

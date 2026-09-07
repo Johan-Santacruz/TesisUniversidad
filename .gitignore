@@ -49,3 +49,8 @@ Backend/ml-artifacts/*.bak-*/
 Backend/prueba-videos/
 Backend/prueba-fotograma/
 videos-prueba/
+
+# Sesión de YouTube para la ingesta por enlace. Es una sesión de Google viva:
+# quien lea este archivo entra a esa cuenta. Nunca al repositorio.
+secretos/
+*cookies*.txt

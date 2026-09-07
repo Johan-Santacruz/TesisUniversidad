@@ -21,6 +21,12 @@ services:
       # Los pesos de BETO se copian una vez al servidor y se montan de sólo
       # lectura: nada de lo que corre aquí tiene por qué modificarlos.
       - ./Backend/ml-artifacts:/app/ml-artifacts:ro
+      # Sesión de YouTube para la ingesta por enlace, cuando se usa. Vive fuera
+      # de Backend/ —que es el contexto de construcción— para que no quede
+      # horneada en ninguna capa de la imagen, y entra de sólo lectura. Si la
+      # carpeta no existe, Docker la crea vacía y no pasa nada: sin
+      # SENDA_LINK_COOKIES_FILE la descarga sigue yendo anónima.
+      - ./secretos:/secretos:ro
     expose:
       - "8000"
 

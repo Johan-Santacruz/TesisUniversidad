@@ -304,7 +304,11 @@ def create_app(
     application.state.video_links = VideoLinkService(
         enabled=app_settings.link_ingest_enabled,
         max_duration_seconds=app_settings.link_ingest_max_seconds,
-        downloader=YtDlpDownloader(max_bytes=app_settings.max_video_bytes),
+        downloader=YtDlpDownloader(
+            max_bytes=app_settings.max_video_bytes,
+            cookie_file=app_settings.link_cookies_file,
+            cookies_from_browser=app_settings.link_cookies_from_browser,
+        ),
     )
 
     application.add_middleware(

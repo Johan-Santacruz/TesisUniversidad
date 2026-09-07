@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     # equipo donde la descarga es parte del método de trabajo.
     link_ingest_enabled: bool = False
     link_ingest_max_seconds: int = Field(default=1800, ge=60, le=7200)
+    # Sesión para la descarga. Sin ella las peticiones van anónimas y YouTube
+    # acaba pidiendo verificación por tasa. El archivo de cookies es el camino
+    # del servidor; leerlas del navegador sólo sirve donde hay navegador.
+    link_cookies_file: Path | None = None
+    link_cookies_from_browser: str = ""
     video_retention_days: int = Field(default=7, ge=1, le=365)
     narration_max_bytes: int = Field(default=2 * 1024 * 1024, ge=1024)
     memory_image_max_bytes: int = Field(

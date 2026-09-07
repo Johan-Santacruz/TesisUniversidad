@@ -25,6 +25,22 @@ Nada de esto sortea las restricciones de YouTube: descargar va contra sus
 términos de servicio, y desde la IP de un centro de datos la plataforma suele
 pedir verificación y devolver un error. Es una herramienta de trabajo para el
 material propio de la investigación, no un servicio de descarga.
+
+**La sesión.** YouTube exige verificación por tasa: las peticiones anónimas
+seguidas desde una misma IP acaban topándose con "confirma que no eres un
+robot". Se puede evitar dándole una sesión iniciada, de dos maneras:
+
+  - `SENDA_LINK_COOKIES_FROM_BROWSER=chrome` lee las cookies del navegador de
+    la propia máquina. Sirve en un equipo de trabajo y no en un servidor, donde
+    no hay navegador.
+  - `SENDA_LINK_COOKIES_FILE=/secretos/youtube-cookies.txt` apunta a un archivo
+    de cookies exportado. Es el camino del servidor.
+
+Ese archivo es una sesión de Google viva: quien lo lea entra a esa cuenta. En
+un servidor, úsalo con una cuenta desechable, nunca con la personal, y ten
+presente que YouTube puede sancionar la cuenta por acceso automatizado desde la
+IP de un centro de datos. Va montado de sólo lectura y fuera del contexto de
+construcción de la imagen, para que no quede horneado en ninguna capa.
 """
 from __future__ import annotations
 
@@ -132,10 +148,7 @@ def _leading_id(value: str) -> str:
 class Downloader(Protocol):
     """El descargador real y el de las pruebas entran por aquí."""
 
-    def probe_duration(self, url: str) -> int:
-        ...
-
-    def download(self, url: str, destination: Path) -> RemoteVideo:
+    def fetch(self, url: str, destination: Path, max_seconds: int) -> RemoteVideo:
         ...
 
 
@@ -145,13 +158,27 @@ class YtDlpDownloader:
     El formato se limita a 480p en MP4 por la misma razón que en el guion
     manual: es la calidad con la que se transcribió y clasificó todo el material
     de prueba, y mantiene los archivos lejos del tope de 500 MB.
+
+    Una sola extracción por intento. Antes eran dos —una para medir la duración
+    y otra para bajar—, y eso duplicaba la tasa de peticiones, que es
+    justamente lo que dispara la verificación de YouTube. El tope de duración lo
+    aplica ahora el propio yt-dlp con un filtro, antes de empezar a descargar.
     """
 
     FORMAT = "bv*[height<=480][ext=mp4]+ba[ext=m4a]/b[height<=480][ext=mp4]/b[ext=mp4]/b"
 
-    def __init__(self, *, max_bytes: int, socket_timeout: int = 30) -> None:
+    def __init__(
+        self,
+        *,
+        max_bytes: int,
+        socket_timeout: int = 30,
+        cookie_file: Path | None = None,
+        cookies_from_browser: str = "",
+    ) -> None:
         self.max_bytes = max_bytes
         self.socket_timeout = socket_timeout
+        self.cookie_file = cookie_file
+        self.cookies_from_browser = cookies_from_browser
 
     def _module(self):
         # Importación diferida: la aplicación arranca sin yt-dlp instalado y
@@ -164,64 +191,91 @@ class YtDlpDownloader:
             ) from exc
         return yt_dlp
 
-    def _options(self, destination: Path | None) -> dict:
-        options = {
+    def _sesion(self) -> dict:
+        """Cookies, si las hay. Sin ellas la petición va anónima."""
+        if self.cookie_file:
+            if not self.cookie_file.exists():
+                raise DownloadFailedError(
+                    f"No existe el archivo de cookies {self.cookie_file}.",
+                )
+            return {"cookiefile": str(self.cookie_file)}
+        if self.cookies_from_browser:
+            # yt-dlp espera una tupla: (navegador, perfil, contenedor, palabra).
+            return {"cookiesfrombrowser": (self.cookies_from_browser,)}
+        return {}
+
+    def _options(self, destination: Path, max_seconds: int) -> dict:
+        def filtro(info, *, incomplete=False):
+            duracion = info.get("duration") or 0
+            if duracion and duracion > max_seconds:
+                # Devolver un texto le dice a yt-dlp que salte este video. No
+                # lanza nada: sigue adelante y entrega la información sin haber
+                # descargado. El rechazo se convierte en error más abajo.
+                return _demasiado_largo(int(duracion), max_seconds)
+            return None
+
+        return {
             "quiet": True,
             "no_warnings": True,
             "noprogress": True,
             "noplaylist": True,
             "socket_timeout": self.socket_timeout,
             "retries": 2,
-        }
-        if destination is not None:
-            options |= {
-                "format": self.FORMAT,
-                "merge_output_format": "mp4",
-                "max_filesize": self.max_bytes,
-                "outtmpl": str(destination / "%(id)s.%(ext)s"),
-            }
-        return options
+            "format": self.FORMAT,
+            "merge_output_format": "mp4",
+            "max_filesize": self.max_bytes,
+            "outtmpl": str(destination / "%(id)s.%(ext)s"),
+            "match_filter": filtro,
+        } | self._sesion()
 
-    def probe_duration(self, url: str) -> int:
-        yt_dlp = self._module()
-        try:
-            with yt_dlp.YoutubeDL(self._options(None)) as downloader:
-                info = downloader.extract_info(url, download=False)
-        except Exception as exc:  # yt-dlp lanza su propia jerarquía
-            raise DownloadFailedError(_readable(exc)) from exc
-        return int((info or {}).get("duration") or 0)
-
-    def download(self, url: str, destination: Path) -> RemoteVideo:
+    def fetch(self, url: str, destination: Path, max_seconds: int) -> RemoteVideo:
         yt_dlp = self._module()
         # YouTube devuelve 403 de vez en cuando sobre la URL del medio, incluso
-        # para un video público que acaba de bajarse bien. Se vio en las pruebas:
-        # una de cada varias descargas fallaba y la siguiente funcionaba. Un
-        # segundo intento convierte ese fallo en un tropiezo invisible; si vuelve
-        # a fallar, el motivo sube tal cual.
+        # para un video público que acaba de bajarse bien. Un segundo intento
+        # convierte ese fallo en un tropiezo invisible; si vuelve a fallar, el
+        # motivo sube tal cual.
         ultimo: Exception | None = None
+        info = None
+        path: Path | None = None
         for _ in range(2):
             try:
-                with yt_dlp.YoutubeDL(self._options(destination)) as downloader:
+                with yt_dlp.YoutubeDL(self._options(destination, max_seconds)) as downloader:
                     info = downloader.extract_info(url, download=True)
+                    if info is None:
+                        raise DownloadFailedError("YouTube no devolvió el video.")
+                    # El filtro ya impidió la descarga; aquí se le pone nombre.
+                    duracion = int(info.get("duration") or 0)
+                    if duracion and duracion > max_seconds:
+                        raise VideoTooLongError(_demasiado_largo(duracion, max_seconds))
                     path = Path(downloader.prepare_filename(info))
                 break
+            except VideoLinkError:
+                raise
             except Exception as exc:
                 ultimo = exc
         else:
             raise DownloadFailedError(_readable(ultimo)) from ultimo
 
+        assert path is not None and info is not None
         if not path.exists():
             # Con merge_output_format el nombre final puede cambiar de extensión.
-            candidates = sorted(destination.glob("*"), key=lambda p: p.stat().st_size)
-            if not candidates:
+            candidatos = sorted(destination.glob("*"), key=lambda p: p.stat().st_size)
+            if not candidatos:
                 raise DownloadFailedError("La descarga no dejó ningún archivo.")
-            path = candidates[-1]
+            path = candidatos[-1]
 
         return RemoteVideo(
             path=path,
-            title=str((info or {}).get("title") or "").strip(),
-            duration_seconds=int((info or {}).get("duration") or 0),
+            title=str(info.get("title") or "").strip(),
+            duration_seconds=int(info.get("duration") or 0),
         )
+
+
+def _demasiado_largo(duracion: int, tope: int) -> str:
+    return (
+        f"El video dura {duracion // 60} minutos y el máximo son {tope // 60}. "
+        "Recorta el fragmento que quieras analizar y súbelo como archivo."
+    )
 
 
 def _readable(error: Exception | None) -> str:
@@ -269,31 +323,35 @@ class VideoLinkService:
                 "La ingesta por enlace está desactivada en este servidor.",
             )
         url = normalize_link(raw_url)
-
-        duration = self.downloader.probe_duration(url)
-        if duration and duration > self.max_duration_seconds:
-            minutes = self.max_duration_seconds // 60
-            raise VideoTooLongError(
-                f"El video dura {duration // 60} minutos y el máximo son {minutes}. "
-                "Recorta el fragmento que quieras analizar y súbelo como archivo.",
-            )
-        return _DownloadedFile(self.downloader, url)
+        return _DownloadedFile(self.downloader, url, self.max_duration_seconds)
 
 
 class _DownloadedFile:
     """Contexto que baja el video, lo abre y limpia el temporal al salir."""
 
-    def __init__(self, downloader: Downloader, url: str) -> None:
+    def __init__(self, downloader: Downloader, url: str, max_seconds: int) -> None:
         self.downloader = downloader
         self.url = url
+        self.max_seconds = max_seconds
         self._directory: tempfile.TemporaryDirectory | None = None
         self._handle = None
         self.video: RemoteVideo | None = None
 
     def __enter__(self):
         self._directory = tempfile.TemporaryDirectory(prefix="senda-enlace-")
-        self.video = self.downloader.download(self.url, Path(self._directory.name))
-        self._handle = self.video.path.open("rb")
+        try:
+            self.video = self.downloader.fetch(
+                self.url,
+                Path(self._directory.name),
+                self.max_seconds,
+            )
+            self._handle = self.video.path.open("rb")
+        except BaseException:
+            # Si la descarga falla, el temporal se limpia aquí: __exit__ no
+            # llega a ejecutarse cuando __enter__ es el que revienta.
+            self._directory.cleanup()
+            self._directory = None
+            raise
         return self
 
     def __exit__(self, *exception: object) -> None:
