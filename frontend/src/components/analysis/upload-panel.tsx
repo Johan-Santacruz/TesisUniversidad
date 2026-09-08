@@ -3,10 +3,16 @@ import { useId, useRef, useState, type DragEvent } from "react"
 
 import { motionTransition, staggerContainer, staggerItem } from "./motion"
 import { NARRATIVE_STAGES } from "./narrative-stage"
+import "./upload-panel.css"
 
 
 const MAX_BYTES = 500 * 1024 * 1024
 const ACCEPTED = ["video/mp4", "video/webm", "video/quicktime"]
+const STAGE_SUMMARIES = {
+  listening: "El relato, organizado en fragmentos.",
+  evidence: "Los hechos importantes, para revisar.",
+  route: "Los pasos a seguir, con sus fuentes.",
+}
 
 function readableSize(bytes: number) {
   const mb = bytes / (1024 * 1024)
@@ -125,51 +131,33 @@ export function UploadPanel({
       variants={staggerContainer}
       aria-labelledby="upload-title"
     >
-      {/* El lomo cae entre las dos páginas: es lo que convierte dos columnas en
-          un pliego. Va aquí y no en una de ellas para que se dibuje encima de
-          las dos. */}
-      <span className="book-spine" aria-hidden="true" />
-      {/* Verso: quién eres, qué va a pasar. El recorrido se anuncia como el
-          índice de un libro —tres entradas numeradas— y no como una promesa en
-          prosa: quien llega por primera vez sabe en qué termina esto antes de
-          entregar el testimonio. */}
       <motion.header
         className="intake-head"
         variants={staggerItem}
         transition={motionTransition(reduceMotion)}
       >
         <p className="eyebrow">Nuevo análisis</p>
-        <h1 id="upload-title">Tu declaración</h1>
+        <h1 id="upload-title">Cada relato es<br />un punto de partida.</h1>
         <p className="intake-lede">
-          Selecciona el video del testimonio. El sistema lo escuchará, separará
-          los hechos y construirá una ruta que podrás revisar paso a paso.
-        </p>
-
-        <ol className="intake-index" aria-label="Lo que hará el sistema">
-          {NARRATIVE_STAGES.map((stage) => (
-            <li key={stage.id}>
-              <span className="intake-index-number" aria-hidden="true">
-                {stage.number}
-              </span>
-              <span className="intake-index-body">
-                <strong>{stage.shortTitle}</strong>
-                <small>{stage.description}</small>
-              </span>
-            </li>
-          ))}
-        </ol>
-
-        <p className="intake-note">
-          Nada se publica. El video queda cifrado y se borra a los siete días.
+          Añade el video del testimonio para empezar a construir una ruta
+          de acción. Podrás revisar cada paso.
         </p>
       </motion.header>
 
-      {/* Recto: la única acción de la pantalla. */}
+      {/* La carga y sus acciones permanecen juntas también en móvil. */}
       <motion.div
         className="intake-dropzone-wrap"
         variants={staggerItem}
         transition={motionTransition(reduceMotion)}
       >
+        <div className="intake-source-heading">
+          <span className="intake-source-kicker">Empieza aquí</span>
+          <h2>Añade tu testimonio</h2>
+          <p>
+            Selecciona un video
+            {linkIngestEnabled && onLink ? " o comparte su enlace." : " de tu equipo."}
+          </p>
+        </div>
         {/* Es un <button> real: antes era un div con manejadores de arrastre,
             inalcanzable con teclado y mudo para un lector de pantalla. */}
         <button
@@ -186,37 +174,37 @@ export function UploadPanel({
           onDrop={drop}
         >
           <span className="intake-frame">
-            {/* Un fotograma con sus perforaciones: dice "video" sin recurrir a
-                un icono de biblioteca, que en una pantalla de tipografía y
-                papel se leería como pegado de otra parte. */}
-            <svg
-              className="intake-mark"
-              viewBox="0 0 64 40"
-              width="64"
-              height="40"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              aria-hidden="true"
-            >
-              <rect x="0.7" y="0.7" width="62.6" height="38.6" rx="3" />
-              <path d="M12 0.7V39.3M52 0.7V39.3" />
-              <g strokeWidth="1.1">
-                <path d="M4.5 6.5h3M4.5 14.5h3M4.5 22.5h3M4.5 30.5h3" />
-                <path d="M56.5 6.5h3M56.5 14.5h3M56.5 22.5h3M56.5 30.5h3" />
-              </g>
-            </svg>
+            <span className="intake-icon-disc">
+              <svg
+                className="intake-mark"
+                viewBox="0 0 64 40"
+                width="64"
+                height="40"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                aria-hidden="true"
+              >
+                <rect x="0.7" y="0.7" width="62.6" height="38.6" rx="3" />
+                <path d="M12 0.7V39.3M52 0.7V39.3" />
+                <g strokeWidth="1.1">
+                  <path d="M4.5 6.5h3M4.5 14.5h3M4.5 22.5h3M4.5 30.5h3" />
+                  <path d="M56.5 6.5h3M56.5 14.5h3M56.5 22.5h3M56.5 30.5h3" />
+                </g>
+                <path d="m28 13 11 7-11 7Z" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
             <strong>Arrastra aquí el testimonio</strong>
-            <span className="intake-alt">o elige un archivo del equipo</span>
+            <span className="intake-alt">o selecciónalo desde tu equipo</span>
+            <span className="intake-browse">
+              {file ? "Cambiar archivo" : "Elegir archivo"}
+              <span aria-hidden="true">↗</span>
+            </span>
+            <span id={hintId} className="intake-hint">
+              MP4, WebM o MOV · hasta 500 MB
+            </span>
           </span>
         </button>
-
-        {/* Fuera del recuadro: es un dato de referencia, no una tercera línea
-            de invitación compitiendo con las dos de arriba. Sigue siendo la
-            descripción accesible de la zona. */}
-        <p id={hintId} className="intake-hint">
-          MP4, WebM o MOV · hasta 500 MB
-        </p>
 
         <input
           ref={inputRef}
@@ -261,18 +249,18 @@ export function UploadPanel({
             dirección aquí. Sólo aparece si el servidor la tiene encendida. */}
         {linkIngestEnabled && onLink ? (
           <div className="intake-link">
-            <span className="intake-link-or">o pega un enlace de YouTube</span>
+            <span className="intake-link-or" aria-hidden="true">o usa un enlace</span>
+            <label className="intake-link-label" htmlFor={linkId}>
+              Enlace del video en YouTube
+            </label>
             <div className="intake-link-row">
-              <label className="visually-hidden" htmlFor={linkId}>
-                Enlace del video en YouTube
-              </label>
               <input
                 id={linkId}
                 type="url"
                 inputMode="url"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="https://www.youtube.com/watch?v=…"
+                placeholder="Pega aquí el enlace…"
                 value={link}
                 disabled={busy}
                 onChange={(event) => {
@@ -297,7 +285,7 @@ export function UploadPanel({
               </button>
             </div>
             <p className="intake-hint">
-              El servidor lo descarga en 480p. Hasta{" "}
+              Hasta{" "}
               {Math.round(linkMaxSeconds / 60)} minutos de duración.
             </p>
           </div>
@@ -308,40 +296,65 @@ export function UploadPanel({
             {problem}
           </p>
         ) : null}
+        <motion.div
+          className="intake-actions"
+          variants={staggerItem}
+          transition={motionTransition(reduceMotion)}
+        >
+          {/* El análisis se ofrece cuando hay un archivo válido. */}
+          <AnimatePresence initial={false}>
+            {file ? (
+              <motion.button
+                type="button"
+                className="intake-start"
+                disabled={busy}
+                onClick={() => void onUpload(file)}
+                initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
+              >
+                {busy ? "Iniciando análisis…" : "Analizar este testimonio"}
+              </motion.button>
+            ) : null}
+          </AnimatePresence>
+          <button
+            type="button"
+            className="intake-demo"
+            disabled={busy}
+            onClick={() => void onDemo()}
+          >
+            Ver primero el caso de demostración <span aria-hidden="true">→</span>
+          </button>
+        </motion.div>
       </motion.div>
-
       <motion.div
-        className="intake-actions"
+        className="intake-guide"
         variants={staggerItem}
         transition={motionTransition(reduceMotion)}
       >
-        {/* Un boton gris que no puede hacer nada se lee como averiado. La
-            accion aparece cuando hay algo que analizar; hasta entonces el
-            fotograma es la unica cosa que pedir. */}
-        <AnimatePresence initial={false}>
-          {file ? (
-            <motion.button
-              type="button"
-              className="intake-start"
-              disabled={busy}
-              onClick={() => void onUpload(file)}
-              initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
-              transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
-            >
-              {busy ? "Iniciando análisis…" : "Analizar este testimonio"}
-            </motion.button>
-          ) : null}
-        </AnimatePresence>
-        <button
-          type="button"
-          className="intake-demo"
-          disabled={busy}
-          onClick={() => void onDemo()}
-        >
-          Ver primero el caso de demostración
-        </button>
+        <p className="intake-index-title">Del relato a la ruta</p>
+        <ol className="intake-index" aria-label="Lo que hará el sistema">
+          {NARRATIVE_STAGES.map((stage) => (
+            <li key={stage.id}>
+              <span className="intake-index-number" aria-hidden="true">
+                {stage.number}
+              </span>
+              <span className="intake-index-body">
+                <strong>{stage.shortTitle}</strong>
+                <small>{STAGE_SUMMARIES[stage.id]}</small>
+              </span>
+            </li>
+          ))}
+        </ol>
+
+        <p className="intake-note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <rect x="5" y="10" width="14" height="11" rx="2" />
+            <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
+          </svg>
+          <span>Nada se publica. El video queda cifrado y se borra a los siete días.</span>
+        </p>
       </motion.div>
     </motion.section>
   )

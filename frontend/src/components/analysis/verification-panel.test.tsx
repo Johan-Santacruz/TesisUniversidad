@@ -5,6 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react"
+import { useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { caseFixture } from "../../test/case-fixture"
@@ -247,5 +248,86 @@ describe("la cabecera dice cuánto falta", () => {
     expect(
       screen.getByText(/confirmar es cosa de un validador/i),
     ).toBeInTheDocument()
+  })
+})
+
+
+// La navegación debe priorizar bloqueantes y excluir las ya confirmadas,
+// incluso si el filtro actual ocultaba la siguiente señal.
+describe("revisión guiada de señales", () => {
+  const facts = [
+    { ...senalConValor, id: "pending", label: "Alojamiento", is_critical: false },
+    { ...senalConValor, id: "done", label: "Ubicación", is_critical: true, verification_status: "confirmed" as const },
+    { ...senalConValor, id: "blocking", label: "Urgencia", is_critical: true },
+  ]
+
+  function ReviewHarness({ initialFacts = facts }: { initialFacts?: typeof facts }) {
+    const [items, setItems] = useState(initialFacts)
+    const [selected, setSelected] = useState<string | null>(null)
+    return <VerificationPanel facts={items} role="validador"
+      segments={caseFixture.segments}
+      selectedFactId={selected}
+      onSelectFact={(fact) => setSelected(fact?.id ?? null)}
+      onReview={async (id) => {
+        setItems((current) => current.map((fact) => fact.id === id
+          ? { ...fact, verification_status: "confirmed" as const } : fact))
+      }} />
+  }
+
+  it("abre primero una bloqueante y permite continuar después de confirmarla", async () => {
+    render(<ReviewHarness />)
+    fireEvent.click(screen.getByRole("button", { name: /empezar revisión/i }))
+    const urgent = screen.getByRole("button", { name: "Urgencia" })
+    expect(urgent).toHaveAttribute("aria-expanded", "true")
+    expect(urgent).toHaveFocus()
+    const card = urgent.closest("article")!
+    fireEvent.click(within(card).getByRole("button", { name: /esto es correcto/i }))
+    await waitFor(() => expect(within(card).queryByRole("button", { name: /esto es correcto/i })).toBeNull())
+    expect(screen.getByRole("progressbar", { name: /señales confirmadas/i })).toHaveAttribute("aria-valuenow", "2")
+    fireEvent.click(within(card).getByRole("button", { name: /revisar siguiente pendiente/i }))
+    expect(screen.getByRole("button", { name: "Alojamiento" })).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByRole("button", { name: "Ubicación" })).toHaveAttribute("aria-expanded", "false")
+  })
+
+  it("permite llegar a una pendiente que el filtro de críticas ocultaba", () => {
+    render(<ReviewHarness />)
+    fireEvent.click(screen.getByRole("button", { name: /críticas/i }))
+    fireEvent.click(screen.getByRole("button", { name: /revisar bloqueantes/i }))
+    const card = screen.getByRole("button", { name: "Urgencia" }).closest("article")!
+    fireEvent.click(within(card).getByRole("button", { name: /revisar siguiente pendiente/i }))
+    expect(screen.getByRole("button", { name: "Alojamiento" })).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByRole("button", { name: /todas/i })).toHaveAttribute("aria-pressed", "true")
+  })
+
+  it("devuelve el foco a la única pendiente aunque ya esté seleccionada", () => {
+    render(<ReviewHarness initialFacts={[facts[2]]} />)
+    fireEvent.click(screen.getByRole("button", { name: /empezar revisión/i }))
+    const resume = screen.getByRole("button", { name: /continuar revisión/i })
+    resume.focus()
+    fireEvent.click(resume)
+    expect(screen.getByRole("button", { name: "Urgencia" })).toHaveFocus()
+  })
+
+  it("termina el recorrido al confirmar la última pendiente", async () => {
+    render(<ReviewHarness initialFacts={[facts[2]]} />)
+    fireEvent.click(screen.getByRole("button", { name: /empezar revisión/i }))
+    fireEvent.click(screen.getByRole("button", { name: /esto es correcto/i }))
+    await waitFor(() => expect(screen.queryByRole("button", { name: /continuar revisión/i })).toBeNull())
+    expect(screen.queryByRole("button", { name: /siguiente pendiente/i })).toBeNull()
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1")
+  })
+
+  it("no presenta un caso sin señales como revisión completada", () => {
+    render(<ReviewHarness initialFacts={[]} />)
+    expect(screen.queryByText(/todas las señales están confirmadas/i)).toBeNull()
+    expect(screen.queryByRole("progressbar")).toBeNull()
+    expect(screen.queryByRole("button", { name: /empezar revisión/i })).toBeNull()
+    expect(screen.getByText(/no se encontraron señales/i)).toBeInTheDocument()
+  })
+
+  it("explica un filtro sin resultados", () => {
+    render(<ReviewHarness initialFacts={[facts[0]]} />)
+    fireEvent.click(screen.getByRole("button", { name: /críticas/i }))
+    expect(screen.getByText(/no hay señales críticas/i)).toBeInTheDocument()
   })
 })

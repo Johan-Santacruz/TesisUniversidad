@@ -1,0 +1,309 @@
+/* La entrada mantiene el papel del libro y concentra las acciones en una ficha. */
+.analysis-app .desk-stage .intake {
+  --module-column: 70rem;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 clamp(2rem, 4vw, 4rem);
+  margin-block: 2rem;
+  padding: clamp(2rem, 4vw, 3.5rem);
+  border-radius: 6px;
+}
+
+.analysis-app .intake .intake-head {
+  grid-area: 1 / 1;
+  align-self: end;
+  min-width: 0;
+}
+
+.analysis-app .intake .intake-guide {
+  grid-area: 2 / 1;
+  align-self: start;
+  min-width: 0;
+}
+
+.analysis-app .intake .eyebrow {
+  margin: 0 0 1.2rem;
+  color: var(--ink-faded);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+}
+
+.analysis-app .intake h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(1.9rem, 3.1vw, 2.7rem);
+  font-weight: 400;
+  line-height: 1.22;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.analysis-app .intake .intake-lede {
+  max-width: 37ch;
+  margin-top: 1.1rem;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  line-height: 1.85;
+}
+
+.analysis-app .intake .intake-index-title {
+  margin: 2.1rem 0 0.8rem;
+  color: var(--ink-faded);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.analysis-app .intake .intake-index {
+  margin: 0;
+  gap: 0;
+}
+
+.analysis-app .intake .intake-index li {
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.7rem 0;
+  border: 0;
+}
+
+.analysis-app .intake .intake-index-number {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.analysis-app .intake .intake-index-body { gap: 0.15rem; }
+.analysis-app .intake .intake-index-body strong { font-size: 0.82rem; }
+.analysis-app .intake .intake-index-body small { font-size: 0.73rem; }
+
+.analysis-app .intake .intake-note {
+  display: flex;
+  gap: 0.65rem;
+  max-width: 37ch;
+  margin-top: 1.8rem;
+  padding: 1rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  font-size: 0.7rem;
+  line-height: 1.7;
+}
+
+.analysis-app .intake .intake-note svg { flex: 0 0 auto; margin-top: 0.15rem; }
+
+.analysis-app .intake .intake-dropzone-wrap {
+  grid-area: 1 / 2 / span 2;
+  min-width: 0;
+  margin: 0;
+  padding: clamp(1.25rem, 2.5vw, 2rem);
+  border: 1px solid color-mix(in oklch, var(--rule) 65%, transparent);
+  border-radius: 16px;
+  background: var(--paper-white);
+  box-shadow: 0 5px 20px rgb(45 33 18 / 4%);
+}
+
+.analysis-app .intake .intake-source-kicker {
+  color: var(--ink-faded);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.analysis-app .intake .intake-source-heading h2 {
+  margin: 0.4rem 0;
+  font-size: 1.1rem;
+  letter-spacing: -0.025em;
+}
+
+.analysis-app .intake .intake-source-heading p {
+  margin: 0 0 1.3rem;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.analysis-app .intake .intake-dropzone {
+  border: 1px dashed color-mix(in oklch, var(--ink) 28%, var(--paper));
+  border-radius: 10px;
+  background: var(--paper);
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.analysis-app .intake .intake-dropzone::before,
+.analysis-app .intake .intake-dropzone::after,
+.analysis-app .intake .intake-frame::before,
+.analysis-app .intake .intake-frame::after { content: none; }
+
+.analysis-app .intake .intake-frame {
+  gap: 0.3rem;
+  padding: 1.6rem 0.85rem 1.2rem;
+}
+
+.analysis-app .intake .intake-icon-disc {
+  display: grid;
+  place-items: center;
+  width: 4.1rem;
+  height: 4.1rem;
+  margin-bottom: 0.7rem;
+  border: 1px solid color-mix(in oklch, var(--rule) 65%, transparent);
+  border-radius: 50%;
+  background: var(--paper-white);
+  box-shadow: 0 3px 8px rgb(45 33 18 / 4%);
+  transition: transform 180ms ease;
+}
+
+.analysis-app .intake .intake-mark {
+  width: 35px;
+  height: auto;
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.analysis-app .intake .intake-frame strong { font-size: 0.87rem; font-weight: 500; }
+.analysis-app .intake .intake-alt { font-size: 0.72rem; font-weight: 400; }
+
+.analysis-app .intake .intake-browse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 42px;
+  margin-top: 0.7rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper-white);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.analysis-app .intake .intake-hint {
+  margin: 0.7rem 0 0;
+  font-size: 0.65rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.analysis-app .intake .intake-dropzone:hover {
+  border-color: var(--ink-soft);
+  background: color-mix(in oklch, var(--paper-deep) 45%, var(--paper));
+}
+
+.analysis-app .intake .intake-dropzone:hover .intake-icon-disc { transform: translateY(-3px); }
+.analysis-app .intake .intake-dropzone.is-dragging {
+  border-style: solid;
+  border-color: var(--azul);
+  background: color-mix(in oklch, var(--azul) 7%, var(--paper-white));
+}
+
+.analysis-app .intake .intake-file {
+  padding: 0.6rem 0.75rem;
+  border-color: color-mix(in oklch, var(--green) 25%, var(--rule));
+  background: color-mix(in oklch, var(--green) 4%, var(--paper-white));
+}
+.analysis-app .intake .intake-file-meta strong { font-size: 0.76rem; }
+.analysis-app .intake .intake-file-meta small { font-size: 0.65rem; }
+.analysis-app .intake .intake-file-remove { min-height: 44px; font-size: 0.7rem; }
+
+.analysis-app .intake .intake-link { margin-top: 1.2rem; padding: 0; border: 0; }
+.analysis-app .intake .intake-link-or {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  font-size: 0.65rem;
+}
+.analysis-app .intake .intake-link-or::before,
+.analysis-app .intake .intake-link-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklch, var(--rule) 70%, transparent);
+}
+.analysis-app .intake .intake-link-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+.analysis-app .intake .intake-link-row { flex-direction: row; gap: 0.45rem; }
+.analysis-app .intake .intake-link-row input { border-radius: 6px; font-size: 0.75rem; }
+.analysis-app .intake .intake-link-start {
+  border-color: var(--ink);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper-white);
+  font-size: 0.72rem;
+}
+.analysis-app .intake .intake-link-start:hover:not(:disabled) { background: var(--ink-soft); }
+.analysis-app .intake .intake-link-start:disabled {
+  border-color: var(--rule);
+  background: var(--paper-deep);
+  color: var(--ink-faded);
+}
+.analysis-app .intake .intake-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1.2rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in oklch, var(--rule) 70%, transparent);
+}
+.analysis-app .intake .intake-start { border-radius: 6px; font-size: 0.78rem; }
+.analysis-app .intake .intake-start:disabled {
+  background: var(--paper-deep);
+  color: var(--ink-faded);
+}
+.analysis-app .intake .intake-demo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 0;
+  font-size: 0.7rem;
+  font-weight: 400;
+  text-align: center;
+}
+.analysis-app .intake .intake-demo:hover:not(:disabled) { background: transparent; text-decoration: underline; }
+
+@media (max-width: 899px) {
+  .analysis-app .desk-stage .intake {
+    --module-column: 40rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.8rem;
+    margin-block: 1rem 1.5rem;
+    padding: 1.75rem;
+  }
+  .analysis-app .intake .intake-head,
+  .analysis-app .intake .intake-guide,
+  .analysis-app .intake .intake-dropzone-wrap { grid-area: auto; }
+  .analysis-app .intake .intake-lede { max-width: 48ch; }
+  .analysis-app .intake .intake-index-title { margin-top: 0; }
+  .analysis-app .intake .intake-index { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.7rem; }
+  .analysis-app .intake .intake-index li { grid-template-columns: 1fr; align-content: start; gap: 0.5rem; }
+  .analysis-app .intake .intake-note { max-width: none; margin-top: 1rem; }
+}
+
+@media (max-width: 480px) {
+  .analysis-app .desk-stage .intake { width: calc(100% - 1.5rem); padding: 1.3rem; }
+  .analysis-app .intake h1 { font-size: 1.9rem; }
+  .analysis-app .intake .intake-dropzone-wrap { padding: 1rem; }
+  .analysis-app .intake .intake-index-body small { font-size: 0.67rem; }
+  .analysis-app .intake .intake-link-row { flex-direction: column; }
+  .analysis-app .intake .intake-frame { padding-inline: 0.65rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analysis-app .intake .intake-dropzone,
+  .analysis-app .intake .intake-icon-disc { transition: none; }
+  .analysis-app .intake .intake-dropzone:hover .intake-icon-disc { transform: none; }
+}

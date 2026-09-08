@@ -1,0 +1,171 @@
+/* Revisión sobre papel: el avance y la próxima acción preceden las notas. */
+.analysis-app .verification-panel .signal-review-summary {
+  padding: 1.25rem;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--paper-white);
+}
+.analysis-app .signal-review-summary .stage-section-heading {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.analysis-app .signal-review-summary .eyebrow { margin: 0 0 0.4rem; font-size: 0.65rem; }
+.analysis-app .signal-review-summary h2 { font-size: 1.1rem; }
+.analysis-app .signal-review-summary .verification-worklist {
+  max-width: none;
+  margin-top: 0.65rem;
+  text-align: left;
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+.analysis-app .signal-review-progress {
+  display: grid;
+  grid-template-columns: auto minmax(3rem, 1fr);
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+.analysis-app .signal-review-progress [role="progressbar"] {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--paper-deep);
+}
+.analysis-app .signal-review-progress [role="progressbar"] > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+  transition: width 180ms ease;
+}
+.analysis-app .signal-review-navigation { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+.analysis-app .signal-review-navigation button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  min-height: 44px;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.73rem;
+}
+.analysis-app .signal-review-start { background: var(--ink); color: var(--paper-white); }
+.analysis-app .signal-review-start:hover { background: var(--ink-soft); }
+.analysis-app .signal-review-blocking { background: transparent; color: var(--rojo); }
+.analysis-app .signal-review-blocking:hover { border-color: var(--rule); }
+.analysis-app .verification-panel .verification-policy { margin: 0.7rem 0 1.2rem; font-size: 0.65rem; }
+.analysis-app .verification-panel .signal-filters { gap: 0.35rem; flex-wrap: wrap; }
+.analysis-app .verification-panel .signal-filters button { min-height: 44px; font-size: 0.75rem; }
+.analysis-app .verification-panel .signal-empty {
+  margin: 1rem 0;
+  padding: 1.5rem 1rem;
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* Leído de arriba abajo: etiqueta, dato, estado, evidencia y acciones. */
+.analysis-app .verification-panel .fact-card { scroll-margin-block: 1.5rem; }
+.analysis-app .verification-panel .fact-review-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+.analysis-app .verification-panel .fact-review-status span { font-size: inherit; }
+.analysis-app .verification-panel .review-confirmed { color: var(--green); }
+.analysis-app .verification-panel .review-inconsistent,
+.analysis-app .verification-panel .review-not_identified { color: var(--rojo); }
+.analysis-app .verification-panel .fact-priority-label {
+  margin-left: 0.2rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--rojo) 7%, var(--paper));
+  color: var(--rojo);
+}
+.analysis-app .verification-panel .fact-card-state { display: none; }
+.analysis-app .verification-panel .fact-card.is-selected .fact-card-state { display: flex; }
+.analysis-app .verification-panel .fact-review-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 44px;
+  margin-top: 0.65rem;
+  padding: 0.55rem 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.71rem;
+  font-weight: 500;
+  text-align: left;
+}
+.analysis-app .verification-panel .fact-review-next:hover:not(:disabled) { text-decoration: underline; }
+.analysis-app .verification-panel .fact-review-next:disabled { color: var(--ink-faded); cursor: not-allowed; opacity: 0.6; }
+.analysis-app .verification-panel .marginalia-row {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 1.2rem;
+  padding-block: 1.1rem;
+}
+.analysis-app .verification-panel .marginalia-text { padding-right: 0; color: var(--ink-soft); font-size: 0.8rem; }
+.analysis-app .verification-panel .marginalia .fact-card {
+  height: auto;
+  padding: 0.65rem 0.65rem 0.65rem 0;
+  border-radius: 6px;
+  background: transparent;
+}
+.analysis-app .verification-panel .marginalia .fact-card.is-selected {
+  background: var(--paper-white);
+  box-shadow: 0 2px 8px rgb(45 33 18 / 5%);
+}
+.analysis-app .verification-panel .marginalia .fact-card-heading { min-height: 44px; }
+.analysis-app .verification-panel .fact-card-heading .fact-card-open { display: grid; }
+.analysis-app .verification-panel .fact-card.is-selected .fact-card-open { rotate: 180deg; }
+.analysis-app .verification-panel .marginalia .fact-card-heading h4 { font-size: 0.66rem; font-weight: 500; }
+.analysis-app .verification-panel .marginalia .fact-value { font-size: 0.92rem; line-height: 1.5; }
+.analysis-app .verification-panel .marginalia .fact-review-status { grid-column: 2; grid-row: 3; padding-left: 0.6rem; }
+.analysis-app .verification-panel .marginalia .fact-repeats { grid-row: 4; }
+.analysis-app .verification-panel .marginalia .fact-card .fact-card-state { grid-column: 2; grid-row: 5; }
+.analysis-app .verification-panel .marginalia .fact-card .fact-review-actions { grid-row: 6; }
+.analysis-app .verification-panel .marginalia .provider-readings { grid-row: 7; }
+.analysis-app .verification-panel .marginalia .fact-review-reveal { grid-row: 8; }
+.analysis-app .verification-panel .marginalia .fact-review-next { grid-column: 2; grid-row: 9; margin-left: 0.6rem; }
+.analysis-app .verification-panel .evidence-grid .fact-review-status { grid-column: 2; grid-row: 3; padding-left: 1.1rem; }
+.analysis-app .verification-panel .evidence-grid .fact-card-state { grid-row: 4; }
+.analysis-app .verification-panel .evidence-grid .fact-review-next { grid-column: 2 / -1; }
+
+/* El tipo de caso se conserva como contexto, con menos peso que la revisión. */
+.analysis-app .evidence-stage .classification-summary { margin-bottom: 1.25rem; padding-block: 0.65rem; gap: 0.35rem; }
+.analysis-app .evidence-stage .classification-summary > div { display: flex; align-items: baseline; gap: 0.75rem; }
+.analysis-app .evidence-stage .classification-summary .eyebrow { margin: 0; font-size: 0.6rem; }
+.analysis-app .evidence-stage .classification-summary h2 { margin: 0; font-size: 0.85rem; }
+.analysis-app .evidence-stage .classification-summary dd { font-size: 0.8rem; }
+.analysis-app .evidence-stage .classification-summary .model-confidence { font-size: 0.65rem; }
+
+@media (max-width: 1180px) {
+  .analysis-app .verification-panel .marginalia-row { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .analysis-app .verification-panel .signal-review-summary { padding: 1rem; }
+  .analysis-app .signal-review-progress { grid-template-columns: 1fr; gap: 0.5rem; }
+  .analysis-app .signal-review-navigation { display: grid; }
+  .analysis-app .verification-panel .marginalia-notes { padding-left: 0.5rem; }
+  .analysis-app .evidence-stage .classification-summary > div { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .analysis-app .signal-review-progress [role="progressbar"] > span { transition: none; }
+}

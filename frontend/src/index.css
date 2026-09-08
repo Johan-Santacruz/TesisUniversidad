@@ -2976,6 +2976,58 @@
   align-content: center;
 }
 
+/* ── La ruta retenida ──────────────────────────────────────────────────── */
+
+.route-gate-section {
+  max-width: 46rem;
+}
+
+.route-gate-section h2 {
+  margin: 0.35rem 0 1.25rem;
+}
+
+/* Las señales que faltan, con nombre. "Faltan 2" no dice por dónde empezar. */
+.route-gate-list {
+  display: grid;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  gap: 0.55rem;
+  list-style: none;
+}
+
+.route-gate-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border-left: 2px solid var(--amarillo);
+  background: color-mix(in oklch, var(--amarillo) 6%, transparent);
+}
+
+.route-gate-list strong {
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.route-gate-list span {
+  color: var(--ink-faded);
+  font-family: var(--font-narrative);
+  font-size: 0.76rem;
+}
+
+.route-gate-note {
+  max-width: 44ch;
+  margin: 1.1rem 0 0;
+  color: var(--ink-faded);
+  font-family: var(--font-narrative);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
 /* ── El trabajo que queda en Señales, y el candado hacia la ruta ────────── */
 
 /* La línea que dice cuánto falta. Va en el sitio donde antes había una
@@ -3007,151 +3059,7 @@
   font-size: 0.72rem;
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   LA INGESTA COMO PLIEGO
-   Era una página suelta con el contenido apilado en el tercio de arriba: un
-   recuadro vacío ocupando media hoja y el resto en blanco. Pasa a ser el mismo
-   libro abierto que el análisis —dos páginas y un lomo—, con el recorrido
-   anunciado a la izquierda y la única acción de la pantalla a la derecha. Lo
-   que llenaba el vacío no era un adorno sino una respuesta: quien llega por
-   primera vez no sabe qué va a pasar con su testimonio.
-   ══════════════════════════════════════════════════════════════════════════ */
-
-@media (min-width: 900px) {
-  .intake {
-    --module-column: 66rem;
-    grid-template-columns: 0.92fr 1.08fr;
-    /* La derecha manda: la fila de arriba la fija el recuadro y la de abajo
-       queda para el pie. */
-    grid-template-rows: auto auto;
-    align-content: center;
-    column-gap: clamp(2.5rem, 4.5vw, 4rem);
-    row-gap: 1.25rem;
-  }
-
-  .intake-head {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    align-self: center;
-  }
-
-  .intake-dropzone-wrap {
-    grid-column: 2;
-    grid-row: 1;
-    margin-top: 0;
-  }
-
-  .intake-actions {
-    grid-column: 2;
-    grid-row: 2;
-    margin-top: 0.35rem;
-  }
-
-  /* La regla general de `.desk-stage .intake > *` devuelve al flujo a todo
-     hijo directo —position: relative—, y con eso el lomo desaparecía: hay que
-     ganarle en especificidad para volver a sacarlo del flujo. */
-  .desk-stage .intake > .book-spine {
-    display: block;
-    position: absolute;
-    z-index: 3;
-    top: 0;
-    bottom: 0;
-    left: 47%;
-  }
-}
-
-/* El índice de etapas: tres entradas numeradas, como el sumario de un libro.
-   No es decoración, es el contrato de lo que el sistema va a hacer. */
-.intake-index {
-  display: grid;
-  margin: 1.6rem 0 0;
-  padding: 0;
-  gap: 0.95rem;
-  list-style: none;
-  counter-reset: etapa;
-}
-
-.intake-index li {
-  display: grid;
-  grid-template-columns: 2.15rem minmax(0, 1fr);
-  align-items: start;
-  gap: 0.15rem 0.7rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid color-mix(in oklch, var(--rule) 70%, transparent);
-}
-
-.intake-index li:first-child {
-  padding-top: 0.75rem;
-}
-
-.intake-index-number {
-  color: var(--ink-faded);
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding-top: 0.12rem;
-}
-
-.intake-index-body {
-  display: grid;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.intake-index-body strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.intake-index-body small {
-  color: var(--ink-soft);
-  font-family: var(--font-narrative);
-  font-size: 0.78rem;
-  line-height: 1.5;
-  text-wrap: pretty;
-}
-
-/* La promesa que faltaba decir en voz alta, al pie de la página izquierda. */
-.intake-note {
-  margin: 1.5rem 0 0;
-  padding-left: 0.7rem;
-  border-left: 2px solid color-mix(in oklch, var(--amarillo) 70%, var(--rule));
-  color: var(--ink-faded);
-  font-family: var(--font-narrative);
-  font-size: 0.76rem;
-  line-height: 1.5;
-  text-wrap: pretty;
-}
-
-.intake-head h1,
-.processing-head h1 {
-  margin: 0;
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: clamp(1.55rem, 2.4vw, 1.85rem);
-  font-weight: 500;
-  letter-spacing: -0.018em;
-  line-height: 1.15;
-}
-
-.intake-lede,
-.processing-lede {
-  max-width: 46ch;
-  margin: 0.6rem 0 0;
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-  line-height: 1.6;
-}
-
-.intake-dropzone-wrap {
-  margin-top: 1.75rem;
-}
-
-/* ── Ficha del archivo elegido ─────────────────────
+/* ── Ficha del archivo elegido ───────────────────── */
 
 .intake-file {
   display: flex;
@@ -3208,94 +3116,6 @@
 .intake-file-remove:hover {
   border-color: var(--ink-faded);
   color: var(--ink);
-}
-
-/* ── La segunda puerta: el enlace ──────────────────────────────────────── */
-/* Va debajo del recuadro y con menos peso: el archivo sigue siendo el camino
-   principal. La regla de "o" separa las dos vías sin encabezarlas, que sería
-   convertir una pantalla de un solo gesto en un formulario de dos campos. */
-
-.intake-link {
-  margin-top: 1.25rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--rule);
-}
-
-.intake-link-or {
-  display: block;
-  margin-bottom: 0.6rem;
-  color: var(--ink-faded);
-  font-family: var(--font-narrative);
-  font-size: 0.78rem;
-}
-
-.intake-link-row {
-  display: flex;
-  align-items: stretch;
-  gap: 0.55rem;
-}
-
-.intake-link-row input {
-  min-width: 0;
-  flex: 1;
-  min-height: 46px;
-  padding: 0.6rem 0.85rem;
-  border: 1px solid color-mix(in oklch, var(--ink) 22%, var(--rule));
-  border-radius: 0.7rem;
-  background: color-mix(in oklch, var(--paper-white) 88%, transparent);
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.82rem;
-  transition: border-color 170ms ease, background 170ms ease, box-shadow 170ms ease;
-}
-
-.intake-link-row input:hover:not(:disabled) {
-  border-color: color-mix(in oklch, var(--ink) 40%, var(--rule));
-}
-
-.intake-link-row input:focus {
-  outline: none;
-  border-color: var(--azul);
-  background: var(--paper-white);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--azul) 14%, transparent);
-}
-
-.intake-link-row input:disabled {
-  color: var(--ink-faded);
-  cursor: not-allowed;
-}
-
-.intake-link-start {
-  flex: 0 0 auto;
-  min-height: 46px;
-  padding: 0 1.1rem;
-  border: 1px solid color-mix(in oklch, var(--ink) 30%, var(--rule));
-  border-radius: 0.7rem;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-weight: 600;
-  transition: border-color 170ms ease, background 170ms ease;
-}
-
-.intake-link-start:hover:not(:disabled) {
-  border-color: var(--azul);
-  background: color-mix(in oklch, var(--azul) 7%, transparent);
-  color: var(--azul);
-}
-
-.intake-link-start:disabled {
-  border-color: var(--rule);
-  color: var(--ink-faded);
-  cursor: not-allowed;
-}
-
-@media (max-width: 600px) {
-  .intake-link-row {
-    flex-direction: column;
-  }
 }
 
 .intake-problem {
@@ -5606,20 +5426,6 @@
    banda vertical a media altura no sería más que una raya. */
 .intake > .book-spine {
   display: none;
-}
-
-.intake-mark {
-  margin-bottom: 0.55rem;
-  color: color-mix(in oklch, var(--ink) 26%, transparent);
-  transition: color 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.intake-dropzone:hover .intake-mark {
-  color: color-mix(in oklch, var(--ink) 45%, transparent);
-}
-
-.intake-dropzone.is-dragging .intake-mark {
-  color: var(--azul);
 }
 
 .intake-frame {

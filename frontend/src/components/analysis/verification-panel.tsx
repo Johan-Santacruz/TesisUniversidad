@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import type { components } from "../../api/generated"
@@ -7,6 +7,7 @@ import {
   narrativeStageStagger,
 } from "./motion"
 import { StatusBadge } from "./status-badge"
+import "./verification-panel.css"
 
 
 type Fact = components["schemas"]["FactRead"]
@@ -91,6 +92,7 @@ function FactCard({
   onSelect,
   onSeek,
   onReview,
+  onNext,
 }: {
   fact: Fact
   role: Role
@@ -101,6 +103,7 @@ function FactCard({
   onSelect: () => void
   onSeek: (milliseconds: number) => void
   onReview: (factId: string, payload: FactReview) => Promise<void> | void
+  onNext?: () => void
 }) {
   const reduceMotion = useReducedMotion() ?? false
   const [value, setValue] = useState(
@@ -165,6 +168,7 @@ function FactCard({
 
   return (
     <article
+      data-fact-id={fact.id}
       className={[
         "fact-card",
         selected ? "is-selected" : "",
@@ -217,6 +221,17 @@ function FactCard({
           ))}
         </p>
       ) : null}
+      <p className={`fact-review-status review-${fact.verification_status}`}>
+        <span aria-hidden="true">{fact.verification_status === "confirmed" ? "✓" : fact.verification_status === "pending" ? "○" : "!"}</span>
+        {fact.verification_status === "confirmed"
+          ? "Confirmada"
+          : fact.verification_status === "pending"
+            ? "Por confirmar"
+            : "Requiere revisión"}
+        {fact.is_critical && fact.verification_status !== "confirmed" ? (
+          <span className="fact-priority-label">Prioritaria</span>
+        ) : null}
+      </p>
       <div className="fact-card-state">
         <StatusBadge
           status={fact.verification_status}
@@ -426,6 +441,12 @@ function FactCard({
           </AnimatePresence>
         </>
       ) : null}
+      {selected && onNext ? (
+        <button type="button" className="fact-review-next"
+          disabled={saving || reviewMode !== null} onClick={onNext}>
+          Revisar siguiente pendiente <span aria-hidden="true">→</span>
+        </button>
+      ) : null}
     </article>
   )
 }
@@ -452,6 +473,38 @@ export function VerificationPanel({
 }) {
   const panelMotion = useReducedMotion() ?? false
   const [filter, setFilter] = useState<SignalFilter>("all")
+  const panelRef = useRef<HTMLElement>(null)
+  const [navigationTarget, setNavigationTarget] = useState<{ factId: string } | null>(null)
+
+  // Sólo la navegación guiada mueve el foco; el video no interrumpe la lectura.
+  useEffect(() => {
+    if (!navigationTarget || navigationTarget.factId !== selectedFactId) return
+    const card = Array.from(panelRef.current?.querySelectorAll<HTMLElement>("[data-fact-id]") ?? [])
+      .find((element) => element.dataset.factId === navigationTarget.factId)
+    if (!card) return
+    card.querySelector<HTMLButtonElement>(".fact-card-heading")?.focus({ preventScroll: true })
+    card.scrollIntoView?.({ block: "nearest", behavior: panelMotion ? "instant" : "smooth" })
+    setNavigationTarget(null)
+  }, [navigationTarget, selectedFactId, filter, panelMotion])
+
+  const pendingFacts = facts
+    .filter((fact) => fact.verification_status !== "confirmed")
+    .sort((left, right) => Number(right.is_critical) - Number(left.is_critical))
+  const pendingIndex = pendingFacts.findIndex((fact) => fact.id === selectedFactId)
+  const nextPending = pendingFacts.length
+    ? pendingFacts[(pendingIndex + 1) % pendingFacts.length]
+    : undefined
+  const firstBlocking = pendingFacts.find((fact) => fact.is_critical)
+  const navigateTo = (fact: Fact) => {
+    // La siguiente puede quedar fuera del filtro que se estaba consultando.
+    setFilter("all")
+    setNavigationTarget({ factId: fact.id })
+    onSelectFact?.(fact)
+  }
+  const reviewNext = onSelectFact && nextPending && nextPending.id !== selectedFactId
+    ? () => navigateTo(nextPending)
+    : undefined
+
 
   const segmentById = new Map(segments.map((segment) => [segment.id, segment]))
 
@@ -512,41 +565,65 @@ export function VerificationPanel({
   ).length
 
   return (
-    <section className="verification-panel" aria-labelledby="verification-title">
-      <div className="stage-section-heading">
-        <div>
-          <p className="eyebrow">Control humano</p>
-          <h2 id="verification-title">Señales encontradas</h2>
+    <section ref={panelRef} className="verification-panel" aria-labelledby="verification-title">
+      <div className="signal-review-summary">
+        <div className="stage-section-heading">
+          <div>
+            <p className="eyebrow">Control humano</p>
+            <h2 id="verification-title">Señales encontradas</h2>
+          </div>
+          {/* El resumen distingue el trabajo pendiente de lo que bloquea la ruta. */}
+          <p className="verification-worklist" role="status">
+            {facts.length === 0 ? (
+              <strong>No se encontraron señales para revisar.</strong>
+            ) : counts.pending === 0 ? (
+              <>
+                <span className="verification-done" aria-hidden="true">✓</span>{" "}
+                <strong>Todas las señales están confirmadas.</strong> La ruta ya
+                puede aprobarse.
+              </>
+            ) : (
+              <>
+                <strong>
+                  {counts.pending === 1
+                    ? "Falta 1 señal por confirmar"
+                    : `Faltan ${counts.pending} señales por confirmar`}
+                </strong>
+                {bloqueantes > 0 ? (
+                  <>
+                    {" · "}
+                    {bloqueantes === 1
+                      ? "1 bloquea la aprobación"
+                      : `${bloqueantes} bloquean la aprobación`}
+                  </>
+                ) : null}
+              </>
+            )}
+          </p>
         </div>
-        {/* Esta línea decía "Cada corrección conserva autor, razón y estado",
-            que es cierto y es política, pero no es lo que necesita saber quien
-            acaba de llegar. Lo que necesita saber es cuánto trabajo queda y
-            qué lo bloquea. La política pasa abajo, donde sigue estando. */}
-        <p className="verification-worklist" role="status">
-          {counts.pending === 0 ? (
-            <>
-              <span className="verification-done" aria-hidden="true">✓</span>{" "}
-              <strong>Todas las señales están confirmadas.</strong> La ruta ya
-              puede aprobarse.
-            </>
-          ) : (
-            <>
-              <strong>
-                {counts.pending === 1
-                  ? "Falta 1 señal por confirmar"
-                  : `Faltan ${counts.pending} señales por confirmar`}
-              </strong>
-              {bloqueantes > 0 ? (
-                <>
-                  {" · "}
-                  {bloqueantes === 1
-                    ? "1 bloquea la aprobación"
-                    : `${bloqueantes} bloquean la aprobación`}
-                </>
-              ) : null}
-            </>
-          )}
-        </p>
+        {facts.length > 0 ? (
+          <div className="signal-review-progress">
+            <span>{facts.length - counts.pending} de {facts.length} confirmadas</span>
+            <div role="progressbar" aria-label="Señales confirmadas"
+              aria-valuemin={0} aria-valuemax={facts.length}
+              aria-valuenow={facts.length - counts.pending}>
+              <span style={{ width: `${((facts.length - counts.pending) / facts.length) * 100}%` }} />
+            </div>
+          </div>
+        ) : null}
+        {onSelectFact && nextPending ? (
+          <div className="signal-review-navigation">
+            <button type="button" className="signal-review-start" onClick={() => navigateTo(nextPending)}>
+              {selectedFactId ? "Continuar revisión" : "Empezar revisión"}
+              <span aria-hidden="true">→</span>
+            </button>
+            {firstBlocking ? (
+              <button type="button" className="signal-review-blocking" onClick={() => navigateTo(firstBlocking)}>
+                Revisar bloqueantes <span aria-hidden="true">↗</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <p className="verification-policy">
         Cada corrección conserva autor, razón y estado.
@@ -568,6 +645,11 @@ export function VerificationPanel({
           </button>
         ))}
       </div>
+      {facts.length > 0 && orderedFacts.length === 0 ? (
+        <p className="signal-empty" role="status">
+          {filter === "critical" ? "No hay señales críticas en este caso." : "No quedan señales por confirmar."}
+        </p>
+      ) : null}
       {/* Edición anotada: el testimonio corrido y, al margen, la señal que
           nació de cada fragmento. La relación deja de pedir un clic porque se
           ve. El anclaje sale de EvidenceRef; nada se deduce. */}
@@ -630,6 +712,7 @@ export function VerificationPanel({
                         onSelectFact?.(fact.id === selectedFactId ? null : fact)}
                       onSeek={(milliseconds) => onSeek?.(milliseconds)}
                       onReview={onReview}
+                      onNext={reviewNext}
                     />
                   ))}
                   {/* El pasaje se repite; la nota no. Queda la referencia a
@@ -683,6 +766,7 @@ export function VerificationPanel({
                         onSelectFact?.(fact.id === selectedFactId ? null : fact)}
                       onSeek={() => undefined}
                       onReview={onReview}
+                      onNext={reviewNext}
                     />
                   ))}
               </div>
@@ -736,6 +820,7 @@ export function VerificationPanel({
                 onSelectFact?.(fact.id === selectedFactId ? null : fact)}
               onSeek={(milliseconds) => onSeek?.(milliseconds)}
               onReview={onReview}
+              onNext={reviewNext}
             />
           </motion.div>
         ))}
