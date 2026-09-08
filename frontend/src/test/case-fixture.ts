@@ -173,3 +173,19 @@ export const caseFixture: components["schemas"]["CaseRead"] = {
     },
   ],
 }
+
+/* El mismo caso con el trabajo humano ya hecho.
+ *
+ * La ruta no se muestra mientras haya señales críticas sin confirmar, así que
+ * cualquier prueba que mire la ruta necesita un caso donde esa revisión ya
+ * ocurrió. Se deriva del original en vez de copiarlo para que las dos versiones
+ * no se separen con el tiempo. */
+export const caseFixtureRevisado: components["schemas"]["CaseRead"] = {
+  ...caseFixture,
+  critical_inconsistencies: 0,
+  facts: caseFixture.facts.map((fact) =>
+    fact.is_critical
+      ? { ...fact, verification_status: "confirmed" as const }
+      : fact,
+  ),
+}

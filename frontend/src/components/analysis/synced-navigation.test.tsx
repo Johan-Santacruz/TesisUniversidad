@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
-import { caseFixture } from "../../test/case-fixture"
+import { caseFixture, caseFixtureRevisado } from "../../test/case-fixture"
 import { AnalysisWorkspace } from "./analysis-workspace"
 import { VerificationPanel } from "./verification-panel"
 
@@ -107,7 +107,7 @@ describe("lo esencial de cada paso", () => {
   // Dentro de un párrafo la instrucción crítica se pierde. Debe estar visible
   // antes de desplegar el detalle, y el audio debe leerla primero.
   it("muestra el punto clave sin necesidad de abrir el paso", async () => {
-    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    render(<AnalysisWorkspace initialCase={caseFixtureRevisado} role="operador" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
     fireEvent.click(await screen.findByRole("button", { name: /atención inmediata/i }))
@@ -162,5 +162,57 @@ describe("confirmar una señal", () => {
     fireEvent.click(screen.getByRole("button", { name: /necesito corregirlo/i }))
 
     expect(screen.getByLabelText("Razón de la corrección")).toBeRequired()
+  })
+})
+
+
+/* La ruta retenida.
+ *
+ * Antes la ruta se mostraba con un aviso encima. El aviso decía la verdad, pero
+ * la ruta se leía igual, y una ruta que se puede leer es una ruta que alguien
+ * va a seguir. Ahora, mientras haya señales críticas sin confirmar, la etapa
+ * entrega la explicación en lugar de la orientación. */
+describe("la ruta espera a que se confirmen las señales críticas", () => {
+  it("no muestra ninguna ruta mientras quede una crítica sin confirmar", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="validador" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+
+    expect(await screen.findByText("La ruta espera")).toBeInTheDocument()
+    expect(screen.queryByTestId("route-journey")).not.toBeInTheDocument()
+    expect(screen.queryByText("Atención inmediata")).not.toBeInTheDocument()
+  })
+
+  it("dice cuál es la señal que falta, con su nombre", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="validador" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+
+    await screen.findByText("La ruta espera")
+    const lista = document.querySelector(".route-gate-list")
+
+    expect(lista).not.toBeNull()
+    expect(lista?.textContent).toContain("Urgencia")
+  })
+
+  it("al operador le dice quién puede resolverlas", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+
+    expect(
+      await screen.findByText(/Confirmar es cosa de un validador/i),
+    ).toBeInTheDocument()
+  })
+
+  it("con las críticas confirmadas, la ruta aparece", async () => {
+    render(<AnalysisWorkspace initialCase={caseFixtureRevisado} role="validador" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+
+    expect(
+      await screen.findByRole("button", { name: /atención inmediata/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("La ruta espera")).not.toBeInTheDocument()
   })
 })

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { caseFixture } from "../../test/case-fixture"
+import { caseFixtureRevisado } from "../../test/case-fixture"
 import {
   AnalysisWorkspace,
   TOUR_DELAY_MS,
@@ -380,7 +380,7 @@ describe("El recorrido del pliego de análisis", () => {
   })
 
   function abrirCaso() {
-    return render(<AnalysisWorkspace initialCase={caseFixture} role="admin" />)
+    return render(<AnalysisWorkspace initialCase={caseFixtureRevisado} role="admin" />)
   }
 
   it("cada paso abre su etapa e ilumina un elemento que existe de verdad", async () => {

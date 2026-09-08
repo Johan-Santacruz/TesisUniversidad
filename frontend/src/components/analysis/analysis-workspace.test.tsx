@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { apiClient } from "../../api/client"
-import { caseFixture, memoryImageFixture } from "../../test/case-fixture"
+import { caseFixture, memoryImageFixture, caseFixtureRevisado } from "../../test/case-fixture"
 import { AnalysisWorkspace } from "./analysis-workspace"
 import { narrativeStageTransition } from "./motion"
 import { VerificationPanel } from "./verification-panel"
@@ -49,7 +49,7 @@ describe("AnalysisWorkspace", () => {
   })
 
   it("opens one institutional route at a time", async () => {
-    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    render(<AnalysisWorkspace initialCase={caseFixtureRevisado} role="operador" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
     const opener = await screen.findByRole("button", {
@@ -73,7 +73,7 @@ describe("AnalysisWorkspace", () => {
   })
 
   it("uses a distinct decorative photograph on every closed route card", async () => {
-    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    render(<AnalysisWorkspace initialCase={caseFixtureRevisado} role="operador" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
     await screen.findByRole("button", { name: /atención inmediata/i })
@@ -96,7 +96,7 @@ describe("AnalysisWorkspace", () => {
   })
 
   it("keeps the photograph while its route timeline is open", async () => {
-    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    render(<AnalysisWorkspace initialCase={caseFixtureRevisado} role="operador" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
     const opener = await screen.findByRole("button", {
@@ -125,7 +125,7 @@ describe("AnalysisWorkspace", () => {
   })
 
   it("advances the route timeline up to the opened stop", async () => {
-    render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
+    render(<AnalysisWorkspace initialCase={caseFixtureRevisado} role="operador" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
     fireEvent.click(
@@ -729,8 +729,8 @@ describe("Guided route narration", () => {
   // La ruta del fixture tiene una sola parada: para probar el avance hace
   // falta una segunda a la cual pasar.
   const twoStopCase = {
-    ...caseFixture,
-    routes: caseFixture.routes.map((route) =>
+    ...caseFixtureRevisado,
+    routes: caseFixtureRevisado.routes.map((route) =>
       route.id === "route-emergency"
         ? {
             ...route,
