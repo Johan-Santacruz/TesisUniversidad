@@ -2976,6 +2976,37 @@
   align-content: center;
 }
 
+/* ── El trabajo que queda en Señales, y el candado hacia la ruta ────────── */
+
+/* La línea que dice cuánto falta. Va en el sitio donde antes había una
+   declaración de política: lo primero que se lee es la tarea. */
+.verification-worklist {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--font-narrative);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.verification-worklist strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.verification-done {
+  color: var(--green);
+  font-weight: 700;
+}
+
+/* La política sigue estando, una línea más abajo y con menos peso. */
+.verification-policy {
+  margin: 0.55rem 0 0;
+  color: var(--ink-faded);
+  font-family: var(--font-narrative);
+  font-size: 0.72rem;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    LA INGESTA COMO PLIEGO
    Era una página suelta con el contenido apilado en el tercio de arriba: un

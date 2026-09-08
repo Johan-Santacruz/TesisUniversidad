@@ -318,9 +318,14 @@ function FactCard({
               <span aria-hidden="true">✎</span> Necesito corregirlo
             </button>
             ) : null}
-            {role === "operador" && fact.value === null ? (
+            {/* Al operador le falta "Esto es correcto" porque confirmar es
+                cosa de validadores. Sin esta línea ve media tarjeta y ninguna
+                explicación de por qué. */}
+            {role === "operador" ? (
               <p className="fact-review-note">
-                Un validador debe resolver esta señal.
+                {fact.value === null
+                  ? "Un validador debe resolver esta señal."
+                  : "Puedes pedir una corrección; confirmar es cosa de un validador."}
               </p>
             ) : null}
           </div>
@@ -500,6 +505,11 @@ export function VerificationPanel({
     critical: facts.filter((fact) => fact.is_critical).length,
     pending: facts.filter((fact) => fact.verification_status !== "confirmed").length,
   }
+  // Las críticas sin confirmar son las que detienen la aprobación y, ahora,
+  // también el paso a la ruta.
+  const bloqueantes = facts.filter(
+    (fact) => fact.is_critical && fact.verification_status !== "confirmed",
+  ).length
 
   return (
     <section className="verification-panel" aria-labelledby="verification-title">
@@ -508,8 +518,39 @@ export function VerificationPanel({
           <p className="eyebrow">Control humano</p>
           <h2 id="verification-title">Señales encontradas</h2>
         </div>
-        <p>Cada corrección conserva autor, razón y estado.</p>
+        {/* Esta línea decía "Cada corrección conserva autor, razón y estado",
+            que es cierto y es política, pero no es lo que necesita saber quien
+            acaba de llegar. Lo que necesita saber es cuánto trabajo queda y
+            qué lo bloquea. La política pasa abajo, donde sigue estando. */}
+        <p className="verification-worklist" role="status">
+          {counts.pending === 0 ? (
+            <>
+              <span className="verification-done" aria-hidden="true">✓</span>{" "}
+              <strong>Todas las señales están confirmadas.</strong> La ruta ya
+              puede aprobarse.
+            </>
+          ) : (
+            <>
+              <strong>
+                {counts.pending === 1
+                  ? "Falta 1 señal por confirmar"
+                  : `Faltan ${counts.pending} señales por confirmar`}
+              </strong>
+              {bloqueantes > 0 ? (
+                <>
+                  {" · "}
+                  {bloqueantes === 1
+                    ? "1 bloquea la aprobación"
+                    : `${bloqueantes} bloquean la aprobación`}
+                </>
+              ) : null}
+            </>
+          )}
+        </p>
       </div>
+      <p className="verification-policy">
+        Cada corrección conserva autor, razón y estado.
+      </p>
 
       {/* Agrupar sin convertir esto en un tablero: tres cortes derivados de
           campos que ya existen, no facetas inventadas. */}

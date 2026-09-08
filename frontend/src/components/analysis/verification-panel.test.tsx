@@ -177,3 +177,75 @@ describe("VerificationPanel review errors", () => {
     })
   })
 })
+
+
+// ── Cuánto trabajo queda ───────────────────────────────────────────────────
+//
+// La cabecera del panel decía "Cada corrección conserva autor, razón y estado",
+// que es política y no tarea. Quien llega necesita saber cuánto falta y qué
+// bloquea; la política sigue estando, una línea más abajo.
+
+describe("la cabecera dice cuánto falta", () => {
+  const senal = (id: string, confirmada: boolean, critica: boolean) => ({
+    ...caseFixture.facts[0],
+    id,
+    label: `Señal ${id}`,
+    value: "un valor",
+    is_critical: critica,
+    verification_status: confirmada ? "confirmed" : "pending",
+  }) as (typeof caseFixture.facts)[number]
+
+  it("cuenta las pendientes y avisa de las que bloquean", () => {
+    render(
+      <VerificationPanel
+        facts={[senal("a", false, true), senal("b", false, false), senal("c", true, false)]}
+        role="validador"
+        onReview={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/Faltan 2 señales por confirmar/)).toBeInTheDocument()
+    expect(screen.getByText(/1 bloquea la aprobación/)).toBeInTheDocument()
+  })
+
+  it("usa el singular cuando queda una sola", () => {
+    render(
+      <VerificationPanel
+        facts={[senal("a", false, false), senal("b", true, false)]}
+        role="validador"
+        onReview={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/Falta 1 señal por confirmar/)).toBeInTheDocument()
+  })
+
+  it("cierra el trabajo cuando no queda nada pendiente", () => {
+    render(
+      <VerificationPanel
+        facts={[senal("a", true, true), senal("b", true, false)]}
+        role="validador"
+        onReview={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByText(/Todas las señales están confirmadas/),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/ya puede aprobarse/)).toBeInTheDocument()
+  })
+
+  it("al operador le explica por qué no puede confirmar", () => {
+    render(
+      <VerificationPanel
+        facts={[senal("a", false, false)]}
+        role="operador"
+        onReview={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByText(/confirmar es cosa de un validador/i),
+    ).toBeInTheDocument()
+  })
+})
