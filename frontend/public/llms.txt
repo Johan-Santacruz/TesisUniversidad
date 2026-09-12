@@ -1,0 +1,15 @@
+# SENDA
+
+> Demostración de un flujo seguro que convierte un testimonio en video de
+> desplazamiento forzado en hechos contrastados, clasificación del hecho
+> victimizante y rutas de atención institucional respaldadas por fuentes
+> oficiales verificables.
+
+SENDA transcribe el video, extrae y valida los hechos contra la transcripción,
+clasifica el caso con un modelo BETO ajustado y genera hasta tres rutas de
+atención (asistencia inmediata, vivienda, retorno o reubicación), cada una
+citando al menos una fuente oficial vigente. Ningún caso se aprueba sin
+confirmación humana de los hechos críticos.
+
+Este es un despliegue de demostración con una cuenta de prueba; no procesa
+testimonios reales de víctimas.
