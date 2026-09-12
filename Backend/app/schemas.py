@@ -5,7 +5,7 @@ from enum import StrEnum
 
 from typing import Any, Literal
 
-from pydantic import model_validator, BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.ai.contracts import (
     AnalysisStage,
@@ -117,6 +117,9 @@ class AnalysisReadinessRead(BaseModel):
 
 class FactRead(BaseModel):
     id: str
+    # La clave técnica ('vulnerabilities'): el rótulo cambia de un caso a otro,
+    # así que es lo único con lo que la pantalla puede reconocer una señal.
+    key: str | None = None
     label: str
     value: ScalarValue
     # El dato canónico sirve para contrastar proveedores y queda en inglés
@@ -134,16 +137,10 @@ class FactRead(BaseModel):
 class FactReviewRequest(BaseModel):
     action: Literal["confirm", "correct"]
     value: ScalarValue = None
-    # Confirmar es decir "esto ya estaba bien": exigir una justificación para
-    # eso sólo añade fricción y produce motivos de relleno que ensucian la
-    # auditoría. Corregir sí cambia el dato, y ahí el motivo es obligatorio.
+    # Ni confirmar ni corregir piden justificación: obligarla sólo añadía
+    # fricción y motivos de relleno. La auditoría ya guarda quién revisó, el
+    # valor anterior, el nuevo y el estado resultante.
     reason: str = Field(default="", max_length=1000)
-
-    @model_validator(mode="after")
-    def _corregir_exige_motivo(self) -> "FactReviewRequest":
-        if self.action == "correct" and len(self.reason.strip()) < 5:
-            raise ValueError("una corrección debe explicar el motivo")
-        return self
 
 
 class RouteRead(BaseModel):

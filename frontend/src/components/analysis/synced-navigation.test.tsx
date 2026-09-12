@@ -67,7 +67,7 @@ describe("navegación sincronizada", () => {
     const labels = [...document.querySelectorAll(".fact-card h4")].map(
       (node) => node.textContent,
     )
-    expect(labels).toContain("Urgencia")
+    expect(labels).toContain("Niñas, niños o adolescentes")
     expect(labels).not.toContain("Fecha exacta")
   })
 
@@ -150,7 +150,7 @@ describe("confirmar una señal", () => {
     expect(screen.queryByLabelText(/razón/i)).not.toBeInTheDocument()
   })
 
-  it("al corregir sigue exigiendo el motivo", () => {
+  it("al corregir tampoco pide el motivo", () => {
     render(
       <VerificationPanel
         facts={[senalConValor]}
@@ -161,7 +161,8 @@ describe("confirmar una señal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /necesito corregirlo/i }))
 
-    expect(screen.getByLabelText("Razón de la corrección")).toBeRequired()
+    expect(screen.getByLabelText("Valor corregido")).toBeInTheDocument()
+    expect(screen.queryByLabelText(/razón/i)).not.toBeInTheDocument()
   })
 })
 
@@ -192,7 +193,7 @@ describe("la ruta espera a que se confirmen las señales críticas", () => {
     const lista = document.querySelector(".route-gate-list")
 
     expect(lista).not.toBeNull()
-    expect(lista?.textContent).toContain("Urgencia")
+    expect(lista?.textContent).toContain("Niñas, niños o adolescentes")
   })
 
   it("al operador le dice quién puede resolverlas", async () => {

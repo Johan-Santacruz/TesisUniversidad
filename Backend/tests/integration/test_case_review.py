@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
-from app.entities import Review
+from app.entities import Fact, Review
 from tests.integration.case_helpers import (
     APPROVAL_PAYLOAD,
     confirm_critical_facts,
@@ -22,14 +22,14 @@ def test_case_view_decrypts_workspace_data_for_authorized_users(client):
     assert case["id"] == case_id
     assert len(case["segments"]) == 3
     assert len(case["timeline"]) == 3
-    assert len(case["facts"]) == 5
+    assert len(case["facts"]) == 4
     assert {route["route_type"] for route in case["routes"]} == {
         "emergency",
         "housing_stabilization",
         "return_relocation",
     }
     assert case["recommendation_status"] == "preliminary"
-    assert case["critical_inconsistencies"] == 2
+    assert case["critical_inconsistencies"] == 1
 
 
 def test_operator_correction_is_pending_and_audited_encrypted(client):
@@ -78,13 +78,15 @@ def test_validator_confirmation_changes_fact_to_confirmed(client):
     create_validator(client)
     login(client, "validador@senda.local", "Clave-Validador-2026!")
     case = client.get(f"/api/v1/cases/{case_id}").json()
-    urgency = next(fact for fact in case["facts"] if fact["label"] == "Urgencia")
+    children = next(
+        fact for fact in case["facts"] if fact["key"] == "vulnerabilities"
+    )
 
     response = client.patch(
-        f"/api/v1/cases/{case_id}/facts/{urgency['id']}",
+        f"/api/v1/cases/{case_id}/facts/{children['id']}",
         json={
             "action": "confirm",
-            "value": "high",
+            "value": ["children"],
             "reason": "Confirmación del caso ficticio",
         },
     )
@@ -92,7 +94,7 @@ def test_validator_confirmation_changes_fact_to_confirmed(client):
     assert response.status_code == 200
     assert response.json()["verification_status"] == "confirmed"
     assert response.json()["confidence_band"] == "high"
-    assert response.json()["value"] == "high"
+    assert response.json()["value"] == ["children"]
 
 
 def test_approval_is_blocked_until_critical_facts_and_routes_are_confirmed(client):
@@ -107,6 +109,31 @@ def test_approval_is_blocked_until_critical_facts_and_routes_are_confirmed(clien
 
     assert blocked.status_code == 409
     assert "inconsistencias críticas" in blocked.json()["detail"]
+
+
+def test_a_retired_signal_saved_before_its_removal_neither_shows_nor_blocks(client):
+    """Breaks if an old case keeps an urgency card that still blocks approval."""
+    case_id = create_demo_case(client)
+    create_validator(client)
+    login(client, "validador@senda.local", "Clave-Validador-2026!")
+    # Así quedó guardada la urgencia en los casos analizados antes del retiro:
+    # crítica y sin confirmar.
+    with client.app.state.database.session() as session:
+        session.execute(
+            update(Fact)
+            .where(Fact.case_id == case_id, Fact.is_critical.is_(True))
+            .values(fact_type="urgency")
+        )
+
+    case = client.get(f"/api/v1/cases/{case_id}").json()
+    assert not any(fact["is_critical"] for fact in case["facts"])
+    assert case["critical_inconsistencies"] == 0
+
+    approved = client.post(
+        f"/api/v1/cases/{case_id}/approve",
+        json=APPROVAL_PAYLOAD,
+    )
+    assert approved.status_code == 200
 
 
 def test_validator_approval_schedules_video_for_seven_days(client):
@@ -147,19 +174,63 @@ def test_correcting_a_value_refreshes_the_readable_text(client):
     create_validator(client)
     login(client, "validador@senda.local", "Clave-Validador-2026!")
     case = client.get(f"/api/v1/cases/{case_id}").json()
-    urgency = next(fact for fact in case["facts"] if fact["label"] == "Urgencia")
+    children = next(
+        fact for fact in case["facts"] if fact["key"] == "vulnerabilities"
+    )
 
     changed = client.patch(
-        f"/api/v1/cases/{case_id}/facts/{urgency['id']}",
+        f"/api/v1/cases/{case_id}/facts/{children['id']}",
         json={
             "action": "correct",
-            "value": "Requiere atención inmediata",
+            "value": ["children", "pregnancy"],
             "reason": "Corrección del caso ficticio",
         },
     ).json()
 
-    assert changed["value"] == "Requiere atención inmediata"
-    assert changed["display_value"] == "Requiere atención inmediata"
+    assert changed["value"] == ["children", "pregnancy"]
+    assert changed["display_value"] == "Niñas, niños o adolescentes · Embarazo"
+
+
+def test_vulnerabilities_only_accept_the_options_of_the_list(client):
+    """Breaks if free text slips back into the checkbox signal."""
+    case_id = create_demo_case(client)
+    create_validator(client)
+    login(client, "validador@senda.local", "Clave-Validador-2026!")
+    case = client.get(f"/api/v1/cases/{case_id}").json()
+    vulnerable = next(
+        fact for fact in case["facts"] if fact["key"] == "vulnerabilities"
+    )
+    assert vulnerable["label"] == "Personas que necesitan protección especial"
+
+    response = client.patch(
+        f"/api/v1/cases/{case_id}/facts/{vulnerable['id']}",
+        json={
+            "action": "correct",
+            "value": ["Dos niñas"],
+            "reason": "Texto libre que no es una opción",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_a_correction_needs_no_reason(client):
+    """Breaks if saving a corrected value starts asking for a justification."""
+    case_id = create_demo_case(client)
+    create_validator(client)
+    login(client, "validador@senda.local", "Clave-Validador-2026!")
+    case = client.get(f"/api/v1/cases/{case_id}").json()
+    vulnerable = next(
+        fact for fact in case["facts"] if fact["key"] == "vulnerabilities"
+    )
+
+    response = client.patch(
+        f"/api/v1/cases/{case_id}/facts/{vulnerable['id']}",
+        json={"action": "correct", "value": ["pregnancy"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["value"] == ["pregnancy"]
 
 
 def test_narration_is_unavailable_without_a_configured_voice(client):

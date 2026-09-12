@@ -115,7 +115,7 @@ def evaluate_admissibility(
             reason=(
                 "El relato no dejó ningún momento en la línea de tiempo y "
                 "ninguna de las señales básicas —quiénes son, de dónde salieron, "
-                "dónde están, urgencia, vulnerabilidades— aparece en el texto. "
+                "dónde están, vulnerabilidades— aparece en el texto. "
                 "No hay caso que orientar."
             ),
             timeline_events=0,

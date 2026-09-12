@@ -223,28 +223,30 @@ describe("AnalysisWorkspace", () => {
         onReview={onReview}
       />,
     )
-    const urgency = screen.getByText("Urgencia").closest("article")
-    expect(urgency).not.toBeNull()
+    const senal = screen
+      .getByText("Niñas, niños o adolescentes")
+      .closest("article")
+    expect(senal).not.toBeNull()
 
     fireEvent.click(
-      within(urgency as HTMLElement).getByRole("button", {
+      within(senal as HTMLElement).getByRole("button", {
         name: /elegir el valor/i,
       }),
     )
     fireEvent.change(
-      within(urgency as HTMLElement).getByLabelText("Valor confirmado"),
-      { target: { value: "high" } },
+      within(senal as HTMLElement).getByLabelText("Valor confirmado"),
+      { target: { value: "Dos niñas" } },
     )
     fireEvent.click(
-      within(urgency as HTMLElement).getByRole("button", {
+      within(senal as HTMLElement).getByRole("button", {
         name: "Confirmar lectura",
       }),
     )
 
     // Confirmar ya no exige justificación: el motivo sólo se pide al corregir.
-    expect(onReview).toHaveBeenCalledWith("fact-urgency", {
+    expect(onReview).toHaveBeenCalledWith("fact-vulnerabilities", {
       action: "confirm",
-      value: "high",
+      value: "Dos niñas",
       reason: "",
     })
   })

@@ -7,7 +7,7 @@ import type { components } from "../../api/generated"
 import { useAnalysisEvents } from "../../hooks/use-analysis-events"
 import { AnalysisProgress } from "./analysis-progress"
 import { DeskSurface } from "../desk-surface"
-import { EvidenceStage, riskLabelForFacts } from "./evidence-stage"
+import { EvidenceStage } from "./evidence-stage"
 import { GuidedTour, WORKSPACE_TOUR } from "./guided-tour"
 import { ListeningStage } from "./listening-stage"
 import {
@@ -624,8 +624,6 @@ export function AnalysisWorkspace({
     )
   }
 
-  const riskLabel = riskLabelForFacts(caseData.facts)
-
   return (
     <div className="analysis-workspace desk-stage">
       <DeskSurface />
@@ -676,15 +674,6 @@ export function AnalysisWorkspace({
           <NarrativeStageHeader
             stage={narrativeStage}
             onStageChange={takeControl}
-            aside={
-              narrativeStage === "evidence"
-                ? (
-                    <span className="risk-summary-header" role="status">
-                      {riskLabel}
-                    </span>
-                  )
-                : undefined
-            }
           />
 
           <motion.div

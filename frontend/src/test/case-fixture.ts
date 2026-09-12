@@ -76,15 +76,15 @@ export const caseFixture: components["schemas"]["CaseRead"] = {
       provider_values: {},
     },
     {
-      id: "fact-urgency",
-      label: "Urgencia",
+      id: "fact-vulnerabilities",
+      label: "Niñas, niños o adolescentes",
       value: null,
       origin: "contrasted",
       verification_status: "inconsistent",
       confidence_band: "low",
       is_critical: true,
       evidence: [{ segment_id: "segment-2", start_ms: 18400, end_ms: 31800 }],
-      provider_values: { gpt: "high", claude: "medium" },
+      provider_values: { gpt: "Dos niñas", claude: "Una niña" },
     },
     {
       id: "fact-date",

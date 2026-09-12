@@ -11,7 +11,7 @@ from app.ai.admissibility import evaluate_admissibility
 
 CANONICAS = {
     "people", "current_location", "origin_location", "places",
-    "urgency", "vulnerabilities",
+    "vulnerabilities",
 }
 
 
@@ -76,7 +76,7 @@ def test_publica_las_senales_para_que_se_pueda_auditar():
         facts=_canonicas(None), timeline=[], canonical_keys=CANONICAS,
     )
 
-    assert resultado.canonical_facts == 6
+    assert resultado.canonical_facts == 5
     assert "línea de tiempo" in resultado.reason
 
 

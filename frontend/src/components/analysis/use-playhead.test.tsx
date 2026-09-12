@@ -66,7 +66,7 @@ describe("usePlayhead", () => {
     expect(screen.getByTestId("segment")).toHaveTextContent("segment-2")
     expect(screen.getByTestId("event")).toHaveTextContent("event-2")
     // Ambas señales del fixture apuntan a segment-2 con EvidenceRef.
-    expect(screen.getByTestId("facts")).toHaveTextContent("fact-location,fact-urgency")
+    expect(screen.getByTestId("facts")).toHaveTextContent("fact-location,fact-vulnerabilities")
   })
 
   it("conserva el último fragmento dicho durante una pausa del relato", async () => {

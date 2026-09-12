@@ -9,6 +9,12 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.ai.contracts import ConfidenceBand, RouteType, VerificationStatus
+from app.ai.vulnerabilities import (
+    VULNERABILITIES_KEY,
+    VULNERABILITIES_LABEL,
+    display_vulnerabilities,
+    normalize_vulnerabilities,
+)
 from app.entities import (
     Analysis,
     AnalysisEvent,
@@ -36,6 +42,7 @@ from app.schemas import (
     TimelineEventRead,
 )
 from app.security.crypto import EnvelopeCipher
+from app.services.analysis import RETIRED_KEYS
 from app.services.assets import EncryptedAssetStore, StoredAsset
 from app.services.audit import AuditService
 from app.services.rag import RagCatalog
@@ -131,7 +138,12 @@ class CaseService:
         by_stage = {event.stage: self._event_payload(event) for event in events}
         fact_records = list(
             session.scalars(
-                select(Fact).where(Fact.case_id == case.id).order_by(Fact.created_at)
+                select(Fact)
+                .where(
+                    Fact.case_id == case.id,
+                    Fact.fact_type.not_in(RETIRED_KEYS),
+                )
+                .order_by(Fact.created_at)
             )
         )
         route_records = list(
@@ -142,7 +154,16 @@ class CaseService:
         facts: list[FactRead] = []
         for fact in fact_records:
             value = self._fact_value(fact)
-            value.setdefault("label", value.get("key", fact.fact_type))
+            value.setdefault("key", fact.fact_type)
+            value.setdefault("label", value["key"])
+            if value["key"] == VULNERABILITIES_KEY:
+                # Los casos analizados antes de las casillas traen el rótulo
+                # que redactó el modelo, distinto en cada uno.
+                value["label"] = VULNERABILITIES_LABEL
+                value["display_value"] = (
+                    display_vulnerabilities(value.get("value"))
+                    or value.get("display_value")
+                )
             facts.append(FactRead.model_validate(value))
         routes = [
             RouteRead.model_validate(self._route_value(route))
@@ -241,6 +262,14 @@ class CaseService:
             proposed_value = current.get("value")
         if payload.action == "confirm" and proposed_value is None:
             raise CaseConflictError("La confirmación requiere un valor identificado")
+        closed = current.get("key", fact.fact_type) == VULNERABILITIES_KEY
+        if closed:
+            # Casillas cerradas: sólo valen las opciones de la lista.
+            proposed_value = normalize_vulnerabilities(proposed_value)
+            if proposed_value is None:
+                raise CaseConflictError(
+                    "Marca al menos una de las opciones de la lista"
+                )
 
         is_validator = actor.role in {"validador", "admin"}
         next_status = (
@@ -260,9 +289,13 @@ class CaseService:
             # Un valor corregido deja obsoleto el texto que escribió el modelo:
             # sin esto, cambiar "widowed" seguía mostrando "Viuda".
             "display_value": (
-                current.get("display_value")
-                if proposed_value == current.get("value")
-                else _display_value(proposed_value)
+                display_vulnerabilities(proposed_value)
+                if closed
+                else (
+                    current.get("display_value")
+                    if proposed_value == current.get("value")
+                    else _display_value(proposed_value)
+                )
             ),
             "verification_status": next_status.value,
             "confidence_band": next_confidence.value,
@@ -320,7 +353,16 @@ class CaseService:
         actor: User,
         now: datetime | None = None,
     ) -> CaseApprovalRead:
-        facts = list(session.scalars(select(Fact).where(Fact.case_id == case.id)))
+        # Un caso analizado antes de retirar una señal la trae guardada como
+        # crítica: oculta en pantalla, no puede seguir bloqueando la aprobación.
+        facts = list(
+            session.scalars(
+                select(Fact).where(
+                    Fact.case_id == case.id,
+                    Fact.fact_type.not_in(RETIRED_KEYS),
+                )
+            )
+        )
         if any(
             fact.is_critical
             and fact.verification_status != VerificationStatus.CONFIRMED.value

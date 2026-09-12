@@ -69,15 +69,15 @@ describe("VerificationPanel motion", () => {
         onReview={vi.fn()}
       />,
     )
-    const urgency = screen.getByText("Urgencia").closest("article")
-    expect(urgency).not.toBeNull()
+    const senal = screen.getByText("Niñas, niños o adolescentes").closest("article")
+    expect(senal).not.toBeNull()
 
     fireEvent.click(
-      within(urgency as HTMLElement).getByRole("button", {
+      within(senal as HTMLElement).getByRole("button", {
         name: /elegir el valor/i,
       }),
     )
-    const reveal = within(urgency as HTMLElement)
+    const reveal = within(senal as HTMLElement)
       .getByLabelText("Valor confirmado")
       .closest(".fact-review-reveal")
 
@@ -102,12 +102,12 @@ function deferred() {
 const senalConValor = {
   ...caseFixture.facts[0],
   id: "fact-editable",
-  label: "Urgencia",
-  value: "media",
+  label: "Niñas, niños o adolescentes",
+  value: "Dos niñas",
   verification_status: "pending" as const,
 }
 
-function openUrgencyCorrection(onReview: () => Promise<void>) {
+function openCorrection(onReview: () => Promise<void>) {
   render(
     <VerificationPanel
       facts={[senalConValor]}
@@ -115,17 +115,14 @@ function openUrgencyCorrection(onReview: () => Promise<void>) {
       onReview={onReview}
     />,
   )
-  const urgency = screen.getByText("Urgencia").closest("article")
-  expect(urgency).not.toBeNull()
-  const card = urgency as HTMLElement
+  const senal = screen.getByText("Niñas, niños o adolescentes").closest("article")
+  expect(senal).not.toBeNull()
+  const card = senal as HTMLElement
   fireEvent.click(
     within(card).getByRole("button", { name: /necesito corregirlo/i }),
   )
   fireEvent.change(within(card).getByLabelText("Valor corregido"), {
-    target: { value: "Urgencia alta corregida" },
-  })
-  fireEvent.change(within(card).getByLabelText("Razón de la corrección"), {
-    target: { value: "Corrección humana conservada" },
+    target: { value: "Tres niñas" },
   })
   return card
 }
@@ -134,7 +131,7 @@ function openUrgencyCorrection(onReview: () => Promise<void>) {
 describe("VerificationPanel review errors", () => {
   it("shows a rejected review beside the action and retains form values", async () => {
     const request = deferred()
-    const card = openUrgencyCorrection(() => request.promise)
+    const card = openCorrection(() => request.promise)
     const submit = within(card).getByRole("button", {
       name: "Guardar corrección",
     })
@@ -146,10 +143,7 @@ describe("VerificationPanel review errors", () => {
       "No se pudo guardar la revisión",
     )
     expect(within(card).getByLabelText("Valor corregido")).toHaveValue(
-      "Urgencia alta corregida",
-    )
-    expect(within(card).getByLabelText("Razón de la corrección")).toHaveValue(
-      "Corrección humana conservada",
+      "Tres niñas",
     )
     expect(submit).toBeEnabled()
   })
@@ -157,7 +151,7 @@ describe("VerificationPanel review errors", () => {
   it("prevents duplicate reviews while the first request is pending", async () => {
     const request = deferred()
     const onReview = vi.fn(() => request.promise)
-    const card = openUrgencyCorrection(onReview)
+    const card = openCorrection(onReview)
     const form = within(card).getByLabelText("Valor corregido").closest("form")
     const submit = within(card).getByRole("button", {
       name: "Guardar corrección",
@@ -258,7 +252,7 @@ describe("revisión guiada de señales", () => {
   const facts = [
     { ...senalConValor, id: "pending", label: "Alojamiento", is_critical: false },
     { ...senalConValor, id: "done", label: "Ubicación", is_critical: true, verification_status: "confirmed" as const },
-    { ...senalConValor, id: "blocking", label: "Urgencia", is_critical: true },
+    { ...senalConValor, id: "blocking", label: "Niñas, niños o adolescentes", is_critical: true },
   ]
 
   function ReviewHarness({ initialFacts = facts }: { initialFacts?: typeof facts }) {
@@ -277,10 +271,10 @@ describe("revisión guiada de señales", () => {
   it("abre primero una bloqueante y permite continuar después de confirmarla", async () => {
     render(<ReviewHarness />)
     fireEvent.click(screen.getByRole("button", { name: /empezar revisión/i }))
-    const urgent = screen.getByRole("button", { name: "Urgencia" })
-    expect(urgent).toHaveAttribute("aria-expanded", "true")
-    expect(urgent).toHaveFocus()
-    const card = urgent.closest("article")!
+    const bloqueante = screen.getByRole("button", { name: "Niñas, niños o adolescentes" })
+    expect(bloqueante).toHaveAttribute("aria-expanded", "true")
+    expect(bloqueante).toHaveFocus()
+    const card = bloqueante.closest("article")!
     fireEvent.click(within(card).getByRole("button", { name: /esto es correcto/i }))
     await waitFor(() => expect(within(card).queryByRole("button", { name: /esto es correcto/i })).toBeNull())
     expect(screen.getByRole("progressbar", { name: /señales confirmadas/i })).toHaveAttribute("aria-valuenow", "2")
@@ -293,7 +287,7 @@ describe("revisión guiada de señales", () => {
     render(<ReviewHarness />)
     fireEvent.click(screen.getByRole("button", { name: /críticas/i }))
     fireEvent.click(screen.getByRole("button", { name: /revisar bloqueantes/i }))
-    const card = screen.getByRole("button", { name: "Urgencia" }).closest("article")!
+    const card = screen.getByRole("button", { name: "Niñas, niños o adolescentes" }).closest("article")!
     fireEvent.click(within(card).getByRole("button", { name: /revisar siguiente pendiente/i }))
     expect(screen.getByRole("button", { name: "Alojamiento" })).toHaveAttribute("aria-expanded", "true")
     expect(screen.getByRole("button", { name: /todas/i })).toHaveAttribute("aria-pressed", "true")
@@ -305,7 +299,40 @@ describe("revisión guiada de señales", () => {
     const resume = screen.getByRole("button", { name: /continuar revisión/i })
     resume.focus()
     fireEvent.click(resume)
-    expect(screen.getByRole("button", { name: "Urgencia" })).toHaveFocus()
+    expect(screen.getByRole("button", { name: "Niñas, niños o adolescentes" })).toHaveFocus()
+  })
+
+  it("recorre las tarjetas de arriba a abajo, como se leen", async () => {
+    const enPantalla = [
+      {
+        ...senalConValor,
+        id: "abajo",
+        label: "Crítica del segundo fragmento",
+        is_critical: true,
+        evidence: [{ segment_id: "segment-2", start_ms: 18400, end_ms: 31800 }],
+      },
+      {
+        ...senalConValor,
+        id: "arriba",
+        label: "Señal del primer fragmento",
+        is_critical: false,
+        evidence: [{ segment_id: "segment-1", start_ms: 0, end_ms: 14200 }],
+      },
+    ]
+    render(<ReviewHarness initialFacts={enPantalla} />)
+
+    fireEvent.click(screen.getByRole("button", { name: /empezar revisión/i }))
+    const arriba = screen.getByRole("button", { name: "Señal del primer fragmento" })
+    expect(arriba).toHaveAttribute("aria-expanded", "true")
+
+    const card = arriba.closest("article")!
+    fireEvent.click(within(card).getByRole("button", { name: /esto es correcto/i }))
+    await waitFor(() => expect(within(card).queryByRole("button", { name: /esto es correcto/i })).toBeNull())
+    fireEvent.click(within(card).getByRole("button", { name: /revisar siguiente pendiente/i }))
+
+    expect(
+      screen.getByRole("button", { name: "Crítica del segundo fragmento" }),
+    ).toHaveAttribute("aria-expanded", "true")
   })
 
   it("termina el recorrido al confirmar la última pendiente", async () => {
@@ -329,5 +356,57 @@ describe("revisión guiada de señales", () => {
     render(<ReviewHarness initialFacts={[facts[0]]} />)
     fireEvent.click(screen.getByRole("button", { name: /críticas/i }))
     expect(screen.getByText(/no hay señales críticas/i)).toBeInTheDocument()
+  })
+})
+
+
+// El rótulo y el texto libre de esta señal cambiaban en cada caso y no se
+// entendía qué se pedía. Ahora se responde marcando casillas.
+describe("vulnerabilidades con casillas", () => {
+  const vulnerabilidades = {
+    ...caseFixture.facts[1],
+    id: "fact-vulnerable",
+    key: "vulnerabilities",
+    label: "Personas que necesitan protección especial",
+    value: null,
+    display_value: "",
+    verification_status: "not_identified" as const,
+    provider_values: {},
+  }
+
+  it("se responde marcando opciones, no escribiendo", () => {
+    const onReview = vi.fn()
+    render(
+      <VerificationPanel facts={[vulnerabilidades]} role="validador" onReview={onReview} />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /marcar las opciones/i }))
+    expect(screen.queryByLabelText("Valor confirmado")).toBeNull()
+    const confirmar = screen.getByRole("button", { name: "Confirmar lectura" })
+    expect(confirmar).toBeDisabled()
+
+    fireEvent.click(screen.getByLabelText("Discapacidad"))
+    fireEvent.click(screen.getByLabelText("Embarazo"))
+    fireEvent.click(confirmar)
+
+    expect(onReview).toHaveBeenCalledWith("fact-vulnerable", {
+      action: "confirm",
+      value: ["pregnancy", "disability"],
+      reason: "",
+    })
+  })
+
+  it("«Ninguna de las anteriores» no convive con otra opción", () => {
+    render(
+      <VerificationPanel facts={[vulnerabilidades]} role="validador" onReview={vi.fn()} />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /marcar las opciones/i }))
+
+    fireEvent.click(screen.getByLabelText("Personas mayores"))
+    fireEvent.click(screen.getByLabelText("Ninguna de las anteriores"))
+    expect(screen.getByLabelText("Personas mayores")).not.toBeChecked()
+
+    fireEvent.click(screen.getByLabelText("Enfermedad"))
+    expect(screen.getByLabelText("Ninguna de las anteriores")).not.toBeChecked()
   })
 })

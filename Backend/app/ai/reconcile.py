@@ -80,8 +80,8 @@ def reconcile_readings(
     # RESPONDIERAN LOS DOS proveedores, así que con uno solo un valor nulo caía
     # hasta el INCONSISTENT del final: el sistema informaba de una contradicción
     # entre proveedores donde sólo había uno, diciendo con claridad que el dato
-    # no estaba. Sobre 'urgency' y 'vulnerabilities', que son críticas, eso
-    # bloqueaba la aprobación de cualquier caso.
+    # no estaba. Sobre las señales críticas, eso bloqueaba la aprobación de
+    # cualquier caso.
     presentes = [signal for signal in available.values() if signal is not None]
     if (
         presentes

@@ -23,6 +23,7 @@ from app.ai.contracts import (
 from app.ai.providers import retry_call
 from app.ai.admissibility import evaluate_admissibility, resolve_screening
 from app.ai.reconcile import reconcile_readings
+from app.ai.vulnerabilities import VULNERABILITIES_KEY, close_vulnerabilities
 from app.database import Database
 from app.logging import get_logger
 from app.entities import (
@@ -61,7 +62,13 @@ PEOPLE_PLACE_KEYS = {"people", "current_location", "origin_location", "places"}
 
 # Lo que condiciona una orientación segura: si esto está mal, la ruta que se
 # entrega puede ser peligrosa. Es lo que exige revisión humana antes de aprobar.
-CRITICAL_KEYS = {"urgency", "vulnerabilities"}
+CRITICAL_KEYS = {"vulnerabilities"}
+
+# Señales que el sistema dejó de pedir. 'urgency' se retiró porque nada la
+# usaba: no cambiaba las rutas ni el orden de los casos, y aun así obligaba a
+# confirmarla antes de aprobar. Se descarta aunque el modelo la siga emitiendo,
+# y los casos guardados antes del retiro tampoco la muestran.
+RETIRED_KEYS = {"urgency"}
 
 
 class NoAudioError(ValueError):
@@ -246,26 +253,11 @@ class AnalysisService:
                 "evidence": [],
             },
             {
-                "id": "demo-urgency",
-                "label": "Urgencia",
-                "value": None,
-                "origin": "contrasted",
-                "verification_status": "inconsistent",
-                "confidence_band": "low",
-                "is_critical": True,
-                "provider_values": {"gpt": "high", "claude": "medium"},
-                "evidence": [
-                    {
-                        "segment_id": "segment-2",
-                        "start_ms": 14200,
-                        "end_ms": 31800,
-                    }
-                ],
-            },
-            {
                 "id": "demo-children",
-                "label": "Niñas, niños o adolescentes",
-                "value": "Dos niñas",
+                "key": "vulnerabilities",
+                "label": "Personas que necesitan protección especial",
+                "value": ["children"],
+                "display_value": "Niñas, niños o adolescentes",
                 "origin": "mentioned",
                 "verification_status": "pending",
                 "confidence_band": "medium",
@@ -421,7 +413,7 @@ class AnalysisService:
             {
                 "id": "timeline-needs",
                 "title": "Necesidad de alojamiento seguro",
-                "description": "La urgencia requiere validación humana por desacuerdo.",
+                "description": "La familia busca un lugar seguro para los próximos días.",
                 "start_ms": 14200,
                 "end_ms": 31800,
                 "verification_status": "inconsistent",
@@ -507,7 +499,7 @@ class AnalysisService:
                 Fact(
                     id=fact_id,
                     case_id=case_id,
-                    fact_type=str(value["label"]),
+                    fact_type=str(value.get("key") or value["label"]),
                     origin=str(value["origin"]),
                     verification_status=str(value["verification_status"]),
                     confidence_band=str(value["confidence_band"]),
@@ -661,7 +653,15 @@ class AnalysisService:
     ) -> dict[str, ProviderSignal]:
         if analysis is None:
             return {}
-        return {signal.key: signal for signal in analysis.signals}
+        return {
+            signal.key: (
+                close_vulnerabilities(signal)
+                if signal.key == VULNERABILITIES_KEY
+                else signal
+            )
+            for signal in analysis.signals
+            if signal.key not in RETIRED_KEYS
+        }
 
     @staticmethod
     def _route_source_ids(route: ProviderRoute) -> list[str]:

@@ -432,6 +432,17 @@
             "title": "Is Critical",
             "type": "boolean"
           },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
           "label": {
             "title": "Label",
             "type": "string"

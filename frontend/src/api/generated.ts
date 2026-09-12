@@ -609,6 +609,8 @@ export interface components {
             id: string;
             /** Is Critical */
             is_critical: boolean;
+            /** Key */
+            key?: string | null;
             /** Label */
             label: string;
             origin: components["schemas"]["Origin"];

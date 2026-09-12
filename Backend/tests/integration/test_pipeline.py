@@ -73,7 +73,9 @@ class FakeBeto:
         )
 
 
-def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
+def _provider(
+    provider: str, vulnerabilities: tuple[str, ...] = ("children",)
+) -> ProviderAnalysis:
     evidence = [
         EvidenceRef(segment_id="segment-0000-0000", start_ms=0, end_ms=8000)
     ]
@@ -153,10 +155,20 @@ def _provider(provider: str, urgency: str = "high") -> ProviderAnalysis:
                 evidence=evidence,
             ),
             ProviderSignal(
+                key="vulnerabilities",
+                # El rótulo que redacta el modelo no debe llegar a la pantalla.
+                label="personas con necesidades especiales en el hogar",
+                display_value="Dos niñas",
+                value=list(vulnerabilities),
+                origin=Origin.MENTIONED,
+                evidence=evidence,
+            ),
+            # Retirada del prompt, pero el modelo puede seguir emitiéndola.
+            ProviderSignal(
                 key="urgency",
-                label="Urgencia",
+                label="Urgencia de la atención",
                 display_value="Alta",
-                value=urgency,
+                value="high",
                 origin=Origin.INFERRED,
                 evidence=evidence,
             ),
@@ -274,13 +286,23 @@ def test_configured_pipeline_runs_all_models_and_grounds_three_routes(
         "timeline",
         "routes",
     ]
-    urgency = next(
+    children = next(
         fact
         for fact in payloads[3]["payload"]["facts"]
-        if fact["key"] == "urgency"
+        if fact["key"] == "vulnerabilities"
     )
-    assert urgency["verification_status"] == "confirmed"
-    assert urgency["confidence_band"] == "high"
+    assert children["verification_status"] == "confirmed"
+    assert children["confidence_band"] == "high"
+    assert children["is_critical"] is True
+    assert children["label"] == "Personas que necesitan protección especial"
+    assert children["value"] == ["children"]
+    assert children["display_value"] == "Niñas, niños o adolescentes"
+    emitted_keys = {
+        fact["key"]
+        for payload in payloads[2:4]
+        for fact in payload["payload"]["facts"]
+    }
+    assert "urgency" not in emitted_keys
     classification = payloads[4]["payload"]["classification"]
     assert set(classification) == {
         "status",
@@ -313,7 +335,8 @@ def test_configured_pipeline_case_is_readable_through_public_workspace_contract(
     workspace = response.json()
     assert workspace["segments"][0]["id"] == "segment-0000-0000"
     labels = {fact["label"] for fact in workspace["facts"]}
-    assert "Urgencia" in labels, labels
+    assert "Personas que necesitan protección especial" in labels, labels
+    assert "Urgencia de la atención" not in labels, labels
     assert len(workspace["routes"]) == 3
 
 
@@ -323,17 +346,20 @@ def test_provider_disagreement_stays_visible_instead_of_choosing_gpt(
     _, payloads = _run_uploaded(
         operator_client,
         tiny_video_bytes,
-        claude_value=_provider("claude", urgency="medium"),
+        claude_value=_provider("claude", vulnerabilities=("children", "older_adults")),
     )
 
-    urgency = next(
+    children = next(
         fact
         for fact in payloads[3]["payload"]["facts"]
-        if fact["key"] == "urgency"
+        if fact["key"] == "vulnerabilities"
     )
-    assert urgency["verification_status"] == "inconsistent"
-    assert urgency["value"] is None
-    assert urgency["provider_values"] == {"gpt": "high", "claude": "medium"}
+    assert children["verification_status"] == "inconsistent"
+    assert children["value"] is None
+    assert children["provider_values"] == {
+        "gpt": ["children"],
+        "claude": ["children", "older_adults"],
+    }
 
 
 def test_one_provider_timeout_produces_partial_pending_results(
@@ -345,13 +371,13 @@ def test_one_provider_timeout_produces_partial_pending_results(
         claude_value=TimeoutError("simulated timeout"),
     )
 
-    urgency = next(
+    children = next(
         fact
         for fact in payloads[3]["payload"]["facts"]
-        if fact["key"] == "urgency"
+        if fact["key"] == "vulnerabilities"
     )
-    assert urgency["verification_status"] == "pending"
-    assert urgency["confidence_band"] == "medium"
+    assert children["verification_status"] == "pending"
+    assert children["confidence_band"] == "medium"
     assert payloads[7]["payload"]["recommendation_status"] == "preliminary"
 
     database = operator_client.app.state.database

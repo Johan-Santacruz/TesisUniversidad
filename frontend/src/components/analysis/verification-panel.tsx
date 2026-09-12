@@ -7,6 +7,12 @@ import {
   narrativeStageStagger,
 } from "./motion"
 import { StatusBadge } from "./status-badge"
+import {
+  VULNERABILITIES_KEY,
+  VULNERABILITY_OPTIONS,
+  chosenVulnerabilities,
+  toggleVulnerability,
+} from "./vulnerabilities"
 import "./verification-panel.css"
 
 
@@ -49,6 +55,13 @@ function readingsOf(fact: Fact) {
 }
 
 function missingValueCopy(fact: Fact) {
+  if (fact.key === VULNERABILITIES_KEY) {
+    return {
+      value: "No se encontró en el relato",
+      action: "Marcar las opciones",
+      help: "Marca lo que sepas del caso, o «Ninguna de las anteriores».",
+    }
+  }
   return readingsOf(fact).length
     ? {
         value: "Las lecturas no coinciden",
@@ -106,10 +119,20 @@ function FactCard({
   onNext?: () => void
 }) {
   const reduceMotion = useReducedMotion() ?? false
+  // Vulnerabilidades se responde con casillas, no escribiendo: con texto libre
+  // el rótulo y el valor cambiaban en cada caso y no se entendía qué se pedía.
+  const closed = fact.key === VULNERABILITIES_KEY
+  const [chosen, setChosen] = useState<string[]>(() =>
+    closed ? chosenVulnerabilities(fact.value) : [],
+  )
+  // Un caso anterior a las casillas trae texto libre: para ellas eso es no
+  // tener valor todavía.
+  const missing = closed
+    ? chosenVulnerabilities(fact.value).length === 0
+    : fact.value === null
   const [value, setValue] = useState(
     fact.value === null ? "" : displayValue(fact),
   )
-  const [reason, setReason] = useState("")
   const [reviewMode, setReviewMode] = useState<ReviewMode | null>(null)
   const [saving, setSaving] = useState(false)
   const [reviewError, setReviewError] = useState("")
@@ -125,7 +148,6 @@ function FactCard({
     setReviewError("")
     try {
       await onReview(fact.id, { action, ...payload })
-      setReason("")
       setReviewMode(null)
     } catch (caught) {
       setReviewError(
@@ -146,13 +168,12 @@ function FactCard({
     setSaving(true)
     setReviewError("")
     try {
-      const reviewNeedsValue = reviewMode === "correct" || fact.value === null
+      const reviewNeedsValue = reviewMode === "correct" || missing
       await onReview(fact.id, {
         action: reviewMode,
-        value: reviewNeedsValue ? value : undefined,
-        reason,
+        value: reviewNeedsValue ? (closed ? chosen : value) : undefined,
+        reason: "",
       })
-      setReason("")
       setReviewMode(null)
     } catch (caught) {
       setReviewError(
@@ -201,7 +222,7 @@ function FactCard({
         </span>
       </button>
       <p className="fact-value">
-        {fact.value === null
+        {missing
           ? missingValueCopy(fact).value
           : displayValue(fact)}
       </p>
@@ -303,7 +324,7 @@ function FactCard({
                   setReviewError("")
                   // No se puede confirmar lo que no existe: si falta el valor,
                   // la acción es elegirlo o escribirlo, no dar el visto bueno.
-                  if (fact.value === null) {
+                  if (missing) {
                     setReviewMode("confirm")
                     return
                   }
@@ -311,16 +332,16 @@ function FactCard({
                 }}
               >
                 <span aria-hidden="true">
-                  {fact.value === null ? "＋" : "✓"}
+                  {missing ? "＋" : "✓"}
                 </span>{" "}
                 {saving
                   ? "Guardando…"
-                  : fact.value === null
+                  : missing
                     ? missingValueCopy(fact).action
                     : "Esto es correcto"}
               </button>
             ) : null}
-            {fact.value !== null ? (
+            {!missing ? (
             <button
               type="button"
               className="correct-action"
@@ -338,7 +359,7 @@ function FactCard({
                 explicación de por qué. */}
             {role === "operador" ? (
               <p className="fact-review-note">
-                {fact.value === null
+                {missing
                   ? "Un validador debe resolver esta señal."
                   : "Puedes pedir una corrección; confirmar es cosa de un validador."}
               </p>
@@ -361,12 +382,12 @@ function FactCard({
                 }}
               >
                 <form onSubmit={submit} className="fact-review-form">
-                  {fact.value === null ? (
+                  {missing ? (
                     <p className="fact-review-help">
                       {missingValueCopy(fact).help}
                     </p>
                   ) : null}
-                  {fact.value === null && readingsOf(fact).length ? (
+                  {!closed && missing && readingsOf(fact).length ? (
                     <div className="fact-readings" role="group"
                       aria-label="Lecturas de cada modelo">
                       {readingsOf(fact).map(([provider, reading]) => (
@@ -387,7 +408,24 @@ function FactCard({
                       ))}
                     </div>
                   ) : null}
-                  {reviewMode === "correct" || fact.value === null ? (
+                  {closed && (reviewMode === "correct" || missing) ? (
+                    <fieldset className="fact-options">
+                      <legend>¿Quiénes necesitan protección especial?</legend>
+                      {VULNERABILITY_OPTIONS.map((option) => (
+                        <label key={option.id}>
+                          <input
+                            type="checkbox"
+                            checked={chosen.includes(option.id)}
+                            onChange={() =>
+                              setChosen((current) =>
+                                toggleVulnerability(current, option.id))}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : null}
+                  {!closed && (reviewMode === "correct" || missing) ? (
                     <label>
                       {reviewMode === "confirm"
                         ? "Valor confirmado"
@@ -399,30 +437,21 @@ function FactCard({
                       />
                     </label>
                   ) : null}
-                  {reviewMode === "correct" ? (
-                    <label>
-                      Razón de la corrección
-                      <textarea
-                        value={reason}
-                        onChange={(event) => setReason(event.target.value)}
-                        minLength={5}
-                        required
-                      />
-                    </label>
-                  ) : null}
                   <div className="fact-review-submit">
                     <button
                       type="button"
                       className="secondary-action"
                       onClick={() => {
                         setReviewMode(null)
-                        setReason("")
                         setReviewError("")
                       }}
                     >
                       Cancelar
                     </button>
-                    <button type="submit" disabled={saving}>
+                    <button
+                      type="submit"
+                      disabled={saving || (closed && chosen.length === 0)}
+                    >
                       {saving
                         ? "Guardando…"
                         : reviewMode === "confirm"
@@ -487,13 +516,34 @@ export function VerificationPanel({
     setNavigationTarget(null)
   }, [navigationTarget, selectedFactId, filter, panelMotion])
 
-  const pendingFacts = facts
-    .filter((fact) => fact.verification_status !== "confirmed")
+  // La revisión baja por las tarjetas en el orden en que se leen: por
+  // fragmento del testimonio, las críticas primero dentro de cada uno, y al pie
+  // las que no tienen fragmento. Antes saltaba a todas las críticas y, al
+  // confirmar la última, volvía arriba: la lista se recorría a brincos.
+  const readingPosition = new Map(
+    segments.map((segment, index) => [segment.id, index] as const),
+  )
+  const anchorIndex = (fact: Fact) =>
+    Math.min(
+      Infinity,
+      ...(fact.evidence ?? []).map(
+        (evidence) => readingPosition.get(evidence.segment_id) ?? Infinity,
+      ),
+    )
+  const readingOrder = [...facts]
     .sort((left, right) => Number(right.is_critical) - Number(left.is_critical))
-  const pendingIndex = pendingFacts.findIndex((fact) => fact.id === selectedFactId)
-  const nextPending = pendingFacts.length
-    ? pendingFacts[(pendingIndex + 1) % pendingFacts.length]
-    : undefined
+    .sort((left, right) => {
+      const a = anchorIndex(left)
+      const b = anchorIndex(right)
+      return a === b ? 0 : a < b ? -1 : 1
+    })
+  const pendingFacts = readingOrder.filter(
+    (fact) => fact.verification_status !== "confirmed",
+  )
+  const selectedPosition = readingOrder.findIndex((fact) => fact.id === selectedFactId)
+  const nextPending =
+    pendingFacts.find((fact) => readingOrder.indexOf(fact) > selectedPosition)
+    ?? pendingFacts[0]
   const firstBlocking = pendingFacts.find((fact) => fact.is_critical)
   const navigateTo = (fact: Fact) => {
     // La siguiente puede quedar fuera del filtro que se estaba consultando.
@@ -626,7 +676,7 @@ export function VerificationPanel({
         ) : null}
       </div>
       <p className="verification-policy">
-        Cada corrección conserva autor, razón y estado.
+        Cada corrección conserva autor, valor anterior y estado.
       </p>
 
       {/* Agrupar sin convertir esto en un tablero: tres cortes derivados de
