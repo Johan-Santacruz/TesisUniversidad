@@ -13,3 +13,10 @@ confirmación humana de los hechos críticos.
 
 Este es un despliegue de demostración con una cuenta de prueba; no procesa
 testimonios reales de víctimas.
+
+## Recursos
+
+- [Aplicación de demostración](https://senda.casa/): interfaz pública del sistema
+- [Código fuente](https://github.com/Johan-Santacruz/TesisUniversidad): servidor FastAPI, interfaz React y pruebas
+- [Modelo de clasificación](https://huggingface.co/12milo12/violencia-clasificacion-beto): pesos de BETO, cuaderno de entrenamiento y métricas
+- [Conjunto de datos](https://huggingface.co/datasets/3iS/violence-and-conflict-events-in-colombia): eventos de violencia en Colombia usados para entrenar
