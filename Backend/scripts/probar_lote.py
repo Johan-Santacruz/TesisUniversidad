@@ -109,8 +109,8 @@ def main() -> int:
     parser.add_argument(
         "--salida", type=Path, default=MATERIAL / "prueba-videos/resultados"
     )
-    parser.add_argument("--email", default="camilobalanta1@gmail.com")
-    parser.add_argument("--password", default="dios#12Admin")
+    parser.add_argument("--email", default="demo@senda.casa")
+    parser.add_argument("--password", default="Senda-Demo-2026")
     args = parser.parse_args()
 
     videos = sorted(args.carpeta.glob("*.mp4"))

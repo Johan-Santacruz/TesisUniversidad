@@ -26,8 +26,8 @@ make frontend
 
 Abra `http://localhost:5173/subir-video` e ingrese con:
 
-- Usuario: `camilobalanta1@gmail.com`
-- Contraseña: `dios#12Admin`
+- Usuario: `demo@senda.casa`
+- Contraseña: `Senda-Demo-2026`
 
 El botón **Probar administrador de prueba**, debajo de «Ingresar», llena ambos
 campos. La cuenta se siembra al arrancar mientras `SENDA_DEMO_USERS_ENABLED` esté

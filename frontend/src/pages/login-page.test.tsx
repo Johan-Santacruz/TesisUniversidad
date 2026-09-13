@@ -6,8 +6,8 @@ import { AuthProvider } from "../auth/auth-context"
 import LoginPage from "./login-page"
 
 
-const DEMO_EMAIL = "camilobalanta1@gmail.com"
-const DEMO_PASSWORD = "dios#12Admin"
+const DEMO_EMAIL = "demo@senda.casa"
+const DEMO_PASSWORD = "Senda-Demo-2026"
 
 
 function renderLogin() {

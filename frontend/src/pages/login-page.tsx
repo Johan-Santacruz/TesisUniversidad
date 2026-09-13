@@ -18,8 +18,8 @@ interface RedirectState {
  * cambia la otra.
  */
 const DEMO_ADMIN = {
-  email: "camilobalanta1@gmail.com",
-  password: "dios#12Admin",
+  email: "demo@senda.casa",
+  password: "Senda-Demo-2026",
 }
 
 

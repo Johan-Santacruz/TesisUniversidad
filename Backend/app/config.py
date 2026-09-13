@@ -77,10 +77,10 @@ class Settings(BaseSettings):
     memory_image_prompt_version: str = "memory-image-v1"
     memory_closing_seconds: int = Field(default=7, ge=7, le=7)
     demo_users_enabled: bool = True
-    demo_admin_email: str = "camilobalanta1@gmail.com"
+    demo_admin_email: str = "demo@senda.casa"
     # Doce caracteres es el minimo que impone PasswordService.hash(); una clave
     # mas corta aqui no falla al escribirla sino al arrancar la aplicacion.
-    demo_admin_password: SecretStr = SecretStr("dios#12Admin")
+    demo_admin_password: SecretStr = SecretStr("Senda-Demo-2026")
 
     @field_validator("encryption_master_key", "jwt_secret_key")
     @classmethod
