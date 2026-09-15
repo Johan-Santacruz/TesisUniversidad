@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 
 import type { components } from "../../api/generated"
 import { RoutesComparison } from "./routes-comparison"
+import { RouteState } from "./route-state"
 
 
 type CaseData = components["schemas"]["CaseRead"]
@@ -39,27 +40,11 @@ function RouteGate({
   const total = caseData.critical_inconsistencies || pendientes.length
 
   return (
-    <section className="routes-section route-gate-section" aria-live="polite">
-      <p className="eyebrow">Control humano</p>
-      <h2>La ruta espera</h2>
-
-      <div className="routes-gate" role="status">
-        <span className="routes-gate-mark" aria-hidden="true" />
-        <p>
-          <strong>
-            {total === 1
-              ? "1 señal crítica sin confirmar"
-              : `${total} señales críticas sin confirmar`}
-          </strong>
-          La orientación no se muestra hasta resolverlas: una ruta construida
-          sobre una señal en duda es una ruta en duda.
-        </p>
-        {onGoToSignals ? (
-          <button type="button" onClick={onGoToSignals}>
-            Ir a las señales <span aria-hidden="true">→</span>
-          </button>
-        ) : null}
-      </div>
+    <RouteState>
+      <p className="route-state-copy" role="status">
+        <strong>{total === 1 ? "1 señal crítica sin confirmar" : `${total} señales críticas sin confirmar`}</strong>
+        Confirma estos datos para construir una orientación que corresponda al caso.
+      </p>
 
       {pendientes.length ? (
         <ul className="route-gate-list">
@@ -68,12 +53,18 @@ function RouteGate({
               <strong>{fact.label}</strong>
               <span>
                 {fact.value === null
-                  ? "sin valor: hay que resolverla"
-                  : "sin confirmar"}
+                  ? "Por completar"
+                  : "Por confirmar"}
               </span>
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {onGoToSignals ? (
+        <button type="button" className="route-state-action" onClick={onGoToSignals}>
+          Ir a las señales <span aria-hidden="true">→</span>
+        </button>
       ) : null}
 
       {role === "operador" ? (
@@ -82,7 +73,24 @@ function RouteGate({
           Señales para que alguien las resuelva.
         </p>
       ) : null}
-    </section>
+    </RouteState>
+  )
+}
+
+
+/* Confirmadas las señales críticas, la ruta se vuelve a construir con ellas.
+ * Mientras tanto no se muestra la anterior: se leería como la definitiva y
+ * es justo la que las señales confirmadas pueden cambiar. */
+function RouteRebuilding() {
+  return (
+    <RouteState working>
+      <p className="route-state-copy" role="status">
+        <strong>Ajustando la ruta con las señales confirmadas…</strong>
+        Estamos preparando los pasos y sus fuentes institucionales.
+        La orientación aparecerá aquí cuando esté lista.
+      </p>
+      <p className="route-state-working"><span aria-hidden="true" />Preparando la orientación</p>
+    </RouteState>
   )
 }
 
@@ -93,6 +101,7 @@ export function RouteStage({
   memoryPanel,
   onApprove,
   onGoToSignals,
+  onRetryRebuild,
 }: {
   caseData: CaseData
   role: Role
@@ -101,30 +110,38 @@ export function RouteStage({
   memoryPanel?: ReactNode
   onApprove: () => Promise<void> | void
   onGoToSignals?: () => void
+  onRetryRebuild?: () => Promise<void> | void
 }) {
   const retenida = caseData.facts.some(
     (fact) => fact.is_critical && fact.verification_status !== "confirmed",
   )
+  const ajustando = !retenida && caseData.routes_status === "rebuilding"
 
   return (
-    <div className="route-stage">
+    <div className={retenida || ajustando ? "route-stage is-waiting" : "route-stage"}>
       {retenida ? (
         <RouteGate
           caseData={caseData}
           role={role}
           onGoToSignals={onGoToSignals}
         />
+      ) : ajustando ? (
+        <RouteRebuilding />
       ) : (
         <RoutesComparison
           caseData={caseData}
           role={role}
           onApprove={onApprove}
           onGoToSignals={onGoToSignals}
+          onRetryRebuild={onRetryRebuild}
         />
       )}
-      {/* El cierre de memoria no depende de la ruta: es el retrato del
-          testimonio, no la orientación. Se queda. */}
-      {memoryPanel}
+      {memoryPanel && (retenida || ajustando) ? (
+        <details className="route-state-memory">
+          <summary>Ver cierre de memoria</summary>
+          {memoryPanel}
+        </details>
+      ) : memoryPanel}
     </div>
   )
 }

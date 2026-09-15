@@ -10,11 +10,14 @@ from app.ai.contracts import (
     Origin,
     ProviderAnalysis,
     ProviderRoute,
+    ProviderRoutes,
     ProviderRouteStep,
+    ProviderScreening,
     ProviderSignal,
     ProviderTimelineEvent,
     RouteApplicability,
     RouteType,
+    ScreeningVerdict,
 )
 from app.ai.providers import RawTranscriptChunk, RawTranscriptSegment
 from app.services.analysis import AnalysisService
@@ -187,9 +190,47 @@ def _provider(
     )
 
 
+def _rebuilt_routes(source_entry_id: str | None = None) -> ProviderRoutes:
+    """Las rutas del análisis con un resumen que delata el recálculo."""
+    routes = []
+    for route in _provider("gpt").routes:
+        steps = route.steps
+        if source_entry_id is not None:
+            steps = [
+                step.model_copy(
+                    update={
+                        "claims": [
+                            claim.model_copy(
+                                update={"source_entry_id": source_entry_id}
+                            )
+                            for claim in step.claims
+                        ]
+                    }
+                )
+                for step in steps
+            ]
+        routes.append(
+            route.model_copy(
+                update={
+                    "summary": "Ajustada con las señales confirmadas.",
+                    "steps": steps,
+                }
+            )
+        )
+    return ProviderRoutes(routes=routes)
+
+
 class FakeReader:
     def __init__(self, value: ProviderAnalysis | Exception):
         self.value = value
+        self.rebuild_value: ProviderRoutes | Exception = _rebuilt_routes()
+        self.rebuild_inputs: list[dict] | None = None
+
+    def build_routes(self, segments, sources, classification, confirmed_signals):
+        self.rebuild_inputs = confirmed_signals
+        if isinstance(self.rebuild_value, Exception):
+            raise self.rebuild_value
+        return self.rebuild_value
 
     def analyze(self, segments, sources=None, classification=None):
         if isinstance(self.value, Exception):
@@ -222,11 +263,28 @@ def _configured_service(operator_client, *, claude_value):
     )
 
 
+class ScreeningReader(FakeReader):
+    """Lector que además criba, como el adaptador real de GPT."""
+
+    def __init__(self, value: ProviderAnalysis, verdict: ScreeningVerdict):
+        super().__init__(value)
+        self.verdict = verdict
+
+    def screen(self, segments):
+        return ProviderScreening(
+            verdict=self.verdict,
+            evidence=[],
+            reason="Es la letra de una canción de amor.",
+        )
+
+
 def _run_uploaded(operator_client, tiny_video_bytes, *, claude_value):
-    operator_client.app.state.analysis = _configured_service(
-        operator_client,
-        claude_value=claude_value,
-    )
+    service = _configured_service(operator_client, claude_value=claude_value)
+    return _run_service(operator_client, service, tiny_video_bytes)
+
+
+def _run_service(operator_client, service, tiny_video_bytes):
+    operator_client.app.state.analysis = service
     video = operator_client.post(
         "/api/v1/videos",
         files={"file": ("ficticio.mp4", tiny_video_bytes, "video/mp4")},
@@ -426,3 +484,84 @@ def test_uploaded_pipeline_keeps_completion_status_when_image_provider_is_missin
         "failed",
         "image_provider_not_configured",
     )
+
+
+def _stored_counts(operator_client):
+    from app.entities import CaseRecord, MemoryImage
+
+    with operator_client.app.state.database.session() as session:
+        return (
+            session.query(CaseRecord).count(),
+            session.query(MemoryImage).count(),
+        )
+
+
+def _assert_ended_without_case(operator_client, analysis, payloads):
+    from app.entities import Analysis
+
+    assert [(item["stage"], item["state"]) for item in payloads] == [
+        ("audio", "completed"),
+        ("transcription", "completed"),
+        ("people_places", "not_applicable"),
+        ("dates_facts", "not_applicable"),
+        ("classification", "not_applicable"),
+        ("sources", "not_applicable"),
+        ("timeline", "not_applicable"),
+        ("routes", "not_applicable"),
+    ]
+    routes = payloads[-1]["payload"]
+    assert routes["case_id"] is None
+    assert routes["routes"] == []
+    assert routes["admissibility"]["verdict"] == "out_of_domain"
+    with operator_client.app.state.database.session() as session:
+        stored = session.get(Analysis, analysis["id"])
+        assert (stored.status, stored.failure_code) == ("completed", "out_of_domain")
+    return routes
+
+
+def test_unrelated_video_stops_without_leaving_a_case_behind(
+    operator_client, tiny_video_bytes
+):
+    """Una canción salía con señales, línea de tiempo, caso guardado e imagen
+    de memoria: sólo se le quitaban las rutas, y la pantalla no avisaba nada."""
+    service = _configured_service(operator_client, claude_value=_provider("claude"))
+    service.gpt = ScreeningReader(_provider("gpt"), ScreeningVerdict.OUT_OF_DOMAIN)
+    before = _stored_counts(operator_client)
+
+    analysis, payloads = _run_service(operator_client, service, tiny_video_bytes)
+
+    routes = _assert_ended_without_case(operator_client, analysis, payloads)
+    assert routes["admissibility"]["screening_reason"] == (
+        "Es la letra de una canción de amor."
+    )
+    # Cortar en el cribado ahorra la lectura completa de los proveedores.
+    assert not hasattr(service.gpt, "seen_classification")
+    assert not hasattr(service.claude, "seen_classification")
+    assert _stored_counts(operator_client) == before
+
+
+def test_without_screening_an_empty_reading_also_leaves_no_case(
+    operator_client, tiny_video_bytes
+):
+    """Si el cribado no responde, decide el descarte de respaldo, y cuando
+    descarta tampoco deja caso ni imagen."""
+    base = _provider("gpt")
+    empty = base.model_copy(
+        update={
+            "timeline": [],
+            "signals": [
+                signal.model_copy(update={"value": None, "display_value": ""})
+                for signal in base.signals
+                if signal.key in {"people", "current_location", "vulnerabilities"}
+            ],
+        }
+    )
+    service = _configured_service(operator_client, claude_value=empty)
+    service.gpt = FakeReader(empty)
+    before = _stored_counts(operator_client)
+
+    analysis, payloads = _run_service(operator_client, service, tiny_video_bytes)
+
+    routes = _assert_ended_without_case(operator_client, analysis, payloads)
+    assert routes["admissibility"]["screening_verdict"] is None
+    assert _stored_counts(operator_client) == before

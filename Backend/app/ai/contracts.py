@@ -165,6 +165,12 @@ class ProviderAnalysis(StrictModel):
     routes: list[ProviderRoute]
 
 
+class ProviderRoutes(StrictModel):
+    """Sólo las rutas: lo que devuelve el recálculo con señales confirmadas."""
+
+    routes: list[ProviderRoute]
+
+
 class ReconciledSignal(StrictModel):
     key: str
     label: str = ""

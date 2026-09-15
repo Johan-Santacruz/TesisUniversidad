@@ -312,6 +312,11 @@
             "title": "Routes",
             "type": "array"
           },
+          "routes_status": {
+            "default": "initial",
+            "title": "Routes Status",
+            "type": "string"
+          },
           "segments": {
             "items": {
               "$ref": "#/components/schemas/TranscriptSegment"
@@ -2379,6 +2384,53 @@
           }
         ],
         "summary": "Stream Rendered Video",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/routes/rebuild": {
+      "post": {
+        "operationId": "rebuild_routes_api_v1_cases__case_id__routes_rebuild_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Rebuild Routes",
         "tags": [
           "cases"
         ]

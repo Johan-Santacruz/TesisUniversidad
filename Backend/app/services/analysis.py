@@ -7,7 +7,7 @@ import time
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,10 +18,17 @@ from app.ai.contracts import (
     ProviderRoute,
     ProviderSignal,
     RouteType,
+    ScreeningVerdict,
     TranscriptResult,
+    TranscriptSegment,
+    VerificationStatus,
 )
 from app.ai.providers import retry_call
-from app.ai.admissibility import evaluate_admissibility, resolve_screening
+from app.ai.admissibility import (
+    Admissibility,
+    evaluate_admissibility,
+    resolve_screening,
+)
 from app.ai.reconcile import reconcile_readings
 from app.ai.vulnerabilities import VULNERABILITIES_KEY, close_vulnerabilities
 from app.database import Database
@@ -93,6 +100,7 @@ class AnalysisService:
         gpt: Any | None = None,
         claude: Any | None = None,
         memory_images: Any | None = None,
+        audit: Any | None = None,
         retry_attempts: int = 2,
     ) -> None:
         self.database = database
@@ -107,6 +115,7 @@ class AnalysisService:
         self.gpt = gpt
         self.claude = claude
         self.memory_images = memory_images
+        self.audit = audit
         self.retry_attempts = retry_attempts
 
     def start(self, session: Session, *, video: Video, user: User) -> Analysis:
@@ -619,6 +628,41 @@ class AnalysisService:
             analysis.failure_code = reason
             analysis.completed_at = datetime.now(timezone.utc)
 
+    def _finish_out_of_domain(
+        self,
+        analysis_id: str,
+        *,
+        admissibility: Admissibility,
+    ) -> None:
+        """Cierra el análisis de un video ajeno sin dejar nada detrás.
+
+        Antes sólo se retiraban las rutas: una canción salía igual con señales,
+        línea de tiempo, un caso guardado y su imagen de memoria, y la pantalla
+        se quedaba esperando unas rutas que nunca llegaban. Ahora no se crea el
+        caso y el evento de rutas lleva el veredicto para que la interfaz avise.
+        """
+        start_index = list(AnalysisStage).index(AnalysisStage.PEOPLE_PLACES)
+        for stage in list(AnalysisStage)[start_index:]:
+            payload: dict[str, Any] = {
+                "state": "not_applicable",
+                "reason": "out_of_domain",
+            }
+            if stage is AnalysisStage.ROUTES:
+                payload.update(
+                    routes=[],
+                    case_id=None,
+                    recommendation_status="not_applicable",
+                    admissibility=admissibility.model_dump(mode="json"),
+                )
+            self._append_event(
+                analysis_id, stage, payload, state="not_applicable"
+            )
+        with self.database.session() as session:
+            analysis = session.get(Analysis, analysis_id)
+            analysis.status = "completed"
+            analysis.failure_code = "out_of_domain"
+            analysis.completed_at = datetime.now(timezone.utc)
+
     def _read_provider(
         self,
         adapter: Any | None,
@@ -865,6 +909,16 @@ class AnalysisService:
                     ciphertext=encrypted.ciphertext,
                 )
             )
+        self._persist_routes(session, case_id, routes)
+        session.flush()
+        return case_id
+
+    def _persist_routes(
+        self,
+        session: Session,
+        case_id: str,
+        routes: list[dict[str, Any]],
+    ) -> None:
         for value in routes:
             source_ids = [
                 claim["source_entry_id"]
@@ -885,8 +939,140 @@ class AnalysisService:
                     ciphertext=encrypted.ciphertext,
                 )
             )
-        session.flush()
-        return case_id
+
+    def can_rebuild_routes(self) -> bool:
+        return self.gpt is not None and hasattr(self.gpt, "build_routes")
+
+    def rebuild_routes(
+        self,
+        case_id: str,
+        *,
+        actor_id: str,
+        actor_role: str,
+    ) -> None:
+        """Reconstruye las rutas del caso con las señales que una persona confirmó.
+
+        Corre en segundo plano. Si GPT falla, o devuelve rutas incompletas o que
+        citan fuentes que no existen, se conservan las rutas iniciales: el
+        recálculo nunca deja un caso sin ruta.
+        """
+        with self.database.session() as session:
+            input_signature = self._route_input_signature(session, case_id)
+        try:
+            routes = self._rebuilt_routes(case_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "route_rebuild_failed",
+                extra={"error_code": type(exc).__name__, "case_id": case_id},
+            )
+            routes = None
+        with self.database.session() as session:
+            case = session.get(CaseRecord, case_id)
+            if case is None:
+                return
+            if routes is None or input_signature != self._route_input_signature(session, case_id):
+                # Una corrección durante la llamada al proveedor invalida su
+                # resultado. Conservamos la versión anterior y permitimos
+                # reintentar con los datos actuales, sin aprobar una ruta vieja.
+                case.routes_status = "rebuild_failed"
+                return
+            session.execute(delete(Route).where(Route.case_id == case_id))
+            self._persist_routes(session, case_id, routes)
+            case.routes_status = "rebuilt"
+            if self.audit is not None:
+                session.add(
+                    self.audit.build_record(
+                        actor_id=actor_id,
+                        actor_role=actor_role,
+                        action="routes_rebuilt",
+                        entity_type="case",
+                        entity_id=case_id,
+                        details={
+                            "route_types": [route["route_type"] for route in routes]
+                        },
+                    )
+                )
+
+    @staticmethod
+    def _route_input_signature(session: Session, case_id: str) -> tuple:
+        # La revisión cifra de nuevo el hecho incluso cuando conserva el
+        # estado. Comparar también el contenido detecta cualquier corrección.
+        return tuple(session.execute(
+            select(Fact.id, Fact.verification_status, Fact.ciphertext)
+            .where(Fact.case_id == case_id, Fact.fact_type.not_in(RETIRED_KEYS))
+            .order_by(Fact.id)
+        ).all())
+
+    def _rebuilt_routes(self, case_id: str) -> list[dict[str, Any]]:
+        with self.database.session() as session:
+            case = session.get(CaseRecord, case_id)
+            if case is None:
+                raise KeyError(case_id)
+            by_stage = {
+                event.stage: self._read_payload(event)
+                for event in session.scalars(
+                    select(AnalysisEvent)
+                    .where(AnalysisEvent.analysis_id == case.analysis_id)
+                    .order_by(AnalysisEvent.sequence)
+                )
+            }
+            confirmed = [
+                self.cipher.decrypt_json(fact.id, "fact", fact.encrypted_payload())
+                for fact in session.scalars(
+                    select(Fact).where(
+                        Fact.case_id == case_id,
+                        Fact.verification_status
+                        == VerificationStatus.CONFIRMED.value,
+                        Fact.fact_type.not_in(RETIRED_KEYS),
+                    )
+                )
+            ]
+        # El mismo material que recibió el análisis, reconstruido desde sus
+        # eventos: no hace falta volver a transcribir ni a clasificar.
+        segments = [
+            TranscriptSegment.model_validate(value)
+            for value in by_stage.get("transcription", {}).get("segments", [])
+        ]
+        if not segments:
+            raise ValueError("the case has no transcript to rebuild routes from")
+        classification = by_stage.get("classification", {}).get("classification")
+        if (
+            not isinstance(classification, dict)
+            or classification.get("status") != "available"
+        ):
+            classification = None
+        confirmed_signals = [
+            {
+                "key": fact.get("key"),
+                "label": fact.get("label"),
+                "value": fact.get("value"),
+                "display_value": fact.get("display_value"),
+            }
+            for fact in confirmed
+        ]
+        catalog = self.rag.groundable()
+        reading = retry_call(
+            lambda: self.gpt.build_routes(
+                segments, catalog, classification, confirmed_signals
+            ),
+            attempts=self.retry_attempts,
+            retryable=(TimeoutError, ConnectionError),
+        )
+        valid, errors = self._valid_routes(reading)
+        # Las tres o ninguna: una ruta nueva junto a dos viejas mezclaría
+        # orientaciones construidas sobre lecturas distintas del caso.
+        incomplete = any(
+            route.applicability != "not_applicable" and (
+                not route.steps
+                or any(not step.title.strip() or not step.instructions.strip() or not step.claims
+                       for step in route.steps)
+            )
+            for route in reading.routes
+        )
+        if errors or incomplete or set(valid) != set(RouteType):
+            raise ValueError("rebuilt routes are incomplete or cite unknown sources")
+        routes, _, _ = self._reconcile_routes(reading, None)
+        return routes
 
     def _run_uploaded(self, analysis_id: str) -> None:
         if self.video_service is None:
@@ -989,6 +1175,37 @@ class AnalysisService:
                 ],
             },
         )
+        known_segments = {segment.id for segment in transcript.segments}
+        # Cribado en su propia llamada y lo primero después de transcribir:
+        # quien juzga si hay caso no puede ser el mismo prompt que tiene el
+        # encargo de encontrar hechos y rutas. Si falla, el análisis sigue sin
+        # él —perder el cribado degrada la decisión, no debe tumbar el caso.
+        screening = None
+        if self.gpt is not None:
+            try:
+                screening = self.gpt.screen(transcript.segments)
+            except Exception as exc:
+                logger.warning(
+                    "screening_failed",
+                    extra={"error_code": type(exc).__name__},
+                )
+        screening = resolve_screening(screening, known_segments)
+        # Un video ajeno —una canción, una receta— se detiene aquí: leerlo
+        # entero sólo gastaba llamadas y dejaba un caso que nadie debía abrir.
+        if (
+            screening is not None
+            and screening.verdict is ScreeningVerdict.OUT_OF_DOMAIN
+        ):
+            self._finish_out_of_domain(
+                analysis_id,
+                admissibility=evaluate_admissibility(
+                    facts=[],
+                    timeline=[],
+                    canonical_keys=PEOPLE_PLACE_KEYS | CRITICAL_KEYS,
+                    screening=screening,
+                ),
+            )
+            return
         # La clasificación se calcula ANTES de leer con los proveedores. Antes
         # iba después, así que las rutas se construían sin saber de qué tipo de
         # desplazamiento se trataba y salían intercambiables entre casos.
@@ -1009,19 +1226,6 @@ class AnalysisService:
         # El catálogo se recupera una vez y se entrega a ambos proveedores:
         # es lo que les permite citar fuentes reales en lugar de inventarlas.
         catalog = self.rag.groundable()
-        # Cribado en su propia llamada, antes del análisis: quien juzga si hay
-        # caso no puede ser el mismo prompt que tiene el encargo de encontrar
-        # hechos y rutas. Si falla, el análisis sigue sin él —perder el cribado
-        # degrada la decisión, no debe tumbar el caso.
-        screening = None
-        if self.gpt is not None:
-            try:
-                screening = self.gpt.screen(transcript.segments)
-            except Exception as exc:
-                logger.warning(
-                    "screening_failed",
-                    extra={"error_code": type(exc).__name__},
-                )
         gpt_reading, gpt_error = self._read_provider(
             self.gpt, transcript.segments, catalog, classification_input
         )
@@ -1030,7 +1234,6 @@ class AnalysisService:
         )
         gpt_signals = self._signals_by_key(gpt_reading)
         claude_signals = self._signals_by_key(claude_reading)
-        known_segments = {segment.id for segment in transcript.segments}
         facts: list[dict[str, Any]] = []
         for key in sorted(set(gpt_signals) | set(claude_signals)):
             reconciled = reconcile_readings(
@@ -1045,6 +1248,19 @@ class AnalysisService:
                     "is_critical": key in CRITICAL_KEYS,
                 }
             )
+        # La cronología se reconcilia antes de emitir nada porque sostiene el
+        # descarte de respaldo, el que decide cuando el cribado falló. Si ese
+        # descarte actúa, el caso tampoco se crea.
+        timeline = self._reconcile_timeline(gpt_reading, claude_reading)
+        admissibility = evaluate_admissibility(
+            facts=facts,
+            timeline=timeline,
+            canonical_keys=PEOPLE_PLACE_KEYS | CRITICAL_KEYS,
+            screening=screening,
+        )
+        if not admissibility.admissible:
+            self._finish_out_of_domain(analysis_id, admissibility=admissibility)
+            return
         people_places = [
             fact for fact in facts if fact["key"] in PEOPLE_PLACE_KEYS
         ]
@@ -1106,26 +1322,11 @@ class AnalysisService:
                 "grounding_errors": grounding_errors,
             },
         )
-        timeline = self._reconcile_timeline(gpt_reading, claude_reading)
         self._append_event(
             analysis_id,
             AnalysisStage.TIMELINE,
             {"state": "completed", "events": timeline},
         )
-        # Las rutas ya vienen calculadas —salen de la misma llamada al modelo que
-        # todo lo demás—, así que lo que se decide aquí no es si generarlas sino
-        # si entregarlas. A una receta de cocina el sistema le armaba tres rutas
-        # institucionales y le decía "esta ruta aplica por la clasificación de
-        # amenazas y control social contra la población".
-        admissibility = evaluate_admissibility(
-            facts=facts,
-            timeline=timeline,
-            canonical_keys=PEOPLE_PLACE_KEYS | CRITICAL_KEYS,
-            screening=resolve_screening(screening, known_segments),
-        )
-        if not admissibility.admissible:
-            routes = []
-
         critical_inconsistencies = sum(
             fact["is_critical"]
             and fact["verification_status"] == "inconsistent"
@@ -1148,9 +1349,7 @@ class AnalysisService:
                 "state": "completed",
                 "routes": routes,
                 "case_id": case_id,
-                "recommendation_status": (
-                    "preliminary" if admissibility.admissible else "not_applicable"
-                ),
+                "recommendation_status": "preliminary",
                 "critical_inconsistencies": critical_inconsistencies,
                 "admissibility": admissibility.model_dump(mode="json"),
             },

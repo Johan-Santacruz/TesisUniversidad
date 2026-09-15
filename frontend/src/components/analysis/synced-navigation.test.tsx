@@ -29,9 +29,9 @@ describe("navegación sincronizada", () => {
 
     await openSignal(/^Ubicación actual/)
 
-    // En la edición anotada la cita sobra: el pasaje está al lado de la nota.
+    // La evidencia vive dentro de la señal abierta, sin repetir el relato.
     expect(
-      document.querySelector(".marginalia-row.is-anotada .marginalia-text"),
+      document.querySelector(".fact-card.is-selected blockquote"),
     ).toHaveTextContent("La familia llegó a Popayán y necesita alojamiento seguro.")
   })
 
@@ -39,10 +39,11 @@ describe("navegación sincronizada", () => {
     render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
     const video = screen.getByTestId("case-video") as HTMLVideoElement
     openSignals()
+    await openSignal(/^Ubicación actual/)
 
     // La llamada de minuto del pasaje abre ese momento del video.
     fireEvent.click(
-      await screen.findByRole("button", { name: /ver en el video, minuto\s*0:18/i }),
+      await screen.findByRole("button", { name: /ver en el video\s*0:18/i }),
     )
 
     expect(video.currentTime).toBe(18.4)
@@ -51,6 +52,7 @@ describe("navegación sincronizada", () => {
   it("avisa cuando una señal no quedó anclada a ningún fragmento", async () => {
     render(<AnalysisWorkspace initialCase={caseFixture} role="operador" />)
     openSignals()
+    await openSignal(/^Fecha exacta/)
 
     // Las señales sin anclaje se recogen al pie, fuera del margen.
     expect(

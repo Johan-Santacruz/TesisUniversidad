@@ -10,6 +10,150 @@
   border-radius: 6px;
 }
 
+/* Estructura base de las piezas de la ingesta.
+ *
+ * Cuando estas reglas salieron de index.css (11fc553) sólo se trajeron los
+ * ajustes —columnas, separaciones, tamaños— y no la estructura sobre la que
+ * actuaban: los pasos quedaron como viñetas con el título pegado a la
+ * descripción ("EscucharEl relato…"), el campo del enlace sin caja y el botón
+ * sin relleno. Va antes que los ajustes para que éstos sigan mandando donde
+ * definen lo mismo. */
+.analysis-app .intake .intake-index {
+  display: grid;
+  padding: 0;
+  list-style: none;
+}
+.analysis-app .intake .intake-index li { display: grid; }
+.analysis-app .intake .intake-index-number {
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.analysis-app .intake .intake-index-body {
+  display: grid;
+  min-width: 0;
+}
+.analysis-app .intake .intake-index-body strong {
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+.analysis-app .intake .intake-index-body small {
+  color: var(--ink-soft);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.analysis-app .intake .intake-link-row {
+  display: flex;
+  align-items: stretch;
+}
+.analysis-app .intake .intake-link-row input {
+  min-width: 0;
+  flex: 1;
+  min-height: 44px;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid color-mix(in oklch, var(--ink) 22%, var(--rule));
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  transition: border-color 170ms ease, background 170ms ease, box-shadow 170ms ease;
+}
+.analysis-app .intake .intake-link-row input::placeholder { color: var(--ink-faded); }
+.analysis-app .intake .intake-link-row input:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--ink) 40%, var(--rule));
+}
+.analysis-app .intake .intake-link-row input:focus {
+  outline: none;
+  border-color: var(--azul);
+  background: var(--paper-white);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--azul) 14%, transparent);
+}
+.analysis-app .intake .intake-link-row input:disabled { color: var(--ink-faded); cursor: not-allowed; }
+.analysis-app .intake .intake-link-start {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  transition: background 170ms ease, border-color 170ms ease;
+}
+.analysis-app .intake .intake-link-start:disabled { cursor: not-allowed; }
+
+.analysis-app .intake .intake-file {
+  display: flex;
+  align-items: center;
+  margin-top: 0.85rem;
+  gap: 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+}
+.analysis-app .intake .intake-file-mark {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--green) 14%, transparent);
+}
+.analysis-app .intake .intake-file-meta {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.1rem;
+}
+.analysis-app .intake .intake-file-meta strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.analysis-app .intake .intake-file-meta small { color: var(--ink-faded); }
+.analysis-app .intake .intake-file-remove {
+  padding: 0 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.analysis-app .intake .intake-file-remove:hover { border-color: var(--ink-faded); color: var(--ink); }
+
+.analysis-app .intake .intake-problem {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.8rem;
+  border-left: 2px solid var(--rojo);
+  background: color-mix(in oklch, var(--rojo) 5%, transparent);
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.analysis-app .intake .intake-start {
+  min-height: 46px;
+  padding: 0 1.35rem;
+  border: 0;
+  background: var(--ink);
+  color: var(--paper-white);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+.analysis-app .intake .intake-start:hover:not(:disabled) { background: var(--ink-soft); }
+.analysis-app .intake .intake-start:disabled { cursor: not-allowed; }
+.analysis-app .intake .intake-demo {
+  min-height: 44px;
+  padding: 0.5rem;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.analysis-app .intake .intake-demo:disabled { color: var(--ink-faded); cursor: not-allowed; }
+
 .analysis-app .intake .intake-head {
   grid-area: 1 / 1;
   align-self: end;

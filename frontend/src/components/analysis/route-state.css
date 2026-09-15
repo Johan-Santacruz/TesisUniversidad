@@ -1,0 +1,70 @@
+.analysis-app .narrative-sheet > div:has(.route-state) {
+  display: flex;
+  flex-direction: column;
+}
+.analysis-app .narrative-stage-content:has(.route-state) {
+  display: flex;
+  flex: 1;
+}
+.analysis-app .route-stage.is-waiting {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0.5rem 0;
+}
+.analysis-app .route-state {
+  width: min(100%, 36rem);
+  margin: auto;
+  padding: clamp(0.75rem, 2.5vh, 2rem) clamp(0.5rem, 2vw, 1.5rem);
+  text-align: center;
+  color: var(--ink);
+}
+.analysis-app .route-state-drawing { display: block; width: 210px; max-width: 65%; height: auto; margin: 0 auto 0.65rem; overflow: visible; }
+.route-map-paper { fill: var(--paper-white, #fffaf0); stroke: var(--rule, #d2c7b8); stroke-width: 1.2; stroke-linejoin: round; }
+.route-map-fold { stroke: var(--rule, #d2c7b8); opacity: 0.55; }
+.route-map-contours { stroke: #a59880; stroke-width: 0.8; opacity: 0.19; }
+.route-map-guide { stroke: #aa9a7f; stroke-width: 1.6; stroke-dasharray: 3 5; stroke-linecap: round; opacity: 0.55; }
+.route-map-trace { stroke: var(--azul, #23527c); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0.72; }
+.route-map-point circle:first-child { fill: var(--paper-white, #fffaf0); stroke: #b5a68c; stroke-width: 1.25; }
+.route-map-point circle:last-child { fill: #b5a68c; }
+.point-start circle:first-child { stroke: var(--azul, #23527c); }
+.point-start circle:last-child { fill: var(--azul, #23527c); }
+.analysis-app .route-state-eyebrow { margin: 0 0 0.65rem; font-size: 0.61rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faded); }
+.analysis-app .route-state h2 { margin: 0; font-family: "Libre Caslon Text", Georgia, serif; font-size: clamp(1.7rem, 2.7vw, 2.4rem); font-weight: 400; line-height: 1.18; text-wrap: balance; }
+.analysis-app .route-state-copy { max-width: 29rem; margin: 0.85rem auto 0; font-size: 0.8rem; line-height: 1.65; color: var(--ink-soft); text-wrap: pretty; }
+.analysis-app .route-state-copy strong { display: block; margin-bottom: 0.35rem; font-weight: 500; color: var(--ink); }
+.analysis-app .route-state .route-gate-list { display: grid; gap: 0; max-width: 28rem; margin: 1rem auto 0; padding: 0; border-top: 1px solid var(--rule); list-style: none; text-align: left; }
+.analysis-app .route-state .route-gate-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0.2rem; border: 0; border-bottom: 1px solid var(--rule); background: transparent; border-radius: 0; }
+.analysis-app .route-state .route-gate-list strong { font-size: 0.75rem; font-weight: 500; line-height: 1.5; }
+.analysis-app .route-state .route-gate-list span { flex-shrink: 0; font-size: 0.63rem; color: var(--ink-faded); }
+.analysis-app .route-state-action { display: inline-flex; align-items: center; justify-content: center; gap: 1.75rem; min-height: 46px; margin: 1.15rem auto 0; padding: 0.75rem 1.3rem; border: 1px solid var(--ink); border-radius: 999px; background: var(--ink); color: var(--paper-white); cursor: pointer; font-family: var(--font-ui); font-size: 0.75rem; font-weight: 500; transition: background 180ms, transform 180ms; }
+.analysis-app .route-state-action:hover { background: var(--ink-soft); transform: translateY(-1px); }
+.analysis-app .route-state-action:focus-visible { outline: 2px solid var(--azul); outline-offset: 4px; }
+.analysis-app .route-state .route-gate-note { max-width: 27rem; margin: 0.9rem auto 0; font-size: 0.7rem; line-height: 1.6; color: var(--ink-faded); }
+.analysis-app .route-state-working { display: flex; align-items: center; justify-content: center; gap: 0.55rem; margin: 1rem 0 0; color: var(--azul); font-size: 0.67rem; }
+.route-state-working span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: route-state-breathe 2s ease-in-out infinite; }
+.route-state-rule { display: flex; width: 66px; height: 2px; margin: 1.5rem auto 0; opacity: 0.75; }
+.route-state-rule i:first-child { flex: 2; background: var(--amarillo, #dab136); }
+.route-state-rule i:nth-child(2) { flex: 1; background: var(--azul, #23527c); }
+.route-state-rule i:last-child { flex: 1; background: var(--rojo, #973c31); }
+.route-state-drawing[data-working="true"] .route-map-trace { animation: route-map-draw 3.8s ease-in-out infinite; }
+.route-state-drawing[data-working="true"] .point-middle circle:last-child { animation: route-map-arrive 3.8s 1s ease-in-out infinite; }
+.route-state-drawing[data-working="true"] .point-end circle:last-child { animation: route-map-arrive 3.8s 1.8s ease-in-out infinite; }
+.analysis-app .route-state-memory { flex: 0 0 auto; margin: 0.8rem 0 0; border-top: 1px solid var(--rule); padding-top: 0.6rem; }
+.analysis-app .route-state-memory > summary { width: fit-content; margin: 0 auto; padding: 0.5rem; color: var(--ink-faded); font-size: 0.65rem; cursor: pointer; }
+@keyframes route-map-draw { 0%, 8% { stroke-dashoffset: 1; opacity: 0.3; } 65%, 85% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes route-map-arrive { 0%, 20%, 100% { fill: #b5a68c; } 35%, 80% { fill: var(--azul, #23527c); } }
+@keyframes route-state-breathe { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@media (max-width: 600px) {
+  .analysis-app .route-state { padding-block: 1.5rem; }
+  .analysis-app .route-state .route-gate-list li { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
+  .analysis-app .route-state-drawing { width: 190px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-state-drawing[data-working="true"] .route-map-trace { animation: none; stroke-dashoffset: 0; }
+  .route-state-drawing[data-working="true"] .route-map-point circle:last-child,
+  .route-state-working span { animation: none; }
+  .analysis-app .route-state-action { transition: none; }
+}

@@ -37,9 +37,56 @@ type StageState = string | undefined
 function statusLabel(state: StageState, isCurrent: boolean) {
   if (state === "failed") return "Con error"
   if (state === "unavailable") return "No disponible"
+  if (state === "not_applicable") return "No aplica"
   if (state === "skipped") return "Omitida"
   if (state) return "Lista"
   return isCurrent ? "En curso" : "En espera"
+}
+
+// La razón del modelo va primero: es una frase sobre este video. La del
+// sistema sólo cubre el descarte de respaldo, cuando no hubo cribado.
+function rejectionReason(payload: Record<string, unknown> | undefined) {
+  const admissibility = payload?.admissibility
+  if (!admissibility || typeof admissibility !== "object") return null
+  const { screening_reason: screening, reason } =
+    admissibility as Record<string, unknown>
+  if (typeof screening === "string" && screening.trim()) return screening
+  return typeof reason === "string" ? reason : null
+}
+
+
+function OutOfDomainNotice({
+  reason,
+  onRestart,
+}: {
+  reason: string | null
+  onRestart?: () => void
+}) {
+  return (
+    <section
+      className="analysis-out-of-domain"
+      role="alert"
+      aria-labelledby="out-of-domain-title"
+    >
+      <p className="eyebrow">Análisis detenido</p>
+      <h2 id="out-of-domain-title">Este video no parece un testimonio</h2>
+      <p>
+        Se escuchó completo y no se encontró un relato del conflicto armado.
+        Por eso no se creó ningún caso: no hay señales, rutas ni imagen de
+        memoria.
+      </p>
+      {reason ? <blockquote>{reason}</blockquote> : null}
+      <p className="analysis-out-of-domain-hint">
+        Si es un testimonio, revisa que hayas subido el video correcto y
+        vuelve a intentarlo.
+      </p>
+      {onRestart ? (
+        <button type="button" className="processing-retry" onClick={onRestart}>
+          Analizar otro video
+        </button>
+      ) : null}
+    </section>
+  )
 }
 
 
@@ -47,13 +94,22 @@ export function AnalysisProgress({
   events,
   error,
   onRetry,
+  onRestart,
 }: {
   events: AnalysisEvent[]
   error: string
   onRetry?: () => void
+  onRestart?: () => void
 }) {
   const reduceMotion = useReducedMotion() ?? false
   const states = new Map(events.map((event) => [event.stage, event.state]))
+  const routesEvent = events.find((event) => event.stage === "routes")
+  // El análisis puede cerrar sin caso: un video ajeno al conflicto se detiene
+  // a propósito y una transcripción caída deja las etapas sin resultado. En
+  // ambos la pantalla se quedaba esperando un caso que no iba a llegar.
+  const endedWithoutCase = routesEvent !== undefined
+    && typeof routesEvent.payload.case_id !== "string"
+  const outOfDomain = routesEvent?.state === "not_applicable"
 
   const settled = stages.filter(
     (stage) => SETTLED_STATES.has(String(states.get(stage.id))),
@@ -110,13 +166,21 @@ export function AnalysisProgress({
           </strong>
           <p
             aria-live="polite"
-            className={error ? "processing-message is-error" : "processing-message"}
+            className={
+              error
+                ? "processing-message is-error"
+                : "processing-message is-working"
+            }
           >
             {error
               ? error
-              : currentLabel
-                ? `Procesando ${currentLabel.toLocaleLowerCase("es")}…`
-                : "Cerrando la lectura"}
+              : outOfDomain
+                ? "Análisis detenido"
+                : endedWithoutCase
+                  ? "El análisis terminó sin caso"
+                  : currentLabel
+                    ? `Procesando ${currentLabel.toLocaleLowerCase("es")}`
+                    : "Cerrando la lectura"}
           </p>
           {/* El fallo parcial no se esconde: el análisis puede terminar con
               etapas caídas y quien revisa debe saberlo antes de leer. */}
@@ -131,6 +195,11 @@ export function AnalysisProgress({
         {error && onRetry ? (
           <button type="button" className="processing-retry" onClick={onRetry}>
             Reintentar
+          </button>
+        ) : null}
+        {!error && endedWithoutCase && !outOfDomain && onRestart ? (
+          <button type="button" className="processing-retry" onClick={onRestart}>
+            Analizar otro video
           </button>
         ) : null}
       </div>
@@ -191,7 +260,14 @@ export function AnalysisProgress({
       </section>
       </aside>
       <main className="narrative-sheet live-analysis-sheet">
-        <LiveAnalysisResults events={events} />
+        {outOfDomain ? (
+          <OutOfDomainNotice
+            reason={rejectionReason(routesEvent?.payload)}
+            onRestart={onRestart}
+          />
+        ) : (
+          <LiveAnalysisResults events={events} />
+        )}
       </main>
     </div>
   )

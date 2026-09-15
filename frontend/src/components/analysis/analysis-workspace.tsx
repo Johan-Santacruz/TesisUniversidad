@@ -52,12 +52,22 @@ export const TOUR_DELAY_MS = 700
 
 
 // Relevo entre carga, procesamiento y resultados.
+// Las hojas caen sobre la mesa y se levantan de ella, con el mismo gesto con
+// que el libro llega a la mesa en la portada: desde un poco más abajo y algo
+// más pequeñas, y al irse suben. Un fundido plano las hacía aparecer sin
+// venir de ninguna parte.
+export const SHEET_LANDING = {
+  from: { opacity: 0, y: 26, scale: 0.975 },
+  to: { opacity: 1, y: 0, scale: 1 },
+  transition: { duration: 0.62, ease: [0.16, 1, 0.3, 1] as const },
+}
+
 function phaseMotion(reduceMotion: boolean) {
   if (reduceMotion) return {}
   return {
-    initial: { opacity: 0, y: 10 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const } },
-    exit: { opacity: 0, y: -14, transition: { duration: 0.32, ease: [0.4, 0, 1, 1] as const } },
+    initial: SHEET_LANDING.from,
+    animate: { ...SHEET_LANDING.to, transition: SHEET_LANDING.transition },
+    exit: { opacity: 0, y: -18, scale: 0.99, transition: { duration: 0.3, ease: [0.4, 0, 1, 1] as const } },
   }
 }
 
@@ -438,6 +448,37 @@ export function AnalysisWorkspace({
     if (fact && narrativeStage !== "evidence") takeControl("evidence")
   }
 
+  const refreshCase = useCallback(async (caseId: string) => {
+    try {
+      const refreshed = await apiClient.request<CaseData>(`/api/v1/cases/${caseId}`)
+      setCaseData((current) => (current && current.id === caseId ? refreshed : current))
+    } catch {
+      // Lo que se guardó ya quedó registrado: la próxima lectura lo traerá.
+    }
+  }, [])
+
+  // El servidor reconstruye la ruta por su cuenta y no avisa al terminar:
+  // mientras lo hace, el caso se vuelve a leer cada pocos segundos.
+  const rebuildingCaseId =
+    caseData?.routes_status === "rebuilding" ? caseData.id : null
+  useEffect(() => {
+    if (!rebuildingCaseId) return
+    const timer = window.setInterval(() => {
+      void refreshCase(rebuildingCaseId)
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [rebuildingCaseId, refreshCase])
+
+  const retryRebuild = async () => {
+    if (!caseData) return
+    const caseId = caseData.id
+    const refreshed = await apiClient.request<CaseData>(
+      `/api/v1/cases/${caseId}/routes/rebuild`,
+      { method: "POST" },
+    )
+    setCaseData((current) => (current && current.id === caseId ? refreshed : current))
+  }
+
   const review = async (factId: string, payload: FactReview) => {
     if (!caseData) return
     const fact = await apiClient.request<components["schemas"]["FactRead"]>(
@@ -455,6 +496,11 @@ export function AnalysisWorkspace({
         ).length,
       }
     })
+    // Confirmar una señal crítica puede poner a reconstruir la ruta en el
+    // servidor: se relee el caso para enterarse y empezar a esperar.
+    if (fact.is_critical && fact.verification_status === "confirmed") {
+      await refreshCase(caseData.id)
+    }
   }
 
   // Las tres acciones del cierre comparten el mismo contrato: devuelven la
@@ -618,6 +664,7 @@ export function AnalysisWorkspace({
             events={stream.events}
             error={stream.error || error}
             onRetry={stream.retry}
+            onRestart={startAnother}
           />
         </motion.div>
       </AnimatePresence>
@@ -639,13 +686,18 @@ export function AnalysisWorkspace({
         onStageChange={(stage) => takeControl(stage as NarrativeStage)}
       />
       {/* El pliego: verso con el testimonio, recto con el análisis, lomo en
-          medio y la misma mesa debajo que en la portada. */}
-      <div
+          medio y la misma mesa debajo que en la portada. Cuando llega por el
+          análisis cae sobre la mesa como un pliego nuevo; con un caso ya
+          abierto no hay llegada que contar. */}
+      <motion.div
         className={
           railCollapsed
             ? "narrative-workspace-grid is-rail-collapsed"
             : "narrative-workspace-grid"
         }
+        initial={revealing && !reduceMotion ? SHEET_LANDING.from : false}
+        animate={SHEET_LANDING.to}
+        transition={SHEET_LANDING.transition}
       >
         <span className="book-spine" aria-hidden="true" />
         <DocumentaryVideoRail
@@ -724,6 +776,7 @@ export function AnalysisWorkspace({
                   role={role}
                   onApprove={approve}
                   onGoToSignals={() => takeControl("evidence")}
+                  onRetryRebuild={retryRebuild}
                   memoryPanel={
                     <MemoryImagePanel
                       memoryImage={memoryImage}
@@ -788,7 +841,7 @@ export function AnalysisWorkspace({
             )}
           </footer>
         </main>
-      </div>
+      </motion.div>
     </div>
   )
 }

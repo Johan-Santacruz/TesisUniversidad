@@ -4,7 +4,16 @@ import logging
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -27,6 +36,7 @@ from app.schemas import (
     MemoryImageDecisionRequest,
     TombstoneRead,
 )
+from app.services.analysis import AnalysisService
 from app.services.cases import CaseConflictError, CaseService
 from app.services.memory_images import (
     MemoryImageAssetUnavailableError,
@@ -43,6 +53,10 @@ router = APIRouter(tags=["cases"])
 
 def get_case_service(request: Request) -> CaseService:
     return request.app.state.cases
+
+
+def get_analysis_service(request: Request) -> AnalysisService:
+    return request.app.state.analysis
 
 
 def get_memory_image_service(request: Request) -> MemoryImageService:
@@ -258,21 +272,49 @@ def stream_rendered_video(
     )
 
 
+def _start_route_rebuild(
+    session: Session,
+    case: CaseRecord,
+    actor: Any,
+    service: CaseService,
+    analysis: AnalysisService,
+    background_tasks: BackgroundTasks,
+) -> bool:
+    if not analysis.can_rebuild_routes():
+        return False
+    if not service.routes_ready_to_rebuild(session, case):
+        return False
+    actor_id, actor_role = actor.id, actor.role
+    case.routes_status = "rebuilding"
+    # Se confirma antes de responder: la pantalla tiene que ver "ajustando"
+    # desde la primera lectura, y la tarea en segundo plano abre su sesión.
+    session.commit()
+    background_tasks.add_task(
+        analysis.rebuild_routes,
+        case.id,
+        actor_id=actor_id,
+        actor_role=actor_role,
+    )
+    return True
+
+
 @router.patch("/cases/{case_id}/facts/{fact_id}", response_model=FactRead)
 def review_fact(
     case_id: str,
     fact_id: str,
     payload: FactReviewRequest,
     actor: ReviewerUser,
+    background_tasks: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     service: Annotated[CaseService, Depends(get_case_service)],
+    analysis: Annotated[AnalysisService, Depends(get_analysis_service)],
 ) -> FactRead:
     case = _case_or_404(session, case_id)
     fact = session.get(Fact, fact_id)
     if fact is None or fact.case_id != case.id:
         raise HTTPException(status_code=404, detail="Hecho no encontrado")
     try:
-        return service.review_fact(
+        reviewed = service.review_fact(
             session,
             case=case,
             fact=fact,
@@ -281,6 +323,40 @@ def review_fact(
         )
     except CaseConflictError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    # Confirmada la última señal crítica, la ruta se reconstruye con lo
+    # confirmado. Corre aparte: la confirmación responde de inmediato.
+    if fact.is_critical:
+        _start_route_rebuild(
+            session, case, actor, service, analysis, background_tasks
+        )
+    return reviewed
+
+
+@router.post(
+    "/cases/{case_id}/routes/rebuild",
+    response_model=CaseRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def rebuild_routes(
+    case_id: str,
+    actor: ValidatorUser,
+    background_tasks: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    service: Annotated[CaseService, Depends(get_case_service)],
+    analysis: Annotated[AnalysisService, Depends(get_analysis_service)],
+) -> CaseRead:
+    case = _case_or_404(session, case_id)
+    if not _start_route_rebuild(
+        session, case, actor, service, analysis, background_tasks
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "La ruta no se puede ajustar ahora: las señales críticas deben "
+                "estar confirmadas y no puede haber otro ajuste en curso"
+            ),
+        )
+    return service.read(session, case)
 
 
 @router.post("/cases/{case_id}/approve", response_model=CaseApprovalRead)

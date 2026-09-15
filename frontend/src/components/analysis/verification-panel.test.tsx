@@ -227,7 +227,7 @@ describe("la cabecera dice cuánto falta", () => {
     expect(
       screen.getByText(/Todas las señales están confirmadas/),
     ).toBeInTheDocument()
-    expect(screen.getByText(/ya puede aprobarse/)).toBeInTheDocument()
+    expect(screen.getByText(/puedes continuar a la ruta/i)).toBeInTheDocument()
   })
 
   it("al operador le explica por qué no puede confirmar", () => {
@@ -242,6 +242,30 @@ describe("la cabecera dice cuánto falta", () => {
     expect(
       screen.getByText(/confirmar es cosa de un validador/i),
     ).toBeInTheDocument()
+  })
+})
+
+describe("lista compacta de señales", () => {
+  it("muestra el fragmento sólo al abrir la señal y permite volver al video", () => {
+    const onSeek = vi.fn()
+    render(<VerificationPanel facts={[caseFixture.facts[0]]}
+      segments={caseFixture.segments} role="validador" onReview={vi.fn()} onSeek={onSeek} />)
+    expect(screen.queryByText(caseFixture.segments[1].text)).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Ubicación actual" }))
+    expect(screen.getByText(caseFixture.segments[1].text)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /ver en el video/i }))
+    expect(onSeek).toHaveBeenCalledWith(18400)
+  })
+
+  it("presenta una señal repetida una sola vez y conserva los otros minutos", () => {
+    const fact = { ...caseFixture.facts[0], evidence: [
+      { segment_id: "segment-1", start_ms: 0, end_ms: 14200 },
+      { segment_id: "segment-2", start_ms: 18400, end_ms: 31800 },
+    ] }
+    render(<VerificationPanel facts={[fact]} segments={caseFixture.segments}
+      role="validador" onReview={vi.fn()} />)
+    expect(screen.getAllByRole("button", { name: /Ubicación actual/ })).toHaveLength(1)
+    expect(screen.getByRole("button", { name: /minuto 0:18/ })).toBeInTheDocument()
   })
 })
 
@@ -268,7 +292,7 @@ describe("revisión guiada de señales", () => {
       }} />
   }
 
-  it("abre primero una bloqueante y permite continuar después de confirmarla", async () => {
+  it("abre primero una bloqueante y al confirmarla pasa sola a la siguiente", async () => {
     render(<ReviewHarness />)
     fireEvent.click(screen.getByRole("button", { name: /empezar revisión/i }))
     const bloqueante = screen.getByRole("button", { name: "Niñas, niños o adolescentes" })
@@ -278,8 +302,7 @@ describe("revisión guiada de señales", () => {
     fireEvent.click(within(card).getByRole("button", { name: /esto es correcto/i }))
     await waitFor(() => expect(within(card).queryByRole("button", { name: /esto es correcto/i })).toBeNull())
     expect(screen.getByRole("progressbar", { name: /señales confirmadas/i })).toHaveAttribute("aria-valuenow", "2")
-    fireEvent.click(within(card).getByRole("button", { name: /revisar siguiente pendiente/i }))
-    expect(screen.getByRole("button", { name: "Alojamiento" })).toHaveAttribute("aria-expanded", "true")
+    await waitFor(() => expect(screen.getByRole("button", { name: "Alojamiento" })).toHaveAttribute("aria-expanded", "true"))
     expect(screen.getByRole("button", { name: "Ubicación" })).toHaveAttribute("aria-expanded", "false")
   })
 
@@ -328,11 +351,12 @@ describe("revisión guiada de señales", () => {
     const card = arriba.closest("article")!
     fireEvent.click(within(card).getByRole("button", { name: /esto es correcto/i }))
     await waitFor(() => expect(within(card).queryByRole("button", { name: /esto es correcto/i })).toBeNull())
-    fireEvent.click(within(card).getByRole("button", { name: /revisar siguiente pendiente/i }))
 
-    expect(
-      screen.getByRole("button", { name: "Crítica del segundo fragmento" }),
-    ).toHaveAttribute("aria-expanded", "true")
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Crítica del segundo fragmento" }),
+      ).toHaveAttribute("aria-expanded", "true"),
+    )
   })
 
   it("termina el recorrido al confirmar la última pendiente", async () => {

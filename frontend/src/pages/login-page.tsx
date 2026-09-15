@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { useReducedMotion } from "framer-motion"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
 
 import { ApiError } from "../api/client"
@@ -22,6 +23,11 @@ const DEMO_ADMIN = {
   password: "Senda-Demo-2026",
 }
 
+// La hoja tarda 320 ms en guardarse (ver .login-page.is-departing), pero la
+// ruta cambia antes de que termine: así el fundido hacia la mesa se solapa
+// con la retirada. Esperarla entera dejaba papel vacío casi un segundo.
+const DEPARTURE_MS = 200
+
 
 export default function LoginPage() {
   const { status, login } = useAuth()
@@ -33,10 +39,15 @@ export default function LoginPage() {
   const [demoLoaded, setDemoLoaded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [passwordVisible, setPasswordVisible] = useState(false)
+  // Con la sesión abierta la hoja de acceso se guarda —se aleja y se apaga—
+  // antes de que la ruta cambie; si no, la pantalla siguiente la pisaba a
+  // media frase.
+  const [departing, setDeparting] = useState(false)
+  const reduceMotion = useReducedMotion() ?? false
   const target = (location.state as RedirectState | null)?.from?.pathname
     ?? "/subir-video"
 
-  if (status === "authenticated") {
+  if (status === "authenticated" && !departing) {
     return <Navigate to={target} replace />
   }
 
@@ -59,6 +70,10 @@ export default function LoginPage() {
     setError("")
     try {
       await login(email, password)
+      if (!reduceMotion) {
+        setDeparting(true)
+        await new Promise((resolve) => window.setTimeout(resolve, DEPARTURE_MS))
+      }
       navigate(target, { replace: true })
     } catch (caught) {
       setError(
@@ -72,7 +87,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-page">
+    <main className={departing ? "login-page is-departing" : "login-page"}>
       <section className="login-collage" aria-hidden="true">
         <PhotoMosaic columns={DISPLACEMENT_MOSAIC} />
         <span className="login-mosaic-fade login-mosaic-fade--top" />

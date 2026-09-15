@@ -359,21 +359,43 @@ export function RoutesComparison({
   role,
   onApprove,
   onGoToSignals,
+  onRetryRebuild,
 }: {
   caseData: CaseData
   role: Role
   onApprove: () => Promise<void> | void
   onGoToSignals?: () => void
+  onRetryRebuild?: () => Promise<void> | void
 }) {
   const reduceMotion = useReducedMotion() ?? false
   const sources = new Map(caseData.sources.map((source) => [source.id, source]))
   const canValidate = role === "validador" || role === "admin"
   const isFinal = caseData.recommendation_status === "final"
   const canApprove = canValidate && caseData.critical_inconsistencies === 0 && !isFinal
+    && caseData.routes_status !== "rebuilding" && caseData.routes_status !== "rebuild_failed"
   const [approving, setApproving] = useState(false)
   const [approvalError, setApprovalError] = useState("")
   const [openRouteId, setOpenRouteId] = useState<string | null>(null)
   const approvingRef = useRef(false)
+  const [retrying, setRetrying] = useState(false)
+  const [retryError, setRetryError] = useState("")
+
+  const retryRebuild = async () => {
+    if (!onRetryRebuild || retrying) return
+    setRetrying(true)
+    setRetryError("")
+    try {
+      await onRetryRebuild()
+    } catch (caught) {
+      setRetryError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "No se pudo reintentar. Inténtalo de nuevo.",
+      )
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   const approve = async () => {
     if (!canApprove || approvingRef.current) return
@@ -408,7 +430,34 @@ export function RoutesComparison({
         <span className={isFinal ? "recommendation-label is-final" : "recommendation-label"}>
           {isFinal ? "Orientación final aprobada" : "Recomendación preliminar"}
         </span>
+        {caseData.routes_status === "rebuilt" ? (
+          <span className="recommendation-label is-rebuilt">
+            Construida con las señales confirmadas
+          </span>
+        ) : null}
       </div>
+
+      {/* Si el ajuste con las señales confirmadas falló, se dice: las rutas que
+          siguen a la vista son las del análisis, no las ajustadas. */}
+      {caseData.routes_status === "rebuild_failed" && !isFinal ? (
+        <div className="routes-gate" role="status">
+          <span className="routes-gate-mark" aria-hidden="true" />
+          <p>
+            <strong>No se pudo ajustar la ruta con las señales confirmadas</strong>
+            Se conserva la última versión disponible. Reintenta el ajuste antes de aprobarla.
+            {retryError ? <span role="alert">{retryError}</span> : null}
+          </p>
+          {canValidate && onRetryRebuild ? (
+            <button
+              type="button"
+              onClick={() => void retryRebuild()}
+              disabled={retrying}
+            >
+              {retrying ? "Reintentando…" : "Reintentar"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* El contrato no ata una ruta a un momento del testimonio, así que no se
           finge ese enlace. Lo que sí es real es que las señales críticas sin
@@ -522,7 +571,9 @@ export function RoutesComparison({
                       ? "inconsistencia crítica pendiente"
                       : "inconsistencias críticas pendientes"
                   }`
-                : "La revisión crítica está completa"}
+                : caseData.routes_status === "rebuild_failed"
+                  ? "Falta actualizar la ruta antes de aprobar"
+                  : "La revisión crítica está completa"}
             </strong>
           </div>
           <div className="approval-action">

@@ -165,12 +165,28 @@ class CaseService:
                     or value.get("display_value")
                 )
             facts.append(FactRead.model_validate(value))
-        routes = [
-            RouteRead.model_validate(self._route_value(route))
-            for route in route_records
-        ]
-        source_values = by_stage.get("sources", {}).get("sources", [])
-        sources = [SourceRead.model_validate(value) for value in source_values]
+        route_values = [self._route_value(route) for route in route_records]
+        routes = [RouteRead.model_validate(value) for value in route_values]
+        if case.routes_status in {"rebuilt", "rebuilding", "rebuild_failed"}:
+            # Las rutas recalculadas pueden citar fuentes que el análisis no
+            # usó: las del evento original ya no describen lo que se muestra.
+            cited = sorted(
+                {
+                    claim["source_entry_id"]
+                    for value in route_values
+                    for step in value.get("steps") or []
+                    for claim in step.get("claims") or []
+                }
+            )
+            sources = [
+                SourceRead.model_validate(
+                    self.rag.get(source_id).model_dump(mode="json")
+                )
+                for source_id in cited
+            ]
+        else:
+            source_values = by_stage.get("sources", {}).get("sources", [])
+            sources = [SourceRead.model_validate(value) for value in source_values]
         classification = by_stage.get("classification", {})
         if isinstance(classification.get("classification"), dict):
             classification = classification["classification"]
@@ -209,6 +225,7 @@ class CaseService:
             sources=sources,
             routes=routes,
             critical_inconsistencies=critical_inconsistencies,
+            routes_status=case.routes_status,
             memory_image=(
                 self.memory_image_read(session, case, memory_image)
                 if memory_image is not None
@@ -344,6 +361,43 @@ class CaseService:
         )
         return FactRead.model_validate(changed)
 
+    def routes_ready_to_rebuild(self, session: Session, case: CaseRecord) -> bool:
+        """Si el caso puede reconstruir sus rutas con las señales confirmadas."""
+        session.flush()
+        if case.recommendation_status != "preliminary":
+            return False
+        if case.routes_status == "rebuilding":
+            return False
+        video = session.get(Video, case.video_id)
+        # El caso de demostración es fijo: no hay testimonio real que releer.
+        if video is None or video.is_demo:
+            return False
+        has_routes = session.scalar(
+            select(Route.id).where(Route.case_id == case.id).limit(1)
+        )
+        if has_routes is None:
+            return False
+        pending_critical = session.scalar(
+            select(Fact.id)
+            .where(
+                Fact.case_id == case.id,
+                Fact.is_critical.is_(True),
+                Fact.verification_status != VerificationStatus.CONFIRMED.value,
+                Fact.fact_type.not_in(RETIRED_KEYS),
+            )
+            .limit(1)
+        )
+        return pending_critical is None
+
+    @staticmethod
+    def recover_interrupted_route_rebuilds(session: Session) -> None:
+        """Un recálculo que murió con el proceso no puede bloquear el caso."""
+        session.execute(
+            update(CaseRecord)
+            .where(CaseRecord.routes_status == "rebuilding")
+            .values(routes_status="rebuild_failed")
+        )
+
     def approve(
         self,
         session: Session,
@@ -370,6 +424,14 @@ class CaseService:
         ):
             raise CaseConflictError(
                 "Existen inconsistencias críticas pendientes de validación"
+            )
+        if case.routes_status == "rebuilding":
+            raise CaseConflictError(
+                "La ruta se está ajustando con las señales confirmadas"
+            )
+        if case.routes_status == "rebuild_failed":
+            raise CaseConflictError(
+                "Reintenta el ajuste de la ruta antes de aprobar la orientación"
             )
         routes = list(session.scalars(select(Route).where(Route.case_id == case.id)))
         existing_types = {RouteType(route.route_type) for route in routes}

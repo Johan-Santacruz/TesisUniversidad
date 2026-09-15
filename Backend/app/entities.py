@@ -187,6 +187,11 @@ class CaseRecord(TimestampMixin, Base):
     approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deletion_claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # initial, rebuilding, rebuilt o rebuild_failed: si las rutas siguen siendo
+    # las del análisis o ya se reconstruyeron con las señales confirmadas.
+    routes_status: Mapped[str] = mapped_column(
+        String(24), default="initial", server_default="initial", nullable=False
+    )
 
 
 class MemoryImage(EncryptedPayloadMixin, TimestampMixin, Base):

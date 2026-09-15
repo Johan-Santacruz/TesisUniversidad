@@ -272,7 +272,7 @@ describe("AnalysisWorkspace", () => {
       />,
     )
 
-    // La tarjeta se escribe una sola vez, en el primer pasaje.
+    // La señal se escribe una sola vez aunque se apoye en dos pasajes.
     expect(
       screen.getAllByRole("heading", {
         name: "Intento de vincular a un menor",
@@ -280,14 +280,13 @@ describe("AnalysisWorkspace", () => {
     ).toHaveLength(1)
     // Un valor booleano se lee en español, no como "true".
     expect(screen.getByText("Sí")).toBeVisible()
-    // El regreso queda anotado en la nota…
+    // El otro pasaje queda como minuto al que volver, no como otra señal.
     expect(screen.getByText(/lo vuelve a decir en/i)).toBeVisible()
-    // …y el segundo pasaje remite a ella en vez de repetirla.
     expect(
-      screen.getByRole("button", { name: /ya anotado en 0:00/i }),
-    ).toBeVisible()
+      screen.getByRole("button", { name: /ver en el video, minuto 0:18/i }),
+    ).toBeInTheDocument()
     expect(
-      screen.queryAllByRole("button", { name: /esto es correcto/i }),
+      screen.getAllByRole("button", { name: /esto es correcto/i, hidden: true }),
     ).toHaveLength(1)
   })
 
@@ -401,6 +400,7 @@ describe("AnalysisWorkspace memory closing", () => {
 
   const openRouteStage = async () => {
     fireEvent.click(screen.getByRole("button", { name: "Ruta" }))
+    fireEvent.click(await screen.findByText("Ver cierre de memoria"))
     return screen.findByRole("heading", { name: "Cierre de memoria" })
   }
 
@@ -460,7 +460,7 @@ describe("AnalysisWorkspace memory closing", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Aprobar" }))
 
-    expect(await screen.findByText("Preparando versión con cierre…")).toBeVisible()
+    await waitFor(() => expect(screen.getByText("Preparando versión con cierre…")).toBeVisible())
     expect(request).toHaveBeenCalledWith(
       "/api/v1/cases/case-fixture/memory-image/decision",
       { method: "POST", body: JSON.stringify({ action: "approve" }) },

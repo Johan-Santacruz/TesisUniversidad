@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { beforeEach, expect, it, vi } from "vitest"
 
@@ -6,11 +6,11 @@ import { AuthProvider } from "../auth/auth-context"
 import { AppRoutes } from "./app-router"
 
 
-function renderAt(path: string) {
+function renderAt(path: string, curtainHoldMs?: number) {
   return render(
     <AuthProvider>
       <MemoryRouter initialEntries={[path]}>
-        <AppRoutes />
+        <AppRoutes curtainHoldMs={curtainHoldMs} />
       </MemoryRouter>
     </AuthProvider>,
   )
@@ -19,6 +19,21 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   vi.restoreAllMocks()
+  window.sessionStorage.clear()
+})
+
+
+// La cortina y el libro entran juntos: el libro espera bajo la cortina y se
+// asienta en la mesa cuando ella se levanta, no antes y a oscuras.
+it("el libro espera bajo la cortina de apertura y entra cuando se levanta", async () => {
+  const { container } = renderAt("/", 20)
+
+  expect(screen.getByTestId("opening-curtain")).toBeInTheDocument()
+  expect(container.querySelector("[data-book-arrival='held']")).not.toBeNull()
+
+  await waitFor(() =>
+    expect(screen.queryByTestId("opening-curtain")).toBeNull())
+  expect(container.querySelector("[data-book-arrival='now']")).not.toBeNull()
 })
 
 

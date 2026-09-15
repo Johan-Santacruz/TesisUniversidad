@@ -1,9 +1,11 @@
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
+import { useBookDepart } from "./book-depart"
 import { type ComponentType, type ReactNode } from "react"
 import {
   BOOK_CONVERSATION_TRANSCRIPT,
   BOOK_SYSTEM_STEPS,
+  BOOK_TURN_LABELS,
 } from "./book-content"
 
 type PageTheme = "paper" | "ink" | "image"
@@ -329,9 +331,9 @@ function PrologueFlipPage() {
               miedo a no saber cómo pedir ayuda.
             </p>
             <p className="font-serif text-[clamp(0.82rem,1.65vh,0.94rem)] leading-[1.45] text-ink-soft text-pretty">
-              Desde ahí nace este sistema: una conversación que ordena
-              información, explica derechos y prepara mejor el encuentro
-              con las instituciones.
+              Desde ahí nace este sistema: una herramienta para que quien
+              acompaña escuche mejor, ordene lo que oye y entregue una ruta
+              que la persona pueda entender.
             </p>
           </motion.div>
         </div>
@@ -554,8 +556,8 @@ function ToolIntroFlipPage() {
           transition={{ duration: 0.7, delay: 0.4 }}
           className="max-w-md font-serif text-lg italic leading-snug text-paper/78 text-pretty"
         >
-          La herramienta aparece como una mesa limpia: reúne hechos, documentos
-          y próximos pasos sin quitarle a la persona el control de su historia.
+          La herramienta aparece como una mesa limpia: ordena el relato para
+          quien acompaña, sin quitarle a la persona el control de su historia.
         </motion.p>
       </div>
     </PageShell>
@@ -631,15 +633,15 @@ function ToolStepsFlipPage() {
   )
 }
 
-// En el transcript los índices pares son de la persona y los impares del
-// sistema. La selección anterior —[0,1,3,5,7]— se quedaba con un turno de ella
-// y cuatro seguidos de él: la página se llamaba "Una voz, una respuesta" pero
-// leía como un monólogo, y encima el quinto turno no cabía sobre el pie.
-// Este corte alterna y cierra el arco: ella pide, él orienta, ella advierte
-// que no tiene papeles, él resuelve con lo que sí conserva.
-const conversationTurns = BOOK_CONVERSATION_TRANSCRIPT.filter((_, index) =>
-  [0, 1, 4, 5].includes(index)
-)
+// La escena ya no es un chat: son los cuatro momentos por los que pasa un
+// testimonio en SENDA, y caben los cuatro sobre el pie de página.
+const conversationTurns = BOOK_CONVERSATION_TRANSCRIPT
+
+// Lo que se cita —la voz del testimonio y el texto de la ruta— va en tinta;
+// lo que hacen el sistema y quien revisa, en cursiva, como acotación.
+function isQuoted(who: (typeof BOOK_CONVERSATION_TRANSCRIPT)[number]["who"]) {
+  return who === "testimonio" || who === "ruta"
+}
 
 const turnAccent = {
   amarillo: "border-amarillo",
@@ -698,7 +700,7 @@ function WordReveal({
 function ConversationFlipPage() {
   return (
     <PageShell
-      kicker="Escena de acompañamiento"
+      kicker="Un caso, de principio a fin"
       folio="008"
       title={
         <>
@@ -706,13 +708,13 @@ function ConversationFlipPage() {
           <span className="italic text-ink-faded">una respuesta.</span>
         </>
       }
-      subtitle="Una conversación breve muestra cómo el relato se convierte en orientación sin exigir lenguaje jurídico."
+      subtitle="Así recorre SENDA un testimonio: del video grabado a una ruta que una persona revisó."
       footer="Caso compuesto, datos protegidos"
     >
       <ol className="mt-4 min-h-0 flex-1 space-y-2">
         {conversationTurns.map((turn, index) => (
           <motion.li
-            key={`${turn.label}-${index}`}
+            key={turn.who}
             variants={fadeUp}
             initial="hidden"
             whileInView="shown"
@@ -732,16 +734,16 @@ function ConversationFlipPage() {
             </div>
             <div>
               <p className="mb-0.5 font-sans text-[10px] uppercase text-ink-faded">
-                {turn.who === "persona" ? "Persona" : "Sistema"}
+                {BOOK_TURN_LABELS[turn.who]}
               </p>
               <WordReveal
                 text={turn.body}
-                wordDuration={turn.who === "persona" ? 0.26 : 0.34}
-                stagger={turn.who === "persona" ? 0.032 : 0.05}
+                wordDuration={isQuoted(turn.who) ? 0.26 : 0.34}
+                stagger={isQuoted(turn.who) ? 0.032 : 0.05}
                 className={cx(
-                  // Cinco turnos tienen que caber sobre el pie de página.
+                  // Los cuatro momentos tienen que caber sobre el pie de página.
                   "font-serif leading-[1.38] text-pretty",
-                  turn.who === "persona"
+                  isQuoted(turn.who)
                     ? "text-[clamp(0.84rem,1.72vh,0.98rem)] text-ink"
                     : "text-[clamp(0.8rem,1.65vh,0.93rem)] italic text-ink-soft"
                 )}
@@ -831,6 +833,7 @@ function TrustFlipPage() {
 }
 
 function ColophonFlipPage() {
+  const departTo = useBookDepart()
   return (
     <motion.section
       initial="hidden"
@@ -923,13 +926,17 @@ function ColophonFlipPage() {
           <Link
             to="/conversar"
             className="group relative isolate mt-6 flex items-center justify-between gap-4 overflow-hidden rounded-full border border-paper/40 px-6 py-4 font-serif text-[clamp(1rem,2.2vh,1.3rem)] text-paper transition-colors hover:border-amarillo focus:outline-none focus-visible:ring-2 focus-visible:ring-paper/70"
+            onClick={(event) => {
+              event.preventDefault()
+              departTo("/conversar")
+            }}
           >
             <span
               aria-hidden="true"
               className="absolute inset-0 origin-left scale-x-0 bg-amarillo transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-100"
             />
             <span className="relative transition-colors duration-300 group-hover:text-ink">
-              Iniciar una conversación
+              Acompañar un testimonio
             </span>
             <span
               aria-hidden="true"

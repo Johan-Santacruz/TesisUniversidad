@@ -1,4 +1,4 @@
-import { forwardRef } from "react"
+import { forwardRef, useEffect, useMemo } from "react"
 import type React from "react"
 
 import type { components } from "../../api/generated"
@@ -9,6 +9,26 @@ type Segment = components["schemas"]["TranscriptSegment"]
 function timestamp(milliseconds: number) {
   const seconds = Math.floor(milliseconds / 1000)
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+function vttTimestamp(milliseconds: number) {
+  const totalMs = Math.max(0, Math.floor(milliseconds))
+  const hours = Math.floor(totalMs / 3_600_000)
+  const minutes = Math.floor((totalMs % 3_600_000) / 60_000)
+  const seconds = Math.floor((totalMs % 60_000) / 1000)
+  const millis = totalMs % 1000
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(millis).padStart(3, "0")}`
+}
+
+// Los subtitulos se arman en el navegador a partir de los mismos fragmentos
+// que ya se piden para el riel de la transcripcion: no hay un endpoint de
+// subtitulos aparte que mantener sincronizado con el backend.
+function buildVtt(segments: Segment[]) {
+  const cues = segments.map(
+    (segment) =>
+      `${vttTimestamp(segment.start_ms)} --> ${vttTimestamp(segment.end_ms)}\n${segment.text}`,
+  )
+  return ["WEBVTT", "", ...cues].join("\n\n")
 }
 
 
@@ -41,6 +61,17 @@ export const DocumentaryVideoRail = forwardRef<
   },
   ref,
 ) {
+  const captionsUrl = useMemo(() => {
+    if (!segments.length) return null
+    return URL.createObjectURL(new Blob([buildVtt(segments)], { type: "text/vtt" }))
+  }, [segments])
+
+  useEffect(() => {
+    return () => {
+      if (captionsUrl) URL.revokeObjectURL(captionsUrl)
+    }
+  }, [captionsUrl])
+
   return (
     <aside
       ref={ref2}
@@ -74,7 +105,17 @@ export const DocumentaryVideoRail = forwardRef<
           preload="metadata"
           src={source ?? undefined}
           aria-label={sourceLabel}
-        />
+        >
+          {captionsUrl ? (
+            <track
+              kind="captions"
+              srcLang="es"
+              label="Español"
+              src={captionsUrl}
+              default
+            />
+          ) : null}
+        </video>
         {!source ? (
           <div className="video-placeholder" aria-hidden="true">
             <span>SENDA</span>
@@ -89,6 +130,7 @@ export const DocumentaryVideoRail = forwardRef<
       ) : null}
       <div
         className="documentary-fragments"
+        role="group"
         aria-label="Fragmentos de la transcripción"
       >
         {segments.map((segment) => (

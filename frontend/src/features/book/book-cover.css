@@ -1,0 +1,79 @@
+.book-cover-hinge {
+  position: absolute;
+  inset: 0 0 0 50%;
+  z-index: 40;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  /* Keep this ancestor unfiltered and unclipped: both flatten the 3D faces. */
+}
+
+.book-cover-hinge[data-single="true"] { left: 0; }
+.book-cover-hinge:not([data-phase="closed"]) { pointer-events: none; }
+
+.book-cover-shadow {
+  position: absolute;
+  inset: 0 0 0 50%;
+  z-index: 30;
+  pointer-events: none;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #181410, rgb(24 20 16 / 65%) 18%, transparent);
+}
+
+.book-cover-front,
+.book-cover-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 3px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.book-cover-front {
+  border: 1px solid rgb(24 20 16 / 35%);
+  background: var(--color-ink, #181410);
+  transform: translateZ(2px);
+  box-shadow: 4px 5px 0 #b3a58a, 6px 8px 0 #42372c, 0 18px 34px rgb(10 7 4 / 32%);
+  cursor: pointer;
+}
+
+.book-cover-front:disabled { cursor: default; }
+
+.book-cover-back {
+  background: var(--color-paper, #f8f4e6);
+  transform: rotateY(180deg) translateZ(1px);
+  box-shadow: -2px 3px 3px rgb(24 20 16 / 15%);
+}
+
+.book-cover-edge {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 3px;
+  height: 100%;
+  background: #43392e;
+  transform: rotateY(90deg);
+  transform-origin: center;
+}
+
+.book-cover-binding {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 18px;
+  z-index: 20;
+  background: linear-gradient(90deg, rgb(0 0 0 / 48%), rgb(255 255 255 / 9%) 24%, rgb(0 0 0 / 20%) 40%, transparent);
+}
+
+.book-cover-light {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: linear-gradient(100deg, rgb(0 0 0 / 65%), transparent 38%, rgb(255 255 255 / 30%));
+}
+
+.book-cover-endpaper {
+  height: 100%;
+  background: linear-gradient(90deg, #e3dac5, #f8f4e6 12%, #eee7d6 95%, #cfc3a9);
+}

@@ -1,89 +1,63 @@
+/* Un momento del recorrido de un testimonio por SENDA.
+ *
+ * La escena era un chat en el que Marta le escribía al sistema y el sistema le
+ * contestaba, le preparaba borradores y le guardaba documentos. Nada de eso
+ * existe: SENDA recibe un video ya grabado, lo ordena, una persona revisa lo
+ * que encontró y de ahí sale la ruta. La escena cuenta ese recorrido. */
 export type BookConversationTurn = {
-  who: "persona" | "sistema"
-  label: string
-  time: string
+  who: "testimonio" | "senda" | "revision" | "ruta"
   body: string
   accent?: "amarillo" | "azul" | "rojo"
-  note?: string
+}
+
+export const BOOK_TURN_LABELS: Record<BookConversationTurn["who"], string> = {
+  testimonio: "Testimonio",
+  senda: "SENDA",
+  revision: "Revisión humana",
+  ruta: "Ruta",
 }
 
 export const BOOK_SYSTEM_STEPS = [
   {
     n: "I",
     title: "Escuchar",
-    body: "La persona cuenta su historia en sus propias palabras —por voz, por texto, en español o en lengua propia. El sistema no la interrumpe.",
+    body: "La persona cuenta su historia en sus propias palabras, en un video. SENDA la recibe entera: no la corta en preguntas de formulario.",
   },
   {
     n: "II",
-    title: "Reconocer",
-    body: "El sistema identifica los derechos vulnerados y las rutas disponibles: declaración como víctima, restitución de tierras, ayuda humanitaria, atención psicosocial.",
+    title: "Ordenar",
+    body: "SENDA transcribe el relato y señala lo que importa: quiénes son, de dónde salieron, quién necesita protección especial. Nada queda confirmado hasta que una persona lo revisa.",
   },
   {
     n: "III",
-    title: "Traducir",
-    body: "Los trámites, plazos y formularios del Estado se explican en lenguaje claro. Sin jerga jurídica. Sin letra pequeña.",
+    title: "Orientar",
+    body: "Con lo confirmado arma tres rutas —ayuda inmediata, vivienda, retorno o reubicación— y cada paso cita una fuente oficial vigente. Sin jerga jurídica.",
   },
   {
     n: "IV",
-    title: "Acompañar",
-    body: "El sistema sostiene la conversación en el tiempo: recuerda fechas, guarda los documentos, escribe los borradores, conecta con defensoras y defensores humanos cuando hace falta.",
+    title: "Entregar",
+    body: "La ruta aprobada queda escrita en lenguaje claro, dirigida a quien contó su historia, y cada paso se puede escuchar en voz alta.",
   },
 ] as const
 
 export const BOOK_CONVERSATION_TRANSCRIPT: BookConversationTurn[] = [
   {
-    who: "persona",
-    label: "Marta, 47 años",
-    time: "09:12",
+    who: "testimonio",
     accent: "amarillo",
-    body: "Buenas. Nos tuvimos que salir de la finca hace dos semanas. No sé a quién acudir. Ya no tengo ni la cédula.",
-    note: "Mensaje de voz — 00:18",
+    body: "«Nos tuvimos que salir de la finca hace dos semanas. Vine con mis dos hijos y ya no tengo ni la cédula.»",
   },
   {
-    who: "sistema",
-    label: "El sistema",
-    time: "09:12",
-    body: "Marta, la escucho. Lo primero: usted tiene derecho a declararse víctima y a recibir ayuda humanitaria inmediata. Vamos por partes, sin afán. ¿Está en un lugar seguro ahora?",
+    who: "senda",
+    body: "Transcribe el video y anota lo que dice: salió de una finca, está en Popayán y llegó con dos hijos. Todo queda por confirmar.",
   },
   {
-    who: "persona",
-    label: "Marta, 47 años",
-    time: "09:14",
-    body: "Sí, estoy donde una prima en Popayán. Vine con mis dos hijos.",
-  },
-  {
-    who: "sistema",
-    label: "El sistema",
-    time: "09:14",
+    who: "revision",
     accent: "azul",
-    body: "Bien. En Popayán hay una oficina de la Unidad para las Víctimas a 15 minutos de donde está. Tiene 4 años para declarar, pero mientras antes, mejor. ¿Quiere que le prepare el borrador de la declaración?",
-    note: "Referencia: Ley 1448, Art. 155",
+    body: "Quien revisa vuelve al minuto 0:14, escucha la frase y confirma que en el hogar hay niñas, niños o adolescentes. Con eso se ajusta la ruta.",
   },
   {
-    who: "persona",
-    label: "Marta, 47 años",
-    time: "09:16",
-    body: "Sí, por favor. Pero no tengo papeles. Solo tengo una foto del recibo de la luz.",
-  },
-  {
-    who: "sistema",
-    label: "El sistema",
-    time: "09:16",
-    body: "Con eso empezamos. Mándeme la foto. La cédula se puede reponer gratis por ser víctima —yo le explico ese trámite después. Para la declaración, su palabra es la prueba principal.",
-  },
-  {
-    who: "persona",
-    label: "Marta, 47 años",
-    time: "09:18",
-    body: "[envía foto del recibo]",
-    note: "Archivo guardado — expediente #4421",
-  },
-  {
-    who: "sistema",
-    label: "El sistema",
-    time: "09:19",
+    who: "ruta",
     accent: "rojo",
-    body: "Listo, lo tengo. Mientras llega a la oficina, le paso el contacto de Dora, una defensora humana que trabaja con familias en su situación. ¿Prefiere que ella la llame, o la llama usted?",
-    note: "Derivación a acompañamiento humano",
+    body: "«Pida una cita en el punto de atención a víctimas de Popayán. Lleve lo que conserve, aunque sea poco.» Cada paso cita su fuente oficial y se puede escuchar en voz alta.",
   },
 ]

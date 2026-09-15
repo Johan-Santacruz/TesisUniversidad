@@ -215,6 +215,63 @@
     opacity: calc(var(--dust-peak) * 0.7);
   }
 }
+
+/* Al levantarse la cortina, un reflejo cálido recorre el libro una sola vez:
+   la luz de la lámpara cayendo sobre el papel recién puesto en la mesa. Es una
+   banda diagonal que framer-motion desplaza de lado a lado. */
+.book-arrival-light {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* La banda viaja dentro del recorte: si se moviera el propio contenedor, la
+   luz se saldría del libro y caería sobre la mesa. */
+.book-arrival-light::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    108deg,
+    transparent 34%,
+    rgb(255 244 214 / 55%) 47%,
+    rgb(255 250 236 / 78%) 50%,
+    rgb(255 244 214 / 55%) 53%,
+    transparent 66%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translateX(-135%);
+  /* Arranca cuando el libro ya casi se asentó y termina antes de que a nadie
+     le dé tiempo de preguntarse qué fue eso. */
+  animation: book-arrival-light 1.15s cubic-bezier(0.4, 0, 0.2, 1) 0.5s forwards;
+}
+
+@keyframes book-arrival-light {
+  0% {
+    opacity: 0;
+    transform: translateX(-135%);
+  }
+  25% {
+    opacity: 0.75;
+  }
+  75% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(135%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-arrival-light {
+    display: none;
+  }
+}
 .page-route-stage { min-height: 100vh; overflow-x: clip; }
 .visually-hidden {
   position: absolute;
@@ -927,6 +984,27 @@
     opacity: 0;
     transform: translateX(340%);
   }
+}
+
+/* La hoja de acceso se guarda: con la sesión abierta, el formulario se aleja
+   y se apaga y el mosaico se retira un paso. La ruta cambia justo después. */
+.login-page.is-departing .login-panel,
+.login-page.is-departing .login-collage {
+  animation: none;
+  transition:
+    opacity 300ms cubic-bezier(0.4, 0, 1, 1),
+    transform 320ms cubic-bezier(0.4, 0, 1, 1);
+  pointer-events: none;
+}
+
+.login-page.is-departing .login-panel {
+  opacity: 0;
+  transform: translateY(-0.6rem) scale(0.985);
+}
+
+.login-page.is-departing .login-collage {
+  opacity: 0;
+  transform: scale(0.99);
 }
 
 @keyframes login-panel-in {
@@ -1829,6 +1907,28 @@
   white-space: nowrap;
 }
 .recommendation-label.is-final { border-color: var(--green); color: var(--green); }
+.recommendation-label.is-rebuilt { border-color: var(--azul); color: var(--azul); }
+
+/* La ruta se está reconstruyendo: el aviso deja de ser una alarma y el punto
+   late mientras espera. */
+.routes-gate.is-working {
+  border-color: color-mix(in oklch, var(--azul) 32%, var(--rule));
+  background: color-mix(in oklch, var(--azul) 4%, transparent);
+}
+
+.routes-gate.is-working .routes-gate-mark {
+  background: var(--azul);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--azul) 14%, transparent);
+  animation: routes-gate-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes routes-gate-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .routes-gate.is-working .routes-gate-mark { animation: none; }
+}
 .routes-disclaimer {
   max-width: 60rem;
   margin: 1rem 0 1.5rem;
@@ -3394,8 +3494,73 @@
   50% { box-shadow: 0 0 0 4px color-mix(in oklch, var(--azul) 0%, transparent); }
 }
 
+/* Una etapa que termina se asienta: el punto se llena y suelta un anillo,
+   una sola vez. Antes sólo cambiaba de color, y el momento en que el análisis
+   ganaba terreno pasaba sin que nadie lo viera. */
+.processing-chapters ul li.is-settled .processing-dot {
+  animation: processing-settle 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes processing-settle {
+  0% {
+    transform: scale(0.6);
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--green) 55%, transparent);
+  }
+  45% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 9px color-mix(in oklch, var(--green) 0%, transparent);
+  }
+}
+
+/* El capítulo entero cerrado: el número da un pequeño salto al cumplirse. */
+.processing-chapters > li.is-done .processing-chapter-number {
+  animation: processing-chapter-done 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes processing-chapter-done {
+  0% { transform: scale(0.85); }
+  50% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* "Procesando transcripción…": los puntos avanzan mientras se trabaja. Es un
+   pseudoelemento para que el lector de pantalla no repita la frase con cada
+   punto. */
+.processing-message.is-working {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.processing-message.is-working::after {
+  display: inline-block;
+  width: 1.2em;
+  overflow: hidden;
+  text-align: left;
+  vertical-align: bottom;
+  content: "…";
+  animation: processing-ellipsis 1.4s steps(4, end) infinite;
+}
+
+@keyframes processing-ellipsis {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 -0.2em 0 0); }
+}
+
+/* En la hoja de resultados, la pestaña de una etapa que acaba de tener
+   resultado avisa con un pequeño salto del marcador. */
+.live-results-header nav button.is-ready .narrative-stage-marker {
+  animation: processing-chapter-done 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .processing-chapters ul li.is-current .processing-dot {
+  .processing-chapters ul li.is-current .processing-dot,
+  .processing-chapters ul li.is-settled .processing-dot,
+  .processing-chapters > li.is-done .processing-chapter-number,
+  .processing-message.is-working::after,
+  .live-results-header nav button.is-ready .narrative-stage-marker {
     animation: none;
   }
 }
@@ -5778,6 +5943,20 @@
   padding: 2rem;
   background: oklch(0.19 0.02 62);
   text-align: center;
+  /* El foco de la lámpara: un hueco redondo, de borde suave, que crece desde
+     el centro del libro. --iris lo anima framer-motion al retirar la cortina;
+     en 0% la máscara es opaca y la cortina se ve entera. */
+  --iris: 0%;
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 52%,
+    transparent calc(var(--iris) - 16%),
+    #000 var(--iris)
+  );
+  mask-image: radial-gradient(
+    circle at 50% 52%,
+    transparent calc(var(--iris) - 16%),
+    #000 var(--iris)
+  );
 }
 
 .opening-curtain-eyebrow {
@@ -5898,6 +6077,19 @@
 
 @media (prefers-reduced-motion: reduce) {
   .memory-image-dock { transition: none; }
+}
+
+/* En teléfono la miniatura queda como una estampa pequeña: a su ancho normal
+   tapaba media cita del testimonio. */
+@media (max-width: 600px) {
+  .memory-image-dock {
+    width: 76px;
+    padding: 0.25rem;
+    gap: 0;
+  }
+  .memory-image-dock span {
+    display: none;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -6261,6 +6453,46 @@
   max-width: 34rem;
   margin-top: 0.25rem;
   line-height: 1.55;
+}
+
+/* Un video ajeno detiene el análisis: el aviso ocupa el lugar de los
+   resultados y deja a mano la salida, en vez de una espera que no termina. */
+.analysis-out-of-domain {
+  display: grid;
+  max-width: 38rem;
+  justify-items: start;
+  gap: 0.75rem;
+  padding-block: 2rem;
+  border-block: 1px solid var(--rule);
+}
+
+.analysis-out-of-domain h2,
+.analysis-out-of-domain p,
+.analysis-out-of-domain blockquote {
+  margin: 0;
+}
+
+.analysis-out-of-domain h2 {
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1.25rem;
+}
+
+.analysis-out-of-domain p {
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.analysis-out-of-domain blockquote {
+  padding-left: 0.85rem;
+  border-left: 3px solid var(--amarillo);
+  color: var(--ink);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.analysis-out-of-domain-hint {
+  font-size: 0.85rem;
 }
 
 .live-result-pulse {

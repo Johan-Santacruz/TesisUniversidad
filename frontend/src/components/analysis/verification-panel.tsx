@@ -2,10 +2,6 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import type { components } from "../../api/generated"
-import {
-  narrativeChildTransition,
-  narrativeStageStagger,
-} from "./motion"
 import { StatusBadge } from "./status-badge"
 import {
   VULNERABILITIES_KEY,
@@ -149,6 +145,9 @@ function FactCard({
     try {
       await onReview(fact.id, { action, ...payload })
       setReviewMode(null)
+      // En la revisión guiada, confirmar ya es decir "siguiente": pedir un
+      // segundo clic para avanzar sólo alargaba el recorrido.
+      if (selected) onNext?.()
     } catch (caught) {
       setReviewError(
         caught instanceof Error && caught.message
@@ -175,6 +174,7 @@ function FactCard({
         reason: "",
       })
       setReviewMode(null)
+      if (selected) onNext?.()
     } catch (caught) {
       setReviewError(
         caught instanceof Error && caught.message
@@ -190,6 +190,7 @@ function FactCard({
   return (
     <article
       data-fact-id={fact.id}
+      data-status={fact.verification_status}
       className={[
         "fact-card",
         selected ? "is-selected" : "",
@@ -199,6 +200,14 @@ function FactCard({
           : "",
         fact.verification_status === "confirmed" ? "is-confirmed" : "",
       ].filter(Boolean).join(" ")}
+      // La fila entera abre la señal, no sólo su nombre: en un libro mayor se
+      // señala el renglón. El botón del nombre sigue siendo el control para
+      // teclado y lector de pantalla; lo demás sólo lo acompaña.
+      onClick={(event) => {
+        const target = event.target as HTMLElement
+        if (target.closest("button, a, input, label, select, textarea, details, form")) return
+        onSelect()
+      }}
     >
       {/* La cabecera es el conmutador de la señal: seleccionarla ilumina su
           evidencia aquí, en la línea de tiempo y en el relato. */}
@@ -235,7 +244,10 @@ function FactCard({
             <span key={milliseconds}>
               {index ? <span aria-hidden="true"> · </span> : null}
               <button type="button" onClick={() => onSeek(milliseconds)}>
-                <span className="visually-hidden">Ver en el video, minuto </span>
+                {/* El espacio va fuera del span oculto: dentro se pierde al
+                    calcular el nombre y el lector decía "minuto0:18". */}
+                <span className="visually-hidden">Ver en el video, minuto</span>
+                {" "}
                 {stamp(milliseconds)}
               </button>
             </span>
@@ -248,7 +260,9 @@ function FactCard({
           ? "Confirmada"
           : fact.verification_status === "pending"
             ? "Por confirmar"
-            : "Requiere revisión"}
+            : fact.verification_status === "not_identified"
+              ? "Sin dato"
+              : "Requiere revisión"}
         {fact.is_critical && fact.verification_status !== "confirmed" ? (
           <span className="fact-priority-label">Prioritaria</span>
         ) : null}
@@ -290,7 +304,7 @@ function FactCard({
               ))
             ) : (
               <p className="fact-quote-empty">
-                Esta señal no quedó anclada a un fragmento del testimonio.
+                Sin fragmento en el testimonio. Revisa el dato con la persona antes de confirmarlo.
               </p>
             )}
           </motion.div>
@@ -502,19 +516,25 @@ export function VerificationPanel({
 }) {
   const panelMotion = useReducedMotion() ?? false
   const [filter, setFilter] = useState<SignalFilter>("all")
+  const [localSelectedId, setLocalSelectedId] = useState<string | null>(null)
+  const activeFactId = onSelectFact ? selectedFactId : localSelectedId
+  const select = (fact: Fact | null) => {
+    if (onSelectFact) onSelectFact(fact)
+    else setLocalSelectedId(fact?.id ?? null)
+  }
   const panelRef = useRef<HTMLElement>(null)
   const [navigationTarget, setNavigationTarget] = useState<{ factId: string } | null>(null)
 
   // Sólo la navegación guiada mueve el foco; el video no interrumpe la lectura.
   useEffect(() => {
-    if (!navigationTarget || navigationTarget.factId !== selectedFactId) return
+    if (!navigationTarget || navigationTarget.factId !== activeFactId) return
     const card = Array.from(panelRef.current?.querySelectorAll<HTMLElement>("[data-fact-id]") ?? [])
       .find((element) => element.dataset.factId === navigationTarget.factId)
     if (!card) return
     card.querySelector<HTMLButtonElement>(".fact-card-heading")?.focus({ preventScroll: true })
     card.scrollIntoView?.({ block: "nearest", behavior: panelMotion ? "instant" : "smooth" })
     setNavigationTarget(null)
-  }, [navigationTarget, selectedFactId, filter, panelMotion])
+  }, [navigationTarget, activeFactId, filter, panelMotion])
 
   // La revisión baja por las tarjetas en el orden en que se leen: por
   // fragmento del testimonio, las críticas primero dentro de cada uno, y al pie
@@ -540,7 +560,7 @@ export function VerificationPanel({
   const pendingFacts = readingOrder.filter(
     (fact) => fact.verification_status !== "confirmed",
   )
-  const selectedPosition = readingOrder.findIndex((fact) => fact.id === selectedFactId)
+  const selectedPosition = readingOrder.findIndex((fact) => fact.id === activeFactId)
   const nextPending =
     pendingFacts.find((fact) => readingOrder.indexOf(fact) > selectedPosition)
     ?? pendingFacts[0]
@@ -549,9 +569,9 @@ export function VerificationPanel({
     // La siguiente puede quedar fuera del filtro que se estaba consultando.
     setFilter("all")
     setNavigationTarget({ factId: fact.id })
-    onSelectFact?.(fact)
+    select(fact)
   }
-  const reviewNext = onSelectFact && nextPending && nextPending.id !== selectedFactId
+  const reviewNext = nextPending && nextPending.id !== activeFactId
     ? () => navigateTo(nextPending)
     : undefined
 
@@ -573,35 +593,7 @@ export function VerificationPanel({
       .map((fact) => fact.id),
   )
 
-  const orderedFacts = [...facts]
-    .filter((fact) => matchesFilter(fact, filter))
-    .sort((left, right) => {
-      if (left.is_critical === right.is_critical) return 0
-      return left.is_critical ? -1 : 1
-    })
-
-  // Una señal puede apoyarse en varios pasajes. La nota se escribe una sola
-  // vez, en el primero, y los demás quedan como retornos a esa nota: repetir
-  // la tarjeta entera mostraba tres veces los mismos botones para la misma
-  // señal, y confirmar en una las confirmaba todas.
-  const segmentOrder = new Map(
-    segments.map((segment, index) => [segment.id, index] as const),
-  )
-  const mentionsOf = new Map<string, string[]>()
-  for (const fact of orderedFacts) {
-    const anchored = [
-      ...new Set(
-        (fact.evidence ?? [])
-          .map((evidence) => evidence.segment_id)
-          .filter((segmentId) => segmentOrder.has(segmentId)),
-      ),
-    ].sort(
-      (left, right) =>
-        (segmentOrder.get(left) ?? 0) - (segmentOrder.get(right) ?? 0),
-    )
-    if (anchored.length) mentionsOf.set(fact.id, anchored)
-  }
-  const anchorOf = (fact: Fact) => mentionsOf.get(fact.id)?.[0]
+  const orderedFacts = readingOrder.filter((fact) => matchesFilter(fact, filter))
 
   const counts = {
     all: facts.length,
@@ -629,8 +621,8 @@ export function VerificationPanel({
             ) : counts.pending === 0 ? (
               <>
                 <span className="verification-done" aria-hidden="true">✓</span>{" "}
-                <strong>Todas las señales están confirmadas.</strong> La ruta ya
-                puede aprobarse.
+                <strong>Todas las señales están confirmadas.</strong> Puedes
+                continuar a la ruta.
               </>
             ) : (
               <>
@@ -661,10 +653,10 @@ export function VerificationPanel({
             </div>
           </div>
         ) : null}
-        {onSelectFact && nextPending ? (
+        {nextPending ? (
           <div className="signal-review-navigation">
             <button type="button" className="signal-review-start" onClick={() => navigateTo(nextPending)}>
-              {selectedFactId ? "Continuar revisión" : "Empezar revisión"}
+              {activeFactId ? "Continuar revisión" : "Empezar revisión"}
               <span aria-hidden="true">→</span>
             </button>
             {firstBlocking ? (
@@ -700,182 +692,32 @@ export function VerificationPanel({
           {filter === "critical" ? "No hay señales críticas en este caso." : "No quedan señales por confirmar."}
         </p>
       ) : null}
-      {/* Edición anotada: el testimonio corrido y, al margen, la señal que
-          nació de cada fragmento. La relación deja de pedir un clic porque se
-          ve. El anclaje sale de EvidenceRef; nada se deduce. */}
-      {segments.length ? (
-        <div className="marginalia">
-          {segments
-            .map((segment) => ({
-              segment,
-              notas: orderedFacts.filter(
-                (fact) => anchorOf(fact) === segment.id,
-              ),
-              ecos: orderedFacts.filter(
-                (fact) =>
-                  anchorOf(fact) !== segment.id
-                  && (mentionsOf.get(fact.id) ?? []).includes(segment.id),
-              ),
-            }))
-            // La línea de tiempo completa vive en el riel del video. Aquí sólo
-            // los pasajes que produjeron algo: eso distingue "todo el
-            // testimonio" de "lo que encontró el análisis".
-            .filter(({ notas, ecos }) => notas.length || ecos.length)
-            .map(({ segment, notas, ecos }) => {
-            const tocada = [...notas, ...ecos].some(
-              (fact) => fact.id === selectedFactId,
-            )
-            return (
-              <article
-                key={segment.id}
-                className={[
-                  "marginalia-row",
-                  tocada ? "is-anotada" : "",
-                  notas.length ? "" : "is-eco",
-                ].filter(Boolean).join(" ")}
-              >
-                <p className="marginalia-text">
-                  <button
-                    type="button"
-                    className="marginalia-jump"
-                    onClick={() => onSeek?.(segment.start_ms)}
-                  >
-                    <span className="visually-hidden">Ver en el video, minuto </span>
-                    {stamp(segment.start_ms)}
-                  </button>
-                  {segment.text}
-                </p>
-                <div className="marginalia-notes">
-                  {notas.map((fact) => (
-                    <FactCard
-                      key={fact.id}
-                      fact={fact}
-                      role={role}
-                      selected={fact.id === selectedFactId}
-                      contextual={contextualFacts.has(fact.id)}
-                      evidenceQuotes={[]}
-                      repeats={(mentionsOf.get(fact.id) ?? [])
-                        .slice(1)
-                        .map((id) => segmentById.get(id)?.start_ms)
-                        .filter((ms): ms is number => ms !== undefined)}
-                      onSelect={() =>
-                        onSelectFact?.(fact.id === selectedFactId ? null : fact)}
-                      onSeek={(milliseconds) => onSeek?.(milliseconds)}
-                      onReview={onReview}
-                      onNext={reviewNext}
-                    />
-                  ))}
-                  {/* El pasaje se repite; la nota no. Queda la referencia a
-                      dónde se anotó, que además ilumina todas sus apariciones. */}
-                  {ecos.map((fact) => (
-                    <button
-                      key={fact.id}
-                      type="button"
-                      className={
-                        fact.id === selectedFactId
-                          ? "marginalia-echo is-selected"
-                          : "marginalia-echo"
-                      }
-                      onClick={() =>
-                        onSelectFact?.(fact.id === selectedFactId ? null : fact)}
-                    >
-                      <span className="marginalia-echo-label">{fact.label}</span>
-                      <span className="marginalia-echo-back">
-                        ya anotado en{" "}
-                        {stamp(
-                          segmentById.get(mentionsOf.get(fact.id)?.[0] ?? "")
-                            ?.start_ms ?? segment.start_ms,
-                        )}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </article>
-            )
-          })}
-
-          {/* Señales que el análisis no ancló a ningún fragmento conocido: no
-              tienen margen donde vivir, así que se recogen al pie. */}
-          {orderedFacts.some((fact) => !mentionsOf.has(fact.id)) ? (
-            <article className="marginalia-row is-suelta">
-              <p className="marginalia-text marginalia-orphan">
-                Sin fragmento en el testimonio
-              </p>
-              <div className="marginalia-notes">
-                {orderedFacts
-                  .filter((fact) => !mentionsOf.has(fact.id))
-                  .map((fact) => (
-                    <FactCard
-                      key={fact.id}
-                      fact={fact}
-                      role={role}
-                      selected={fact.id === selectedFactId}
-                      contextual={false}
-                      evidenceQuotes={[]}
-                      onSelect={() =>
-                        onSelectFact?.(fact.id === selectedFactId ? null : fact)}
-                      onSeek={() => undefined}
-                      onReview={onReview}
-                      onNext={reviewNext}
-                    />
-                  ))}
-              </div>
-            </article>
-          ) : null}
-        </div>
-      ) : null}
-
-      {segments.length ? null : (
-      <motion.div
-        className="evidence-grid"
-        initial={panelMotion ? false : "hidden"}
-        animate="visible"
-        variants={{
-          hidden: {},
-          visible: {
-            transition: {
-              staggerChildren: narrativeStageStagger(
-                orderedFacts.length,
-                panelMotion,
-                "set",
-              ),
-            },
-          },
-        }}
-      >
-        {orderedFacts.map((fact) => (
-          <motion.div
-            key={fact.id}
-            variants={{
-              hidden: { opacity: 0, y: 8 },
-              visible: {
-                opacity: 1,
-                y: 0,
-                transition: narrativeChildTransition(panelMotion, "set"),
-              },
-            }}
-          >
+      <div className="signal-list">
+        {orderedFacts.map((fact) => {
+          const evidence = [...(fact.evidence ?? [])].sort((a, b) => a.start_ms - b.start_ms)
+          const first = evidence[0]
+          const segment = first ? segmentById.get(first.segment_id) : undefined
+          return (
             <FactCard
+              key={fact.id}
               fact={fact}
               role={role}
-              selected={fact.id === selectedFactId}
+              selected={fact.id === activeFactId}
               contextual={contextualFacts.has(fact.id)}
-              evidenceQuotes={(fact.evidence ?? []).map((evidence) => ({
-                text: segmentById.get(evidence.segment_id)?.text
-                  ?? "Fragmento no disponible en este caso.",
-                startMs: evidence.start_ms,
-                endMs: evidence.end_ms,
-              }))}
-              onSelect={() =>
-                onSelectFact?.(fact.id === selectedFactId ? null : fact)}
+              evidenceQuotes={first && segment ? [{
+                text: segment.text,
+                startMs: first.start_ms,
+                endMs: first.end_ms,
+              }] : []}
+              repeats={[...new Set(evidence.slice(1).map((item) => item.start_ms))]}
+              onSelect={() => select(fact.id === activeFactId ? null : fact)}
               onSeek={(milliseconds) => onSeek?.(milliseconds)}
               onReview={onReview}
               onNext={reviewNext}
             />
-          </motion.div>
-        ))}
-      </motion.div>
-      )}
+          )
+        })}
+      </div>
     </section>
   )
 }

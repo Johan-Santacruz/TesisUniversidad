@@ -259,6 +259,10 @@ class CaseRead(BaseModel):
     sources: list[SourceRead]
     routes: list[RouteRead]
     critical_inconsistencies: int
+    # initial: rutas del análisis. rebuilding: se recalculan con las señales
+    # confirmadas. rebuilt: ya recalculadas. rebuild_failed: se conservan las
+    # iniciales y se puede reintentar.
+    routes_status: str = "initial"
     memory_image: MemoryImageRead | None = None
 
 

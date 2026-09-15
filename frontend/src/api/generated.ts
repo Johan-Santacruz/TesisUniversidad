@@ -260,6 +260,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/routes/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rebuild Routes */
+        post: operations["rebuild_routes_api_v1_cases__case_id__routes_rebuild_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/routes/{route_id}/steps/{step_index}/narration": {
         parameters: {
             query?: never;
@@ -571,6 +588,11 @@ export interface components {
             recommendation_status: string;
             /** Routes */
             routes: components["schemas"]["RouteRead"][];
+            /**
+             * Routes Status
+             * @default initial
+             */
+            routes_status: string;
             /** Segments */
             segments: components["schemas"]["TranscriptSegment"][];
             /** Sources */
@@ -1478,6 +1500,37 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rebuild_routes_api_v1_cases__case_id__routes_rebuild_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseRead"];
                 };
             };
             /** @description Validation Error */

@@ -138,6 +138,72 @@ describe("AnalysisProgress", () => {
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
+  // Una canción terminaba con la pantalla en "Trazando las rutas" para siempre:
+  // el análisis quitaba las rutas y nada decía por qué.
+  it("avisa que el video no es un testimonio y ofrece analizar otro", () => {
+    const onRestart = vi.fn()
+    render(
+      <AnalysisProgress
+        error=""
+        onRestart={onRestart}
+        events={[
+          { id: 1, stage: "audio", state: "completed", payload: {} },
+          { id: 2, stage: "transcription", state: "completed", payload: {} },
+          { id: 3, stage: "people_places", state: "not_applicable", payload: {} },
+          {
+            id: 8,
+            stage: "routes",
+            state: "not_applicable",
+            payload: {
+              routes: [],
+              case_id: null,
+              admissibility: {
+                verdict: "out_of_domain",
+                reason: "El cribado no reconoció material del conflicto armado.",
+                screening_reason: "Es la letra de una canción de amor.",
+              },
+            },
+          },
+        ]}
+      />,
+    )
+
+    const alert = screen.getByRole("alert")
+    expect(within(alert).getByText("Este video no parece un testimonio")).toBeVisible()
+    expect(within(alert).getByText("Es la letra de una canción de amor.")).toBeVisible()
+    const routes = screen.getByText("Rutas").closest("li") as HTMLElement
+    expect(within(routes).getByText("No aplica")).toBeVisible()
+    expect(screen.queryByText("Trazando las rutas")).not.toBeInTheDocument()
+    expect(screen.queryByText(/sin resultado/)).not.toBeInTheDocument()
+
+    fireEvent.click(within(alert).getByRole("button", { name: "Analizar otro video" }))
+    expect(onRestart).toHaveBeenCalledTimes(1)
+  })
+
+  it("ofrece analizar otro video cuando el análisis cierra sin caso", () => {
+    const onRestart = vi.fn()
+    render(
+      <AnalysisProgress
+        error=""
+        onRestart={onRestart}
+        events={[
+          { id: 1, stage: "audio", state: "completed", payload: {} },
+          { id: 2, stage: "transcription", state: "failed", payload: {} },
+          {
+            id: 3,
+            stage: "routes",
+            state: "unavailable",
+            payload: { reason: "transcription_unavailable" },
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText("El análisis terminó sin caso")).toBeVisible()
+    fireEvent.click(screen.getByRole("button", { name: "Analizar otro video" }))
+    expect(onRestart).toHaveBeenCalledTimes(1)
+  })
+
   it("no ofrece reintentar mientras el análisis avanza", () => {
     render(<AnalysisProgress error="" events={[]} onRetry={vi.fn()} />)
 

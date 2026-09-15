@@ -169,3 +169,309 @@
 @media (prefers-reduced-motion: reduce) {
   .analysis-app .signal-review-progress [role="progressbar"] > span { transition: none; }
 }
+
+/* Libro mayor de señales.
+ *
+ * Un solo bloque con las señales como renglones alineados en columnas —marca
+ * de estado, nombre, dato, estado— en vez de tarjetas sueltas a todo lo ancho
+ * con dos líneas perdidas dentro. La fila que se abre muestra debajo la cita
+ * del testimonio y las acciones, con la sangría del dato. */
+.analysis-app .verification-panel .signal-list {
+  display: grid;
+  margin: 0 0 1rem;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--paper-white) 45%, transparent);
+}
+.analysis-app .signal-list .fact-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.6rem minmax(11rem, 15rem) minmax(0, 1fr) auto 1.4rem;
+  grid-template-rows: auto repeat(8, auto);
+  column-gap: 1rem;
+  row-gap: 0;
+  align-items: start;
+  height: auto;
+  margin: 0;
+  padding: 0.85rem 1rem 0.85rem 1.1rem;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  scroll-margin-block: 1rem;
+  transition: background 160ms ease;
+}
+.analysis-app .signal-list .fact-card:first-child { border-top: 0; }
+.analysis-app .signal-list .fact-card:hover { background: color-mix(in oklch, var(--paper-white) 80%, transparent); }
+.analysis-app .signal-list .fact-card.is-blocking { background: color-mix(in oklch, var(--rojo) 3%, transparent); }
+.analysis-app .signal-list .fact-card.is-selected {
+  background: var(--paper-white);
+  box-shadow: inset 3px 0 0 var(--azul);
+  cursor: default;
+}
+
+/* La marca de estado: un punto lleno para lo confirmado, vacío para lo que
+   espera, con el signo para lo que bloquea. Es la primera columna, así que la
+   lista se lee de un vistazo por su margen. */
+.analysis-app .signal-list .fact-card::before {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1.5px solid color-mix(in oklch, var(--ink) 38%, transparent);
+  border-radius: 50%;
+  content: "";
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.analysis-app .signal-list .fact-card[data-status="confirmed"]::before {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--paper-white);
+  content: "✓";
+}
+.analysis-app .signal-list .fact-card[data-status="not_identified"]::before {
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--ink) 28%, transparent);
+}
+.analysis-app .signal-list .fact-card.is-blocking::before {
+  border-color: var(--rojo);
+  background: var(--rojo);
+  color: var(--paper-white);
+  content: "!";
+}
+
+/* El chevrón cierra el renglón a la derecha, no el nombre. */
+.analysis-app .signal-list .fact-card::after {
+  grid-column: 5;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+  width: 0.85rem;
+  height: 0.85rem;
+  content: "";
+  background: currentColor;
+  color: var(--ink-faded);
+  /* Un chevrón dibujado con máscara: no depende de un transform que otra
+     regla del .fact-card pueda pisar. */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  rotate: 0deg;
+  transition: rotate 200ms ease, color 160ms ease;
+}
+.analysis-app .signal-list .fact-card.is-selected::after {
+  color: var(--azul);
+  rotate: 180deg;
+}
+/* La chip "Prioritaria" ya dice que bloquea: repetirlo debajo era ruido. */
+.analysis-app .signal-list .fact-card-blocking { display: none; }
+.analysis-app .signal-list .fact-card-heading .fact-card-open { display: none; }
+
+.analysis-app .signal-list .fact-card-heading {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0.15rem 0 0;
+  align-items: start;
+  text-align: left;
+  border-radius: 4px;
+}
+.analysis-app .signal-list .fact-card-heading:focus-visible { outline: 2px solid var(--azul); outline-offset: 3px; }
+.analysis-app .signal-list .fact-card-heading h4 {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+.analysis-app .signal-list .fact-value {
+  grid-column: 3;
+  grid-row: 1;
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.analysis-app .signal-list .fact-card:not(.is-selected)[data-status="not_identified"] .fact-value,
+.analysis-app .signal-list .fact-card:not(.is-selected)[data-status="inconsistent"] .fact-value {
+  color: var(--ink-soft);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Estado como chip: texto corto, sin icono (la marca ya lo dice). */
+.analysis-app .verification-panel .signal-list .fact-review-status {
+  grid-column: 4;
+  grid-row: 1;
+  align-self: center;
+  margin: 0;
+  gap: 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.analysis-app .verification-panel .signal-list .fact-review-status > span[aria-hidden] { display: none; }
+.analysis-app .verification-panel .signal-list .review-pending { color: var(--ink-soft); }
+.analysis-app .verification-panel .signal-list .review-not_identified { color: var(--ink-faded); }
+.analysis-app .verification-panel .signal-list .fact-priority-label {
+  margin: 0;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid color-mix(in oklch, var(--rojo) 40%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--rojo) 7%, var(--paper-white));
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Lo que se despliega va sangrado bajo el dato. */
+.analysis-app .signal-list .fact-repeats { grid-column: 3 / 5; grid-row: 2; margin: 0.3rem 0 0; padding: 0; font-size: 0.68rem; }
+.analysis-app .signal-list .fact-card-state { grid-column: 3 / 5; grid-row: 3; margin: 0.6rem 0 0; padding: 0; }
+.analysis-app .signal-list .fact-card-state .status-badge { margin: 0; }
+.analysis-app .signal-list .fact-evidence { grid-column: 3 / 5; grid-row: 4; margin: 0; padding: 0; }
+.analysis-app .signal-list .fact-quote {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.8rem 0 0;
+  padding: 0.75rem 0.95rem;
+  border: 0;
+  border-left: 2px solid var(--amarillo);
+  border-radius: 0 8px 8px 0;
+  background: var(--paper);
+}
+.analysis-app .signal-list .fact-quote blockquote {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--font-serif);
+  font-size: 0.92rem;
+  font-style: italic;
+  line-height: 1.55;
+}
+.analysis-app .signal-list .fact-quote-jump { margin: 0; min-height: 40px; font-size: 0.65rem; }
+.analysis-app .signal-list .fact-quote-empty { margin: 0.75rem 0 0; font-size: 0.74rem; color: var(--ink-faded); }
+.analysis-app .signal-list .fact-review-actions {
+  grid-column: 3 / 5;
+  grid-row: 5;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: start;
+  gap: 0.5rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+}
+.analysis-app .signal-list .fact-review-actions button { min-height: 42px; font-size: 0.73rem; }
+.analysis-app .signal-list .fact-review-reveal { grid-column: 3 / 5; grid-row: 6; margin: 0.7rem 0 0; padding: 0; }
+.analysis-app .signal-list .provider-readings { grid-column: 3 / 5; grid-row: 7; margin-top: 0.65rem; padding: 0; font-size: 0.65rem; }
+.analysis-app .signal-list .fact-review-next { grid-column: 3 / 5; grid-row: 8; }
+.analysis-app .signal-list .fact-card:not(.is-selected) .fact-review-actions,
+.analysis-app .signal-list .fact-card:not(.is-selected) .fact-review-reveal,
+.analysis-app .signal-list .fact-card:not(.is-selected) .provider-readings { display: none; }
+.analysis-app .signal-list .fact-review-form { margin: 0; padding-top: 0.65rem; }
+.analysis-app .signal-list .fact-review-help { margin: 0 0 0.7rem; font-size: 0.76rem; }
+.analysis-app .signal-list .fact-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
+.analysis-app .signal-list .fact-options legend { margin-bottom: 0.6rem; font-size: 0.76rem; }
+.analysis-app .signal-list .fact-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font-size: 0.73rem;
+  font-weight: 400;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.analysis-app .signal-list .fact-options label:has(input:checked) { border-color: var(--azul); background: color-mix(in oklch, var(--azul) 5%, var(--paper-white)); }
+.analysis-app .signal-list .fact-options input { flex: 0 0 auto; width: 17px; height: 17px; margin: 0; accent-color: var(--azul); }
+.analysis-app .signal-list .fact-review-submit { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.75rem; }
+.analysis-app .signal-list .fact-review-submit button { min-height: 44px; padding: 0.6rem 0.9rem; }
+.analysis-app .verification-panel .signal-review-summary { padding: 0.9rem 1rem; }
+.analysis-app .signal-review-summary .eyebrow { display: none; }
+.analysis-app .signal-review-summary .verification-worklist { margin-top: 0.35rem; }
+.analysis-app .signal-review-progress { margin-top: 0.6rem; }
+.analysis-app .signal-review-navigation { margin-top: 0.6rem; }
+.analysis-app .verification-panel .verification-policy { margin: 0.65rem 0; }
+.analysis-app .verification-panel .signal-filters { margin-bottom: 0.6rem; }
+
+/* La miniatura del cierre de memoria flota fija abajo a la derecha, justo
+   sobre la columna de estado. Cuando existe, las filas le dejan su ancho. */
+@media (min-width: 901px) {
+  .analysis-workspace:has(.memory-image-dock) .signal-list .fact-card {
+    padding-right: calc(clamp(132px, 13vw, 172px) + 0.25rem);
+  }
+}
+
+/* En pantallas medias el nombre pasa encima del dato; el estado se queda a la
+   derecha. */
+@media (max-width: 900px) {
+  .analysis-app .signal-list .fact-card {
+    grid-template-columns: 1.6rem minmax(0, 1fr) auto 1.4rem;
+    grid-template-rows: auto auto repeat(8, auto);
+  }
+  .analysis-app .signal-list .fact-card::after { grid-column: 4; }
+  .analysis-app .signal-list .fact-card-heading { grid-column: 2; grid-row: 1; }
+  .analysis-app .signal-list .fact-value { grid-column: 2; grid-row: 2; margin-top: 0.15rem; }
+  .analysis-app .verification-panel .signal-list .fact-review-status { grid-column: 3; grid-row: 1; align-self: start; padding-top: 0.15rem; }
+  .analysis-app .signal-list .fact-repeats { grid-column: 2 / 4; grid-row: 3; }
+  .analysis-app .signal-list .fact-card-state { grid-column: 2 / 4; grid-row: 4; }
+  .analysis-app .signal-list .fact-evidence { grid-column: 2 / 4; grid-row: 5; }
+  .analysis-app .signal-list .fact-review-actions { grid-column: 2 / 4; grid-row: 6; }
+  .analysis-app .signal-list .fact-review-reveal { grid-column: 2 / 4; grid-row: 7; }
+  .analysis-app .signal-list .provider-readings { grid-column: 2 / 4; grid-row: 8; }
+  .analysis-app .signal-list .fact-review-next { grid-column: 2 / 4; grid-row: 9; }
+}
+/* En teléfono todo va en una sola columna junto a la marca: nombre, estado y
+   dato uno bajo otro. Con el estado a la derecha no quedaba ancho para el dato
+   y se partía letra por letra. */
+@media (max-width: 600px) {
+  .analysis-app .signal-list .fact-card {
+    grid-template-columns: 1.4rem minmax(0, 1fr) 1.2rem;
+    grid-template-rows: repeat(10, auto);
+    column-gap: 0.7rem;
+    padding: 0.75rem 0.8rem 0.75rem 0.85rem;
+  }
+  .analysis-app .signal-list .fact-card::before { grid-column: 1; grid-row: 1; align-self: start; margin-top: 0.1rem; }
+  .analysis-app .signal-list .fact-card::after { grid-column: 3; grid-row: 1; align-self: start; margin-top: 0.15rem; }
+  .analysis-app .signal-list .fact-card-heading { grid-column: 2; grid-row: 1; }
+  .analysis-app .verification-panel .signal-list .fact-review-status {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    margin-top: 0.25rem;
+    padding-top: 0;
+    white-space: normal;
+  }
+  .analysis-app .signal-list .fact-value { grid-column: 2 / 4; grid-row: 3; margin-top: 0.3rem; }
+  .analysis-app .signal-list .fact-repeats { grid-column: 2 / 4; grid-row: 4; }
+  .analysis-app .signal-list .fact-card-state { grid-column: 2 / 4; grid-row: 5; }
+  .analysis-app .signal-list .fact-evidence { grid-column: 2 / 4; grid-row: 6; }
+  .analysis-app .signal-list .fact-review-actions { grid-column: 2 / 4; grid-row: 7; }
+  .analysis-app .signal-list .fact-review-reveal { grid-column: 2 / 4; grid-row: 8; }
+  .analysis-app .signal-list .provider-readings { grid-column: 2 / 4; grid-row: 9; }
+  .analysis-app .signal-list .fact-review-next { grid-column: 2 / 4; grid-row: 10; }
+  .analysis-app .signal-list .fact-options, .analysis-app .signal-list .fact-quote { grid-template-columns: minmax(0, 1fr); }
+  .analysis-app .signal-list .fact-quote-jump { justify-self: start; }
+}

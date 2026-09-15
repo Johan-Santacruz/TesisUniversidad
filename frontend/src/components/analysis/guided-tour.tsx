@@ -66,10 +66,11 @@ export const WORKSPACE_TOUR: TourStep[] = [
   {
     title: "Cada señal enseña de dónde salió",
     body:
-      "Al margen queda la frase textual que la sostiene, con su minuto. "
-      + "Púlsala y el video vuelve a ese punto para que lo escuches tú antes "
-      + "de decidir.",
-    target: ".marginalia-jump",
+      "Abre una señal y verás la frase textual que la sostiene, con su "
+      + "minuto. Pulsa «Ver en el video» y vuelve a ese punto para que lo "
+      + "escuches tú antes de decidir.",
+    // La cita sólo existe con una señal abierta; las filas, siempre.
+    target: ".signal-list .fact-card",
     stage: "evidence",
   },
   {

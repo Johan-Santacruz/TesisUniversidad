@@ -116,6 +116,11 @@ def create_app(
             retention_days=app_settings.video_retention_days,
             purges=application.state.purges,
         )
+        # Un recálculo de rutas corre en segundo plano. Si el proceso se detuvo
+        # a mitad, el caso quedaría "ajustando" para siempre y sin poder
+        # aprobarse: se marca como fallido para que se pueda reintentar.
+        with app_database.session() as session:
+            CaseService.recover_interrupted_route_rebuilds(session)
         openai_client = None
         anthropic_client = None
         if app_settings.openai_configured:
@@ -221,6 +226,7 @@ def create_app(
                 else None
             ),
             memory_images=application.state.memory_images,
+            audit=application.state.audit,
             retry_attempts=app_settings.analysis_retry_attempts,
         )
         if app_settings.demo_users_enabled:

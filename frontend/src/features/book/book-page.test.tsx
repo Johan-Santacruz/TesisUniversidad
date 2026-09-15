@@ -1,17 +1,36 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { expect, it } from "vitest"
 
 import BookPage from "./book-page"
 
 
+function WhereAmI() {
+  return <p data-testid="ruta">{useLocation().pathname}</p>
+}
+
 function renderBook() {
   return render(
     <MemoryRouter>
-      <BookPage />
+      <WhereAmI />
+      <Routes>
+        <Route path="/" element={<BookPage />} />
+        <Route path="/conversar" element={<p>Constructor de ruta</p>} />
+      </Routes>
     </MemoryRouter>,
   )
 }
+
+/* Salir del libro hacia "Crear ruta" es cerrarlo: la tapa cae y sólo entonces
+ * cambia la pantalla (book-depart.test.tsx). Quien pidió menos movimiento —que
+ * es como corre este archivo— se va directo. */
+it("con menos movimiento, «Crear ruta» se va directo", () => {
+  renderBook()
+
+  fireEvent.click(screen.getByRole("link", { name: /crear ruta/i }))
+
+  expect(screen.getByTestId("ruta")).toHaveTextContent("/conversar")
+})
 
 
 /* El libro se pasaba de tres maneras y ninguna existe en un teléfono: la rueda
@@ -50,4 +69,18 @@ it("deja apagar el sonido del papel desde el propio libro", () => {
   expect(
     screen.getByRole("button", { name: "Activar el sonido del papel" }),
   ).toHaveAttribute("aria-pressed", "false")
+})
+
+it("conserva las páginas montadas al cerrar y volver a abrir la cubierta", async () => {
+  const { container } = renderBook()
+  const originalPage = container.querySelector("[data-book-page-scroll]")
+  expect(originalPage).not.toBeNull()
+
+  fireEvent.click(screen.getByRole("button", { name: "Página anterior" }))
+  const cover = await screen.findByRole("button", { name: "Abrir libro" })
+  expect(originalPage).toBeInTheDocument()
+
+  fireEvent.click(cover)
+  expect(container.querySelector("[data-book-page-scroll]")).toBe(originalPage)
+  expect(screen.getByRole("button", { name: "Página siguiente" })).toBeEnabled()
 })

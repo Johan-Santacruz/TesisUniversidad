@@ -9,7 +9,7 @@ import {
 import { ProtectedRoute } from "../auth/protected-route"
 import { useAuth } from "../auth/auth-context"
 import BookPage from "../features/book/book-page"
-import { OpeningCurtain } from "../components/opening-curtain"
+import { OpeningCurtain, useOpeningCurtain } from "../components/opening-curtain"
 import ConversationPage from "../pages/conversation-page"
 import LoginPage from "../pages/login-page"
 
@@ -20,6 +20,23 @@ function PageShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-paper">
       {children}
     </div>
+  )
+}
+
+// La cortina y el libro se coordinan: mientras la cortina nombra el libro,
+// éste espera debajo fuera de foco, y se asienta en la mesa en el mismo
+// movimiento con que ella se levanta. Separados, el libro hacía su entrada a
+// oscuras y la cortina se retiraba sobre un libro ya quieto.
+function BookRoute({ curtainHoldMs }: { curtainHoldMs?: number }) {
+  const curtainOpen = useOpeningCurtain(curtainHoldMs)
+
+  return (
+    <RouteStage>
+      <PageShell>
+        <BookPage arrival={curtainOpen ? "held" : "now"} />
+        <OpeningCurtain open={curtainOpen} />
+      </PageShell>
+    </RouteStage>
   )
 }
 
@@ -58,7 +75,9 @@ function RouteStage({ children }: { children: React.ReactNode }) {
       }}
       exit={{
         opacity: 0,
-        transition: { duration: 0.46, ease: [0.4, 0, 1, 1] },
+        // Corta: lo que se despide ya hizo su gesto (el libro se cerró, la
+        // hoja de acceso se guardó). Alargar el fundido era alargar el vacío.
+        transition: { duration: 0.34, ease: [0.4, 0, 1, 1] },
       }}
     >
       {children}
@@ -85,7 +104,7 @@ function useStageKey() {
   return "app"
 }
 
-export function AppRoutes() {
+export function AppRoutes({ curtainHoldMs }: { curtainHoldMs?: number } = {}) {
   const location = useLocation()
   const stageKey = useStageKey()
 
@@ -94,17 +113,7 @@ export function AppRoutes() {
     // trae su propia entrada y se verían dos animaciones encimadas.
     <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={stageKey}>
-        <Route
-          path="/"
-          element={
-            <RouteStage>
-              <PageShell>
-                <BookPage />
-                <OpeningCurtain />
-              </PageShell>
-            </RouteStage>
-          }
-        />
+        <Route path="/" element={<BookRoute curtainHoldMs={curtainHoldMs} />} />
         <Route
           path="/login"
           element={

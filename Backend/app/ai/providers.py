@@ -8,6 +8,7 @@ from typing import Any, Callable, TypeVar
 
 from app.ai.contracts import (
     ProviderAnalysis,
+    ProviderRoutes,
     ProviderScreening,
     TranscriptSegment,
 )
@@ -143,7 +144,20 @@ def _analysis_input(
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
-ANALYSIS_INSTRUCTIONS = (
+def _routes_input(
+    segments: list[TranscriptSegment],
+    sources: list[Any] | None,
+    classification: dict[str, Any] | None,
+    confirmed_signals: list[dict[str, Any]],
+) -> str:
+    # El mismo material que recibió el análisis, más lo que una persona ya
+    # confirmó: así la ruta nueva sólo puede diferir por esa confirmación.
+    payload = json.loads(_analysis_input(segments, sources, classification))
+    payload["confirmed_signals"] = confirmed_signals
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+_SIGNAL_AND_TIMELINE_RULES = (
     "Analiza exclusivamente los segmentos suministrados. No completes datos "
     "ausentes y apunta toda evidencia a identificadores de segmento existentes."
     "\n\n"
@@ -185,6 +199,13 @@ ANALYSIS_INSTRUCTIONS = (
     "que lo sustenta. Es la pieza central del análisis: no la dejes vacía si "
     "el relato contiene hechos."
     "\n\n"
+)
+
+
+# Lo que hace buena una ruta. Lo comparten el análisis y el recálculo con las
+# señales confirmadas: escrito dos veces, las dos copias terminarían diciendo
+# cosas distintas.
+_ROUTE_RULES = (
     "RUTAS. Evalúa las tres (emergency, housing_stabilization, "
     "return_relocation) y devuélvelas siempre, cada una con su "
     "'applicability': 'applies' si le sirve a esta persona con lo que el "
@@ -252,6 +273,25 @@ ANALYSIS_INSTRUCTIONS = (
     "el key_point."
 )
 
+ANALYSIS_INSTRUCTIONS = _SIGNAL_AND_TIMELINE_RULES + _ROUTE_RULES
+
+
+# El recálculo no vuelve a leer señales ni cronología: recibe las señales que
+# una persona ya confirmó y reconstruye sólo las rutas sobre ellas.
+ROUTE_REBUILD_INSTRUCTIONS = (
+    "Reconstruye sólo las tres rutas de atención de este caso. No extraigas "
+    "señales ni cronología: devuelve únicamente 'routes'."
+    "\n\n"
+    "SEÑALES CONFIRMADAS. El input trae 'confirmed_signals': datos del caso "
+    "que una persona revisó contra el testimonio y confirmó. Mandan sobre tu "
+    "propia lectura de los segmentos: si un segmento parece decir otra cosa, "
+    "sigue la señal confirmada. Úsalas para decidir la 'applicability' de "
+    "cada ruta y para ajustar sus pasos a quiénes son, dónde están y quién "
+    "necesita protección especial. Lo que ninguna señal confirmada ni ningún "
+    "segmento dice, no lo supongas."
+    "\n\n"
+) + _ROUTE_RULES
+
 
 # Deliberadamente separado de ANALYSIS_INSTRUCTIONS y sin una palabra sobre
 # hechos, rutas ni categorías: quien juzga si hay caso no debe ser el mismo
@@ -277,7 +317,11 @@ SCREENING_INSTRUCTIONS = (
     "convierte el texto en un relato de su hecho."
     "\n\n"
     "'out_of_domain': el texto no trata del conflicto armado. Una receta, un "
-    "partido, una clase, una nota de economía."
+    "partido, una clase, una nota de economía, una canción o un video musical. "
+    "Una canción sólo sale de aquí si su letra narra el conflicto armado; "
+    "entonces se juzga por lo que narra, como cualquier otro texto. Las frases "
+    "sueltas que el reconocimiento de voz inventa sobre la música o el silencio "
+    "—'Gracias por ver', créditos de subtítulos— no son relato."
     "\n\n"
     "EVIDENCIA. Si respondes 'narrated_event' tienes que citar los segmentos "
     "donde se narra el hecho, con su segment_id exacto y sus milisegundos. Si "
@@ -313,6 +357,27 @@ class OpenAIAnalysisAdapter:
             raise ProviderUnavailable("OpenAI did not return structured output")
         if parsed.provider != "gpt":
             parsed = parsed.model_copy(update={"provider": "gpt"})
+        return parsed
+
+    def build_routes(
+        self,
+        segments: list[TranscriptSegment],
+        sources: list[Any] | None,
+        classification: dict[str, Any] | None,
+        confirmed_signals: list[dict[str, Any]],
+    ) -> ProviderRoutes:
+        response = self.client.responses.parse(
+            model=self.model,
+            instructions=ROUTE_REBUILD_INSTRUCTIONS,
+            input=_routes_input(
+                segments, sources, classification, confirmed_signals
+            ),
+            text_format=ProviderRoutes,
+            store=False,
+        )
+        parsed = response.output_parsed
+        if parsed is None:
+            raise ProviderUnavailable("OpenAI did not return rebuilt routes")
         return parsed
 
     def screen(self, segments: list[TranscriptSegment]) -> ProviderScreening:
