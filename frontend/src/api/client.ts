@@ -115,6 +115,60 @@ export class ApiClient {
     return this.parse<T>(response)
   }
 
+  /* fetch no informa cuánto del cuerpo ya salió, y un video de celular pesa
+     cientos de megas: sin porcentaje, la subida parecía colgada. */
+  async upload<T>(
+    path: string,
+    body: FormData,
+    onProgress: (fraction: number) => void,
+    retryAfterRefresh = true,
+  ): Promise<T> {
+    const { status, value } = await new Promise<{ status: number; value: unknown }>(
+      (resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open("POST", `${this.baseUrl}${path}`)
+        xhr.withCredentials = true
+        if (this.accessToken) {
+          xhr.setRequestHeader("Authorization", `Bearer ${this.accessToken}`)
+        }
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable && event.total > 0) {
+            onProgress(event.loaded / event.total)
+          }
+        }
+        xhr.upload.onload = () => onProgress(1)
+        xhr.onload = () => {
+          let parsed: unknown
+          try {
+            parsed = xhr.responseText ? JSON.parse(xhr.responseText) : undefined
+          } catch {
+            parsed = undefined
+          }
+          resolve({ status: xhr.status, value: parsed })
+        }
+        const fail = () =>
+          reject(new Error("No se pudo subir el video. Revisa la conexión e inténtalo de nuevo."))
+        xhr.onerror = fail
+        xhr.onabort = fail
+        xhr.ontimeout = fail
+        xhr.send(body)
+      },
+    )
+    if (status === 401 && retryAfterRefresh) {
+      try {
+        await this.refresh()
+      } catch {
+        this.accessToken = null
+        throw new ApiError("La sesión venció", 401)
+      }
+      return this.upload<T>(path, body, onProgress, false)
+    }
+    if (status < 200 || status >= 300) {
+      throw new ApiError(errorMessage(value), status)
+    }
+    return value as T
+  }
+
   async openStream(path: string, lastEventId = 0): Promise<Response> {
     const headers = new Headers({ Accept: "text/event-stream" })
     if (lastEventId > 0) {

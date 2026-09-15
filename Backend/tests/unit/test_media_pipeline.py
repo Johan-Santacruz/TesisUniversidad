@@ -85,6 +85,33 @@ def test_validator_rejects_video_without_audio(silent_mp4):
     assert source.tell() == 0
 
 
+def test_validator_decodes_the_whole_audio_but_only_the_first_video_frames(
+    monkeypatch,
+    valid_mp4_bytes,
+):
+    """Decodificar la imagen entera hacía esperar cerca de un minuto por un
+    video de celular antes de que empezara el análisis."""
+    import app.services.media as media
+
+    commands: list[list[str]] = []
+    real_run = media._run_piped_source
+
+    def recording(command, source):
+        commands.append(command)
+        return real_run(command, source)
+
+    monkeypatch.setattr(media, "_run_piped_source", recording)
+
+    MediaValidator().validate(BytesIO(valid_mp4_bytes), 500 * 1024 * 1024)
+
+    [decode] = [command for command in commands if command[0] == "ffmpeg"]
+    frames = decode.index("-frames:v")
+    assert decode[frames - 1] == "0:v:0"
+    assert decode[frames + 1] == str(media.VIDEO_CHECK_FRAMES)
+    assert "0:a:0" in decode
+    assert "-t" not in decode
+
+
 def test_validator_normalizes_missing_ffprobe(monkeypatch, valid_mp4_bytes):
     real_which = shutil.which
     monkeypatch.setattr(

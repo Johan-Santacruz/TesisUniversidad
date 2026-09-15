@@ -55,8 +55,20 @@ export function validateLink(raw: string): string | null {
 }
 
 
+// Con el último byte enviado el servidor todavía revisa el video: decirlo
+// evita que "100 %" parezca una subida atascada.
+function startLabel(busy: boolean, progress: number | null | undefined) {
+  if (!busy) return "Analizar este testimonio"
+  if (progress === null || progress === undefined) return "Iniciando análisis…"
+  return progress < 1
+    ? `Subiendo ${Math.round(progress * 100)} %`
+    : "Revisando el video…"
+}
+
+
 export function UploadPanel({
   busy,
+  uploadProgress = null,
   error = "",
   linkIngestEnabled = false,
   linkMaxSeconds = 1800,
@@ -65,6 +77,7 @@ export function UploadPanel({
   onDemo,
 }: {
   busy: boolean
+  uploadProgress?: number | null
   error?: string
   linkIngestEnabled?: boolean
   linkMaxSeconds?: number
@@ -229,9 +242,22 @@ export function UploadPanel({
                 <strong>{file.name}</strong>
                 <small>{readableSize(file.size)} · listo para analizar</small>
               </span>
+              {busy && uploadProgress !== null ? (
+                <span
+                  className="intake-upload-meter"
+                  role="progressbar"
+                  aria-label="Subida del video"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(uploadProgress * 100)}
+                >
+                  <span style={{ transform: `scaleX(${uploadProgress})` }} />
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="intake-file-remove"
+                disabled={busy}
                 onClick={() => {
                   setFile(null)
                   setRejection("")
@@ -314,7 +340,7 @@ export function UploadPanel({
                 exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
                 transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
               >
-                {busy ? "Iniciando análisis…" : "Analizar este testimonio"}
+                {startLabel(busy, uploadProgress)}
               </motion.button>
             ) : null}
           </AnimatePresence>

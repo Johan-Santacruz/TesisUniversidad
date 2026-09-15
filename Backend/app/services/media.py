@@ -20,6 +20,11 @@ SAMPLE_RATE = 16_000
 SAMPLE_WIDTH_BYTES = 2
 CHANNEL_COUNT = 1
 AUDIO_CHUNK_SECONDS = 10 * 60
+# La validación decodifica el audio entero —es lo que se transcribe— pero de la
+# imagen sólo los primeros cuadros. Decodificarla completa hacía esperar a quien
+# sube: 90 s de video 4K HEVC de celular tardaban 48 s en dos núcleos, y con
+# este límite medio segundo. Un archivo truncado sigue fallando por el audio.
+VIDEO_CHECK_FRAMES = 60
 PCM_CHUNK_BYTES = (
     SAMPLE_RATE * SAMPLE_WIDTH_BYTES * CHANNEL_COUNT * AUDIO_CHUNK_SECONDS
 )
@@ -275,6 +280,8 @@ class MediaValidator:
             input_name,
             "-map",
             "0:v:0",
+            "-frames:v",
+            str(VIDEO_CHECK_FRAMES),
             "-map",
             "0:a:0",
             "-f",

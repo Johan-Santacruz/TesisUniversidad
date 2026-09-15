@@ -87,6 +87,8 @@ export function AnalysisWorkspace({
   const [caseData, setCaseData] = useState<CaseData | null>(initialCase ?? null)
   const [eventsUrl, setEventsUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Fracción del archivo ya enviada; null cuando no hay una subida en curso.
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [error, setError] = useState("")
   const [narrativeStage, setNarrativeStage] = useState<NarrativeStage>("listening")
   const [stageDirection, setStageDirection] = useState(1)
@@ -427,15 +429,19 @@ export function AnalysisWorkspace({
     setError("")
     setNarrativeStage("listening")
     setSelectedFactId(null)
+    setUploadProgress(0)
     const body = new FormData()
     body.append("file", file)
     try {
-      const video = await apiClient.request<VideoRead>("/api/v1/videos", {
-        method: "POST",
+      const video = await apiClient.upload<VideoRead>(
+        "/api/v1/videos",
         body,
-      })
+        setUploadProgress,
+      )
+      setUploadProgress(null)
       await startAnalysis(video)
     } catch (caught) {
+      setUploadProgress(null)
       setBusy(false)
       setError(caught instanceof Error ? caught.message : "No se pudo cargar el video")
     }
@@ -639,6 +645,7 @@ export function AnalysisWorkspace({
           <DeskSurface />
           <UploadPanel
             busy={busy}
+            uploadProgress={uploadProgress}
             error={error}
             linkIngestEnabled={linkIngest.enabled}
             linkMaxSeconds={linkIngest.maxSeconds}

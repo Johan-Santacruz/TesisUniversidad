@@ -120,7 +120,27 @@
   color: var(--ink-soft);
   cursor: pointer;
 }
-.analysis-app .intake .intake-file-remove:hover { border-color: var(--ink-faded); color: var(--ink); }
+.analysis-app .intake .intake-file-remove:hover:not(:disabled) { border-color: var(--ink-faded); color: var(--ink); }
+.analysis-app .intake .intake-file-remove:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* La barra corre por el borde inferior de la ficha del archivo mientras sube. */
+.analysis-app .intake .intake-file { position: relative; overflow: hidden; }
+.analysis-app .intake .intake-upload-meter {
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: color-mix(in oklch, var(--green) 14%, transparent);
+}
+.analysis-app .intake .intake-upload-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  transform-origin: left;
+  transition: transform 200ms linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .analysis-app .intake .intake-upload-meter > span { transition: none; }
+}
 
 .analysis-app .intake .intake-problem {
   margin: 0.75rem 0 0;

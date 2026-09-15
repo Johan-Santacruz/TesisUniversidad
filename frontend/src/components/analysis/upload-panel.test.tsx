@@ -91,6 +91,33 @@ describe("UploadPanel", () => {
     expect(screen.queryByRole("button", { name: /analizar/i })).toBeNull()
   })
 
+  // Un video de celular tarda en subir y el botón sólo decía "Iniciando
+  // análisis…": parecía que la aplicación se había quedado colgada.
+  it("muestra cuánto del video ya subió y luego que lo está revisando", async () => {
+    const { rerender } = render(
+      <UploadPanel busy={false} onUpload={vi.fn()} onDemo={vi.fn()} />,
+    )
+    pick(validVideo())
+    await screen.findByRole("button", { name: "Analizar este testimonio" })
+
+    rerender(
+      <UploadPanel busy uploadProgress={0.42} onUpload={vi.fn()} onDemo={vi.fn()} />,
+    )
+    expect(screen.getByRole("button", { name: "Subiendo 42 %" })).toBeDisabled()
+    expect(screen.getByRole("progressbar", { name: "Subida del video" }))
+      .toHaveAttribute("aria-valuenow", "42")
+    expect(screen.getByRole("button", { name: "Quitar" })).toBeDisabled()
+
+    rerender(
+      <UploadPanel busy uploadProgress={1} onUpload={vi.fn()} onDemo={vi.fn()} />,
+    )
+    expect(screen.getByRole("button", { name: "Revisando el video…" })).toBeVisible()
+
+    rerender(<UploadPanel busy onUpload={vi.fn()} onDemo={vi.fn()} />)
+    expect(screen.getByRole("button", { name: "Iniciando análisis…" })).toBeVisible()
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
+  })
+
   it("abre el caso de demostración sin exigir archivo", () => {
     const onDemo = vi.fn()
     render(<UploadPanel busy={false} onUpload={vi.fn()} onDemo={onDemo} />)
