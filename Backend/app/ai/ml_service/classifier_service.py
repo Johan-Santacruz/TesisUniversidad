@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 
 class TransformerClasificador(nn.Module):
@@ -22,7 +22,16 @@ class TransformerClasificador(nn.Module):
         head_hidden: int = 256,
     ):
         super().__init__()
-        self.transformer = AutoModel.from_pretrained(model_name)
+        # El encoder se arma desde la configuración y no con from_pretrained: los pesos
+        # preentrenados que esa llamada trae se sobrescriben enteros unas líneas más
+        # abajo, cuando load_state_dict carga el artefacto afinado, y se sobrescriben
+        # todos porque va en strict=True y falla si falta una sola clave.
+        #
+        # No es un ahorro de memoria —from_pretrained mapea el checkpoint desde el
+        # disco, no lo reserva— sino de arranque: deja de leer 419 MB por modelo para
+        # descartarlos acto seguido, y el servicio deja de depender de que el caché de
+        # HuggingFace tenga los pesos. Solo necesita el config.json.
+        self.transformer = AutoModel.from_config(AutoConfig.from_pretrained(model_name))
         hidden = self.transformer.config.hidden_size
         self.dropout = nn.Dropout(dropout)
         # El ancho de la cabeza dejó de ser fijo: los perfiles de control de sobreajuste
@@ -41,6 +50,19 @@ class TransformerClasificador(nn.Module):
         x = F.gelu(self.fc1(cls))
         x = self.drop2(x)
         return self.out(x)
+
+
+def _replace_module(raiz: nn.Module, ruta: str, bloque: nn.Module) -> None:
+    """Sustituye el submódulo en `ruta` ('encoder.layer.3') por `bloque`."""
+    partes = ruta.split(".")
+    padre: Any = raiz
+    for parte in partes[:-1]:
+        padre = padre[int(parte)] if parte.isdigit() else getattr(padre, parte)
+    ultimo = partes[-1]
+    if ultimo.isdigit():
+        padre[int(ultimo)] = bloque
+    else:
+        setattr(padre, ultimo, bloque)
 
 
 class ViolenceClassifier:
@@ -79,16 +101,91 @@ class ViolenceClassifier:
             head_hidden=int(subcategory_config.get("HEAD_HIDDEN", 256)),
         ).to(self.device)
 
-        self.category_model.load_state_dict(
-            torch.load(artifact_dir / "model_categoria.pt", map_location=self.device)
+        # mmap=True deja el artefacto en el archivo y copia tensor por tensor al modelo,
+        # en vez de materializar los 419 MB enteros en memoria anónima para copiarlos
+        # después. Lo que queda mapeado es caché de disco, que el kernel recupera si
+        # alguien más necesita la RAM.
+        estado_categoria = torch.load(
+            artifact_dir / "model_categoria.pt", map_location=self.device, mmap=True
         )
-        self.subcategory_model.load_state_dict(
-            torch.load(artifact_dir / "model_subcategoria.pt", map_location=self.device)
+        self.category_model.load_state_dict(estado_categoria)
+        del estado_categoria
+
+        estado_subcategoria = torch.load(
+            artifact_dir / "model_subcategoria.pt", map_location=self.device, mmap=True
         )
+        self.shared_trunk = self._share_frozen_trunk(estado_subcategoria)
+        self.subcategory_model.load_state_dict(estado_subcategoria)
+        del estado_subcategoria
+
         self.category_model.eval()
         self.subcategory_model.eval()
 
         self.category_temperature, self.subcategory_temperature = self._load_calibration()
+
+    def _share_frozen_trunk(self, subcategory_state: dict[str, Any]) -> list[str]:
+        """Hace que ambos modelos compartan los bloques del encoder que son idénticos.
+
+        El entrenamiento congeló el encoder salvo su última capa, así que los dos
+        artefactos guardan exactamente los mismos bytes para los embeddings y para las
+        capas 0..10. Eran 388 de los 419 MB de cada encoder duplicados en memoria sin
+        que ninguna predicción dependiera de la copia. Aquí se comparan tensor a tensor
+        y, donde coinciden, el modelo de subcategoría pasa a apuntar al bloque que ya
+        cargó el de categoría.
+
+        La comparación no es una formalidad. Si un reentrenamiento descongela más capas
+        los pesos dejarán de coincidir, no se compartirá ese bloque y el consumo volverá
+        al de antes, pero las predicciones seguirán siendo las del artefacto. Compartir
+        sin comparar sí sería un error: le daría al modelo de subcategoría un encoder
+        que no es el suyo.
+
+        Se llama antes de load_state_dict a propósito: así el bloque duplicado se libera
+        antes de que el artefacto se copie encima, y el arranque nunca llega a tener las
+        dos copias cargadas a la vez.
+        """
+        encoder_categoria = self.category_model.transformer
+        encoder_subcategoria = self.subcategory_model.transformer
+
+        candidatos: list[tuple[str, nn.Module]] = []
+        embeddings = getattr(encoder_categoria, "embeddings", None)
+        if embeddings is not None:
+            candidatos.append(("embeddings", embeddings))
+        capas = getattr(getattr(encoder_categoria, "encoder", None), "layer", None) or []
+        candidatos += [(f"encoder.layer.{i}", capa) for i, capa in enumerate(capas)]
+        pooler = getattr(encoder_categoria, "pooler", None)
+        if pooler is not None:
+            candidatos.append(("pooler", pooler))
+
+        compartidos: list[str] = []
+        for ruta, bloque in candidatos:
+            if not self._matches_state(ruta, bloque, subcategory_state):
+                continue
+            _replace_module(encoder_subcategoria, ruta, bloque)
+            compartidos.append(ruta)
+        return compartidos
+
+    @staticmethod
+    def _matches_state(ruta: str, bloque: nn.Module, estado: dict[str, Any]) -> bool:
+        """¿Todo el bloque ya cargado coincide bit a bit con lo que guarda el artefacto?
+
+        Los buffers que el artefacto no guarda se omiten: son los no persistentes
+        (position_ids y compañía), que ambos modelos derivan de la misma configuración
+        y por tanto construyen iguales.
+        """
+        piezas = list(bloque.named_parameters()) + list(bloque.named_buffers())
+        if not piezas:
+            return False
+        for nombre, tensor in piezas:
+            guardado = estado.get(f"transformer.{ruta}.{nombre}")
+            if guardado is None:
+                if nombre in dict(bloque.named_parameters()):
+                    return False
+                continue
+            if guardado.shape != tensor.shape or guardado.dtype != tensor.dtype:
+                return False
+            if not torch.equal(guardado, tensor):
+                return False
+        return True
 
     def _load_hierarchy(self) -> dict[str, list[str]] | None:
         """Devuelve el mapa categoria -> subcategorias alcanzables, o None.
