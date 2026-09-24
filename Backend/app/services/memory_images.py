@@ -34,7 +34,7 @@ from app.services.reference_frames import (
     ReferenceFrameUnavailable,
 )
 from app.services.purges import PurgeService
-from app.services.videos import VideoService
+from app.services.videos import RECEIVING_STATUSES, VideoService
 
 
 logger = logging.getLogger(__name__)
@@ -410,6 +410,15 @@ class MemoryImageService:
                     if actor is None:
                         return None
                     raise MemoryImageConflictError("El caso está en eliminación")
+                # Sin el archivo no hay fotograma de referencia, y el cierre
+                # saldría genérico. Se genera cuando el video termina de llegar.
+                pending_video = session.get(Video, case.video_id)
+                if pending_video is not None and pending_video.status in RECEIVING_STATUSES:
+                    if actor is None:
+                        return None
+                    raise MemoryImageConflictError(
+                        "El video del testimonio todavía se está subiendo"
+                    )
                 if actor is None:
                     existing = session.scalar(
                         select(MemoryImage.id)

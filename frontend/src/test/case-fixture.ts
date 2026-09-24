@@ -21,6 +21,7 @@ export const caseFixture: components["schemas"]["CaseRead"] = {
   recommendation_status: "preliminary",
   approved_at: null,
   video_stream_url: "/api/v1/videos/video-fixture/stream",
+  video_status: "uploaded",
   critical_inconsistencies: 1,
   routes_status: "initial",
   segments: [

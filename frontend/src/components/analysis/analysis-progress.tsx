@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 
 import type { AnalysisEvent, AnalysisStage } from "../../hooks/use-analysis-events"
@@ -95,11 +95,14 @@ export function AnalysisProgress({
   error,
   onRetry,
   onRestart,
+  footnote = null,
 }: {
   events: AnalysisEvent[]
   error: string
   onRetry?: () => void
   onRestart?: () => void
+  // Lo que pasa al margen del análisis, como el video que sigue subiendo.
+  footnote?: ReactNode
 }) {
   const reduceMotion = useReducedMotion() ?? false
   const states = new Map(events.map((event) => [event.stage, event.state]))
@@ -257,6 +260,7 @@ export function AnalysisProgress({
         <p className="processing-note">
           Los resultados parciales quedan visibles mientras continúa el análisis.
         </p>
+        {footnote}
       </section>
       </aside>
       <main className="narrative-sheet live-analysis-sheet">

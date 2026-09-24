@@ -92,6 +92,13 @@ class AnalysisRead(BaseModel):
     events_url: str
 
 
+class VideoIntakeRead(BaseModel):
+    """El video registrado por su audio y el análisis que ya arrancó."""
+
+    video: VideoRead
+    analysis: AnalysisRead
+
+
 class VideoLinkCreate(BaseModel):
     """El enlace tal como lo pegó quien analiza; se normaliza en el servicio."""
 
@@ -252,6 +259,9 @@ class CaseRead(BaseModel):
     recommendation_status: str
     approved_at: datetime | None
     video_stream_url: str
+    # "receiving" mientras el video sigue subiendo después de su audio: el
+    # caso ya se puede leer, pero todavía no reproducir ni aprobar.
+    video_status: str = "uploaded"
     segments: list[TranscriptSegment]
     timeline: list[TimelineEventRead]
     facts: list[FactRead]

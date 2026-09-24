@@ -56,6 +56,10 @@ class Settings(BaseSettings):
 
     video_chunk_bytes: int = Field(default=1024 * 1024, ge=64 * 1024)
     max_video_bytes: int = Field(default=500 * 1024 * 1024, ge=1024)
+    # Audio que el navegador separa del video para que el análisis no espere a
+    # que el video termine de subir. En WAV de 16 kHz mono son unos 70 minutos;
+    # si pesa más, el navegador sube el video entero como antes.
+    max_intake_audio_bytes: int = Field(default=128 * 1024 * 1024, ge=1024)
     # Traer el testimonio desde un enlace de YouTube. Apagado por omisión: en un
     # dominio público, con la cuenta de demostración a la vista, sería un
     # descargador de videos ajeno con la IP del servidor. Se enciende en el

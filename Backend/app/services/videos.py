@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import BinaryIO, Iterator
 from uuid import uuid4
 
+from sqlalchemy import and_, or_, update
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -12,11 +14,27 @@ from app.entities import User, Video, VideoChunk
 from app.security.crypto import ChunkCipher, ChunkManifest, EncryptedChunk
 from app.services.audit import AuditService
 from app.services.media import (
+    MediaMetadata,
     MediaTooLargeError,
     MediaValidator,
     UnsupportedMediaError,
 )
 from app.services.purges import PurgeService
+
+
+# Un video que se registró con su audio y cuyo archivo todavía no llega. En
+# "storing" una subida ya lo reclamó y lo está validando y cifrando.
+RECEIVING_STATUSES = frozenset({"receiving", "storing"})
+# Si el proceso muere a mitad de un cifrado, el reclamo caduca y se puede subir
+# de nuevo. Cifrar 500 MB tarda segundos; quince minutos es holgura de sobra.
+STORING_LEASE = timedelta(minutes=15)
+# Lo que el navegador decodifica y lo que el contenedor declara no coinciden al
+# milisegundo: el relleno inicial del AAC, las listas de edición del MOV. Una
+# grabación distinta sí se va segundos de largo.
+AUDIO_MATCH_TOLERANCE_MS = 1500
+DECLARED_MEDIA_TYPES = frozenset(
+    {"", "video/mp4", "video/quicktime", "video/webm", "application/octet-stream"}
+)
 
 
 class InvalidVideoError(ValueError):
@@ -25,6 +43,18 @@ class InvalidVideoError(ValueError):
 
 class VideoTooLargeError(ValueError):
     pass
+
+
+class AudioTooLargeError(ValueError):
+    pass
+
+
+class VideoNotAwaitedError(ValueError):
+    """El video ya llegó, o no se registró esperando su archivo."""
+
+
+class AudioMismatchError(ValueError):
+    """El archivo que llegó no es la grabación cuyo audio se analizó."""
 
 
 class VideoService:
@@ -68,7 +98,7 @@ class VideoService:
             owner_id=user.id,
             source=source,
             media_type=media_type,
-            filename=f"testimonio{'.webm' if media_type == 'video/webm' else '.mp4'}",
+            filename=self._filename(media_type),
             status="uploaded",
             is_demo=is_demo,
             delete_after=None,
@@ -101,20 +131,183 @@ class VideoService:
             audit_user=None,
         )
 
-    def _persist(
+    def create_receiving(
         self,
         session: Session,
         *,
-        owner_id: str,
-        source: BinaryIO,
+        user: User,
+        audio: BinaryIO,
         media_type: str,
-        filename: str,
-        status: str,
-        is_demo: bool,
-        delete_after: object,
-        audit_user: User | None,
+        size_bytes: int,
     ) -> Video:
-        video_id = str(uuid4())
+        """Registra un video por su audio, antes de que llegue el archivo.
+
+        Subir el video de un celular tarda minutos y el análisis sólo necesita
+        el audio, que pesa decenas de veces menos. El navegador lo separa y lo
+        manda primero; el video sigue subiendo mientras el análisis corre y se
+        entrega después por `attach_content`. El tamaño se revisa ya, con lo que
+        declara el navegador: analizar un video que luego se va a rechazar por
+        grande sería gastar el análisis.
+        """
+        declared_type = (media_type or "").strip().lower()
+        if declared_type not in DECLARED_MEDIA_TYPES:
+            raise InvalidVideoError("unsupported media type")
+        if size_bytes <= 0:
+            raise InvalidVideoError("video is empty")
+        if size_bytes > self.settings.max_video_bytes:
+            raise VideoTooLargeError("video exceeds configured size limit")
+        try:
+            duration_ms = self.media_validator.validate_audio(
+                audio,
+                self.settings.max_intake_audio_bytes,
+            )
+        except MediaTooLargeError as exc:
+            raise AudioTooLargeError(str(exc)) from exc
+        except UnsupportedMediaError as exc:
+            raise InvalidVideoError(str(exc)) from exc
+        # El tipo definitivo lo decide la firma del archivo cuando llegue; hasta
+        # entonces vale el que declaró el navegador. MOV es un MP4 para ffprobe.
+        provisional = "video/webm" if declared_type == "video/webm" else "video/mp4"
+        video = Video(
+            id=str(uuid4()),
+            owner_id=user.id,
+            filename=self._filename(provisional),
+            media_type=provisional,
+            size_bytes=0,
+            chunk_size=self.settings.video_chunk_bytes,
+            key_version=self.chunk_cipher.current_version,
+            status="receiving",
+            is_demo=False,
+            delete_after=None,
+            audio_duration_ms=duration_ms,
+        )
+        session.add(video)
+        session.add(
+            self.audit.build_record(
+                actor_id=user.id,
+                actor_role=user.role,
+                action="video_audio_received",
+                entity_type="video",
+                entity_id=video.id,
+                details={"audio_duration_ms": duration_ms},
+            )
+        )
+        session.flush()
+        return video
+
+    def claim_receiving(
+        self, session: Session, video_id: str, *, now: datetime | None = None
+    ) -> bool:
+        """Reclama el video para una subida. Dos a la vez escribirían los
+        mismos bloques en el mismo directorio."""
+        now = now or datetime.now(timezone.utc)
+        claimed = session.execute(
+            update(Video)
+            .where(
+                Video.id == video_id,
+                or_(
+                    Video.status == "receiving",
+                    and_(
+                        Video.status == "storing",
+                        Video.updated_at <= now - STORING_LEASE,
+                    ),
+                ),
+            )
+            .values(status="storing", updated_at=now)
+            .execution_options(synchronize_session=False)
+        )
+        return claimed.rowcount == 1
+
+    @staticmethod
+    def release_receiving(session: Session, video_id: str) -> None:
+        session.execute(
+            update(Video)
+            .where(Video.id == video_id, Video.status == "storing")
+            .values(status="receiving")
+            .execution_options(synchronize_session=False)
+        )
+
+    def attach_content(
+        self,
+        session: Session,
+        *,
+        video: Video,
+        source: BinaryIO,
+        user: User,
+    ) -> Video:
+        """Guarda el archivo de un video que se analizó por su audio.
+
+        Pide el reclamo de `claim_receiving` ya confirmado. Antes de cifrar nada
+        comprueba que el audio del archivo dure lo mismo que el que se analizó:
+        si no, el caso mostraría un video que no es el que se leyó.
+        """
+        try:
+            metadata = self.media_validator.validate(
+                source,
+                self.settings.max_video_bytes,
+            )
+        except MediaTooLargeError as exc:
+            raise VideoTooLargeError(str(exc)) from exc
+        except UnsupportedMediaError as exc:
+            raise InvalidVideoError(str(exc)) from exc
+        difference_ms = self._audio_difference_ms(video, metadata)
+        # Un intento anterior que murió a mitad pudo dejar bloques cifrados en
+        # el directorio, y el cifrado exige encontrarlo vacío.
+        if self.purges is not None and self.purges.discover_video_storage_paths(video.id):
+            self._enqueue_partial_storage(video.id)
+        manifest = self._encrypt(session, video.id, source)
+        stored = session.execute(
+            update(Video)
+            .where(Video.id == video.id, Video.status == "storing")
+            .values(
+                status="uploaded",
+                media_type=metadata.media_type,
+                filename=self._filename(metadata.media_type),
+                size_bytes=manifest.total_size,
+                chunk_size=manifest.chunk_size,
+                key_version=self.chunk_cipher.current_version,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if stored.rowcount != 1:
+            # El caso se eliminó mientras se cifraba. Al deshacer la
+            # transacción, los bloques recién escritos entran a la purga.
+            raise VideoNotAwaitedError("video is no longer waiting for its content")
+        self._add_chunks(session, video.id, manifest)
+        session.add(
+            self.audit.build_record(
+                actor_id=user.id,
+                actor_role=user.role,
+                action="video_content_received",
+                entity_type="video",
+                entity_id=video.id,
+                details={"audio_difference_ms": difference_ms},
+            )
+        )
+        session.flush()
+        session.refresh(video)
+        return video
+
+    @staticmethod
+    def _audio_difference_ms(video: Video, metadata: MediaMetadata) -> int | None:
+        expected = video.audio_duration_ms
+        if expected is None:
+            return None
+        actual = (
+            metadata.audio_duration_ms
+            if metadata.audio_duration_ms is not None
+            else metadata.duration_ms
+        )
+        difference = abs(actual - expected)
+        if difference > max(AUDIO_MATCH_TOLERANCE_MS, expected // 100):
+            raise AudioMismatchError("video audio does not match the analyzed audio")
+        return difference
+
+    @staticmethod
+    def _filename(media_type: str) -> str:
+        return f"testimonio{'.webm' if media_type == 'video/webm' else '.mp4'}"
+
+    def _encrypt(self, session: Session, video_id: str, source: BinaryIO) -> ChunkManifest:
         target_dir = self.video_root / video_id
         try:
             manifest = self.chunk_cipher.encrypt_stream(
@@ -136,6 +329,38 @@ class VideoService:
             str(chunk.path.relative_to(self.settings.storage_dir)) for chunk in manifest.chunks
         ]
         self._track_pending_storage(session, video_id, storage_paths)
+        return manifest
+
+    def _add_chunks(self, session: Session, video_id: str, manifest: ChunkManifest) -> None:
+        for chunk in manifest.chunks:
+            session.add(
+                VideoChunk(
+                    video_id=video_id,
+                    chunk_index=chunk.chunk_index,
+                    byte_start=chunk.byte_start,
+                    byte_end=chunk.byte_end,
+                    key_version=chunk.key_version,
+                    nonce=chunk.nonce,
+                    storage_path=str(chunk.path.relative_to(self.settings.storage_dir)),
+                    ciphertext_size=chunk.ciphertext_size,
+                )
+            )
+
+    def _persist(
+        self,
+        session: Session,
+        *,
+        owner_id: str,
+        source: BinaryIO,
+        media_type: str,
+        filename: str,
+        status: str,
+        is_demo: bool,
+        delete_after: object,
+        audit_user: User | None,
+    ) -> Video:
+        video_id = str(uuid4())
+        manifest = self._encrypt(session, video_id, source)
 
         video = Video(
             id=video_id,
@@ -150,19 +375,7 @@ class VideoService:
             delete_after=delete_after,
         )
         session.add(video)
-        for chunk in manifest.chunks:
-            session.add(
-                VideoChunk(
-                    video_id=video_id,
-                    chunk_index=chunk.chunk_index,
-                    byte_start=chunk.byte_start,
-                    byte_end=chunk.byte_end,
-                    key_version=chunk.key_version,
-                    nonce=chunk.nonce,
-                    storage_path=str(chunk.path.relative_to(self.settings.storage_dir)),
-                    ciphertext_size=chunk.ciphertext_size,
-                )
-            )
+        self._add_chunks(session, video_id, manifest)
         if audit_user is not None:
             session.add(
                 self.audit.build_record(

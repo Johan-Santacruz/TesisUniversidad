@@ -121,12 +121,21 @@ export class ApiClient {
     path: string,
     body: FormData,
     onProgress: (fraction: number) => void,
-    retryAfterRefresh = true,
+    {
+      method = "POST",
+      signal,
+      retryAfterRefresh = true,
+    }: { method?: "POST" | "PUT"; signal?: AbortSignal; retryAfterRefresh?: boolean } = {},
   ): Promise<T> {
     const { status, value } = await new Promise<{ status: number; value: unknown }>(
       (resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        xhr.open("POST", `${this.baseUrl}${path}`)
+        if (signal?.aborted) {
+          reject(new Error("La subida se canceló"))
+          return
+        }
+        signal?.addEventListener("abort", () => xhr.abort(), { once: true })
+        xhr.open(method, `${this.baseUrl}${path}`)
         xhr.withCredentials = true
         if (this.accessToken) {
           xhr.setRequestHeader("Authorization", `Bearer ${this.accessToken}`)
@@ -161,7 +170,11 @@ export class ApiClient {
         this.accessToken = null
         throw new ApiError("La sesión venció", 401)
       }
-      return this.upload<T>(path, body, onProgress, false)
+      return this.upload<T>(path, body, onProgress, {
+        method,
+        signal,
+        retryAfterRefresh: false,
+      })
     }
     if (status < 200 || status >= 300) {
       throw new ApiError(errorMessage(value), status)

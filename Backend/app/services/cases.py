@@ -47,6 +47,7 @@ from app.services.assets import EncryptedAssetStore, StoredAsset
 from app.services.audit import AuditService
 from app.services.rag import RagCatalog
 from app.services.purges import PurgeService
+from app.services.videos import RECEIVING_STATUSES
 
 
 def _display_value(value: object) -> str | None:
@@ -215,6 +216,7 @@ class CaseService:
             recommendation_status=case.recommendation_status,
             approved_at=case.approved_at,
             video_stream_url=f"/api/v1/videos/{case.video_id}/stream",
+            video_status=self._video_status(session, case.video_id),
             segments=by_stage.get("transcription", {}).get("segments", []),
             timeline=[
                 TimelineEventRead.model_validate(value)
@@ -232,6 +234,15 @@ class CaseService:
                 else None
             ),
         )
+
+    @staticmethod
+    def _video_status(session: Session, video_id: str) -> str:
+        video = session.get(Video, video_id)
+        if video is None:
+            return "deleted"
+        # "storing" es un detalle de la subida: para quien lee el caso el video
+        # sigue en camino.
+        return "receiving" if video.status in RECEIVING_STATUSES else video.status
 
     @staticmethod
     def memory_image_read(
@@ -454,6 +465,12 @@ class CaseService:
         video = session.get(Video, case.video_id)
         if video is None:
             raise CaseConflictError("El video asociado no existe")
+        # La retención se cuenta desde la aprobación y borra el video: aprobar
+        # uno que no ha llegado dejaría el caso sin testimonio que conservar.
+        if video.status in RECEIVING_STATUSES:
+            raise CaseConflictError(
+                "El video del testimonio todavía se está subiendo"
+            )
         approved_at = now or datetime.now(timezone.utc)
         delete_after = approved_at + timedelta(days=self.retention_days)
         case.status = "approved"

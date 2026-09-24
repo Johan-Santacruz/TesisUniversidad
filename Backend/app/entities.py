@@ -105,6 +105,10 @@ class Video(TimestampMixin, Base):
     retention_lease_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)
     )
+    # Duración del audio con que se analizó, cuando el navegador lo mandó antes
+    # que el video. Es lo que permite comprobar, al llegar el video, que se
+    # trata de la misma grabación. None: el audio salió del video guardado.
+    audio_duration_ms: Mapped[int | None] = mapped_column(Integer)
 
     chunks: Mapped[list["VideoChunk"]] = relationship(
         back_populates="video",

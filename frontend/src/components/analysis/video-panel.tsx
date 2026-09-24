@@ -42,6 +42,8 @@ export const DocumentaryVideoRail = forwardRef<
     frozenHeight?: number | null
     sourceLabel?: string
     playbackError?: string
+    // Un aviso bajo el reproductor, como el de la subida que sigue en curso.
+    note?: React.ReactNode
     ref2?: React.Ref<HTMLElement>
     onSegmentSelect: (segment: Segment) => void
     onToggle?: () => void
@@ -55,6 +57,7 @@ export const DocumentaryVideoRail = forwardRef<
     frozenHeight,
     sourceLabel = "Reproductor del testimonio ficticio",
     playbackError = "",
+    note = null,
     ref2,
     onSegmentSelect,
     onToggle,
@@ -128,6 +131,7 @@ export const DocumentaryVideoRail = forwardRef<
           {playbackError}
         </p>
       ) : null}
+      {note}
       <div
         className="documentary-fragments"
         role="group"

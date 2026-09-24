@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from io import BytesIO
 import json
@@ -61,6 +61,9 @@ class MediaMetadata:
     size_bytes: int
     duration_ms: int
     audio_stream_count: int
+    # La del primer flujo de audio, que puede no coincidir con la del archivo.
+    # WebM no suele declararla por flujo: entonces queda en None.
+    audio_duration_ms: int | None = None
 
 
 @dataclass(frozen=True)
@@ -161,6 +164,17 @@ def _source_descriptor(source: BinaryIO) -> int | None:
     return descriptor if descriptor_path.exists() else None
 
 
+def _first_audio_duration_ms(streams: list[dict]) -> int | None:
+    for stream in streams:
+        if stream.get("codec_type") != "audio":
+            continue
+        try:
+            return round(float(stream["duration"]) * 1000)
+        except (KeyError, TypeError, ValueError):
+            return None
+    return None
+
+
 def _run_seekable_source(
     command_before_input: list[str],
     source: BinaryIO,
@@ -217,7 +231,7 @@ class MediaValidator:
                     "-v",
                     "error",
                     "-show_entries",
-                    "format=format_name,duration:stream=codec_type",
+                    "format=format_name,duration:stream=codec_type,duration",
                     "-of",
                     "json",
                 ],
@@ -236,6 +250,7 @@ class MediaValidator:
                 duration_ms = round(float(format_value["duration"]) * 1000)
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 raise UnsupportedMediaError("invalid media metadata") from exc
+            audio_duration_ms = _first_audio_duration_ms(streams)
             if signature_type == "video/mp4":
                 if not format_names.intersection({"mov", "mp4"}):
                     raise UnsupportedMediaError("container is not MP4")
@@ -260,7 +275,50 @@ class MediaValidator:
                 size_bytes=size_bytes,
                 duration_ms=duration_ms,
                 audio_stream_count=audio_stream_count,
+                audio_duration_ms=audio_duration_ms,
             )
+        finally:
+            _rewind(source)
+
+    def validate_audio(self, source: BinaryIO, max_bytes: int) -> int:
+        """Valida el audio que el navegador separó del video y da su duración.
+
+        Sólo se acepta WAV PCM: es lo que arma el navegador y lo único que hace
+        falta leer. La duración sale de contar las muestras que de verdad
+        trae el archivo, no de la cabecera —que puede prometer más de lo que
+        hay— ni de ffprobe, que leyendo por tubería no siempre la calcula. Es
+        el número que después se compara con el video.
+        """
+        if max_bytes <= 0:
+            raise ValueError("max_bytes must be positive")
+        try:
+            source.seek(0, os.SEEK_END)
+            size_bytes = source.tell()
+            _rewind(source)
+            if size_bytes == 0:
+                raise EmptyMediaError("audio is empty")
+            if size_bytes > max_bytes:
+                raise MediaTooLargeError("audio exceeds configured size limit")
+            head = source.read(12)
+            _rewind(source)
+            if len(head) < 12 or head[:4] != b"RIFF" or head[8:12] != b"WAVE":
+                raise UnsupportedMediaError("audio is not WAV")
+            try:
+                with wave.open(source, "rb") as reader:
+                    frame_rate = reader.getframerate()
+                    frame_bytes = reader.getsampwidth() * reader.getnchannels()
+                    frames = 0
+                    while block := reader.readframes(SAMPLE_RATE):
+                        frames += len(block) // frame_bytes
+            # wave también se rinde con RuntimeError cuando un bloque declara
+            # un tamaño que el archivo no tiene.
+            except (wave.Error, EOFError, RuntimeError, ZeroDivisionError) as exc:
+                raise UnsupportedMediaError("audio is not PCM WAV") from exc
+            if frame_rate <= 0:
+                raise UnsupportedMediaError("audio has no sample rate")
+            if frames == 0:
+                raise EmptyMediaError("audio has no samples")
+            return round(frames * 1000 / frame_rate)
         finally:
             _rewind(source)
 
@@ -339,7 +397,10 @@ class MediaPipeline:
         if shutil.which("ffmpeg") is None:
             raise MediaToolUnavailableError("ffmpeg")
         try:
-            yield from self._decode(video, input_name="pipe:0", feed_video=True)
+            yield from self._decode(
+                lambda: self.video_service.iter_plain_chunks(video),
+                input_name="pipe:0",
+            )
             return
         except _DecodeFailure as exc:
             if (
@@ -374,11 +435,7 @@ class MediaPipeline:
                 if self.on_seek_fallback is not None:
                     self.on_seek_fallback(path)
                 try:
-                    yield from self._decode(
-                        video,
-                        input_name=str(path),
-                        feed_video=False,
-                    )
+                    yield from self._decode(None, input_name=str(path))
                 except _DecodeFailure as exc:
                     raise NoAudioTrackError(
                         "video has no readable audio"
@@ -386,13 +443,33 @@ class MediaPipeline:
             finally:
                 path.unlink(missing_ok=True)
 
+    def iter_uploaded_audio(self, audio: bytes) -> Iterator[AudioChunk]:
+        """Trocea el audio que mandó el navegador igual que el de un video.
+
+        Llega ya validado como WAV, pero pasa por el mismo ffmpeg: así los
+        bloques que ve Whisper salen idénticos vengan de donde vengan.
+        """
+        if shutil.which("ffmpeg") is None:
+            raise MediaToolUnavailableError("ffmpeg")
+        try:
+            yield from self._decode(
+                lambda: (
+                    audio[start : start + IO_BLOCK_BYTES]
+                    for start in range(0, len(audio), IO_BLOCK_BYTES)
+                ),
+                input_name="pipe:0",
+            )
+        except _DecodeFailure as exc:
+            raise NoAudioTrackError("uploaded audio is not readable") from exc
+
     def _decode(
         self,
-        video: object,
+        blocks: Callable[[], Iterable[bytes]] | None,
         *,
         input_name: str,
-        feed_video: bool,
     ) -> Iterator[AudioChunk]:
+        """Decodifica a PCM de 16 kHz; `blocks` alimenta stdin, o None si
+        ffmpeg lee `input_name` por su cuenta."""
         command = [
             "ffmpeg",
             "-hide_banner",
@@ -412,7 +489,7 @@ class MediaPipeline:
         try:
             process = subprocess.Popen(
                 command,
-                stdin=subprocess.PIPE if feed_video else subprocess.DEVNULL,
+                stdin=subprocess.PIPE if blocks is not None else subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -428,12 +505,12 @@ class MediaPipeline:
         )
         stderr_thread.start()
         feeder_thread: threading.Thread | None = None
-        if feed_video:
+        if blocks is not None:
             assert process.stdin is not None
 
             def feed() -> None:
                 try:
-                    for block in self.video_service.iter_plain_chunks(video):
+                    for block in blocks():
                         process.stdin.write(block)
                 except BrokenPipeError:
                     pass

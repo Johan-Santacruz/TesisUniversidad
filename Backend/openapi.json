@@ -124,6 +124,30 @@
         "title": "AnalysisStage",
         "type": "string"
       },
+      "Body_intake_video_audio_api_v1_videos_intake_post": {
+        "properties": {
+          "audio": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Audio",
+            "type": "string"
+          },
+          "media_type": {
+            "default": "",
+            "title": "Media Type",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audio",
+          "size_bytes"
+        ],
+        "title": "Body_intake_video_audio_api_v1_videos_intake_post",
+        "type": "object"
+      },
       "Body_login_api_v1_auth_token_post": {
         "properties": {
           "client_id": {
@@ -195,6 +219,20 @@
           "file"
         ],
         "title": "Body_upload_video_api_v1_videos_post",
+        "type": "object"
+      },
+      "Body_upload_video_content_api_v1_videos__video_id__content_put": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_video_content_api_v1_videos__video_id__content_put",
         "type": "object"
       },
       "CaseApprovalRead": {
@@ -344,6 +382,11 @@
           },
           "video_id": {
             "title": "Video Id",
+            "type": "string"
+          },
+          "video_status": {
+            "default": "uploaded",
+            "title": "Video Status",
             "type": "string"
           },
           "video_stream_url": {
@@ -1546,6 +1589,23 @@
         ],
         "title": "VerificationStatus",
         "type": "string"
+      },
+      "VideoIntakeRead": {
+        "description": "El video registrado por su audio y el análisis que ya arrancó.",
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisRead"
+          },
+          "video": {
+            "$ref": "#/components/schemas/VideoRead"
+          }
+        },
+        "required": [
+          "video",
+          "analysis"
+        ],
+        "title": "VideoIntakeRead",
+        "type": "object"
       },
       "VideoLinkCreate": {
         "description": "El enlace tal como lo pegó quien analiza; se normaliza en el servicio.",
@@ -2994,6 +3054,53 @@
         ]
       }
     },
+    "/api/v1/videos/intake": {
+      "post": {
+        "description": "Recibe el audio del testimonio y arranca el análisis sin esperar al video.\n\nEl navegador separa el audio y lo manda primero: pesa decenas de veces\nmenos que el video de un celular. El video sigue subiendo mientras tanto y\nllega por PUT /videos/{id}/content. `size_bytes` y `media_type` son los del\nvideo que viene detrás.",
+        "operationId": "intake_video_audio_api_v1_videos_intake_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_intake_video_audio_api_v1_videos_intake_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoIntakeRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Intake Video Audio",
+        "tags": [
+          "videos"
+        ]
+      }
+    },
     "/api/v1/videos/link": {
       "post": {
         "description": "Baja el video del enlace y lo mete por el mismo camino que un archivo.\n\nLos errores de descarga se traducen a 422 con el motivo tal cual: quien pega\nun enlace privado, uno que no es de YouTube o uno que dura una hora tiene\nque poder leer cuál de las tres cosas pasó.",
@@ -3085,6 +3192,64 @@
         "summary": "Start Analysis",
         "tags": [
           "analyses"
+        ]
+      }
+    },
+    "/api/v1/videos/{video_id}/content": {
+      "put": {
+        "description": "Entrega el video de un testimonio que se registró por su audio.",
+        "operationId": "upload_video_content_api_v1_videos__video_id__content_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_video_content_api_v1_videos__video_id__content_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Upload Video Content",
+        "tags": [
+          "videos"
         ]
       }
     },

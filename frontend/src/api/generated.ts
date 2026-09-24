@@ -402,6 +402,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/videos/intake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Intake Video Audio
+         * @description Recibe el audio del testimonio y arranca el análisis sin esperar al video.
+         *
+         *     El navegador separa el audio y lo manda primero: pesa decenas de veces
+         *     menos que el video de un celular. El video sigue subiendo mientras tanto y
+         *     llega por PUT /videos/{id}/content. `size_bytes` y `media_type` son los del
+         *     video que viene detrás.
+         */
+        post: operations["intake_video_audio_api_v1_videos_intake_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/videos/link": {
         parameters: {
             query?: never;
@@ -437,6 +462,26 @@ export interface paths {
         put?: never;
         /** Start Analysis */
         post: operations["start_analysis_api_v1_videos__video_id__analyses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/videos/{video_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload Video Content
+         * @description Entrega el video de un testimonio que se registró por su audio.
+         */
+        put: operations["upload_video_content_api_v1_videos__video_id__content_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -512,6 +557,18 @@ export interface components {
          * @enum {string}
          */
         AnalysisStage: "audio" | "transcription" | "people_places" | "dates_facts" | "classification" | "sources" | "timeline" | "routes";
+        /** Body_intake_video_audio_api_v1_videos_intake_post */
+        Body_intake_video_audio_api_v1_videos_intake_post: {
+            /** Audio */
+            audio: string;
+            /**
+             * Media Type
+             * @default
+             */
+            media_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
         /** Body_login_api_v1_auth_token_post */
         Body_login_api_v1_auth_token_post: {
             /** Client Id */
@@ -538,6 +595,11 @@ export interface components {
         };
         /** Body_upload_video_api_v1_videos_post */
         Body_upload_video_api_v1_videos_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_video_content_api_v1_videos__video_id__content_put */
+        Body_upload_video_content_api_v1_videos__video_id__content_put: {
             /** File */
             file: string;
         };
@@ -603,6 +665,11 @@ export interface components {
             timeline: components["schemas"]["TimelineEventRead"][];
             /** Video Id */
             video_id: string;
+            /**
+             * Video Status
+             * @default uploaded
+             */
+            video_status: string;
             /** Video Stream Url */
             video_stream_url: string;
         };
@@ -987,6 +1054,14 @@ export interface components {
          * @enum {string}
          */
         VerificationStatus: "confirmed" | "pending" | "not_identified" | "inconsistent";
+        /**
+         * VideoIntakeRead
+         * @description El video registrado por su audio y el análisis que ya arrancó.
+         */
+        VideoIntakeRead: {
+            analysis: components["schemas"]["AnalysisRead"];
+            video: components["schemas"]["VideoRead"];
+        };
         /**
          * VideoLinkCreate
          * @description El enlace tal como lo pegó quien analiza; se normaliza en el servicio.
@@ -1926,6 +2001,39 @@ export interface operations {
             };
         };
     };
+    intake_video_audio_api_v1_videos_intake_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_intake_video_audio_api_v1_videos_intake_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoIntakeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_video_from_link_api_v1_videos_link_post: {
         parameters: {
             query?: never;
@@ -1977,6 +2085,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalysisRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_video_content_api_v1_videos__video_id__content_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_video_content_api_v1_videos__video_id__content_put"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoRead"];
                 };
             };
             /** @description Validation Error */

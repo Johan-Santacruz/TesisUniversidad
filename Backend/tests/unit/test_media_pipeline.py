@@ -256,3 +256,67 @@ def test_pipeline_seek_fallback_is_private_and_removed(
     assert storage_dir not in path.parents
     assert not path.exists()
     assert not path.parent.exists()
+
+
+def _tone_wav(seconds: float, rate: int = 16_000) -> bytes:
+    import math
+    import struct
+    import wave
+
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as target:
+        target.setnchannels(1)
+        target.setsampwidth(2)
+        target.setframerate(rate)
+        target.writeframes(
+            b"".join(
+                struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / rate)))
+                for i in range(int(seconds * rate))
+            )
+        )
+    return buffer.getvalue()
+
+
+def test_validator_reports_the_duration_of_the_audio_stream(valid_mp4_bytes):
+    """Es la que se compara con el audio que mandó el navegador."""
+    metadata = MediaValidator().validate(BytesIO(valid_mp4_bytes), 500 * 1024 * 1024)
+
+    assert metadata.audio_duration_ms is not None
+    assert abs(metadata.audio_duration_ms - 400) < 100
+
+
+def test_browser_audio_is_validated_and_timed():
+    source = BytesIO(_tone_wav(1.5))
+
+    duration_ms = MediaValidator().validate_audio(source, 10 * 1024 * 1024)
+
+    assert duration_ms == 1500
+    assert source.tell() == 0
+
+
+def test_browser_audio_must_be_wav(valid_mp4_bytes):
+    with pytest.raises(UnsupportedMediaError):
+        MediaValidator().validate_audio(BytesIO(valid_mp4_bytes), 500 * 1024 * 1024)
+
+
+def test_browser_audio_over_the_limit_is_refused():
+    with pytest.raises(MediaTooLargeError):
+        MediaValidator().validate_audio(BytesIO(_tone_wav(0.5)), 1024)
+
+
+def test_a_wav_header_over_garbage_is_not_audio():
+    forged = b"RIFF\x24\x00\x00\x00WAVE" + bytes(range(256)) * 4
+
+    with pytest.raises(UnsupportedMediaError):
+        MediaValidator().validate_audio(BytesIO(forged), 10 * 1024 * 1024)
+
+
+def test_browser_audio_is_cut_into_the_same_pcm_blocks_as_a_video():
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is required")
+    pipeline = MediaPipeline(Mock())
+
+    [chunk] = list(pipeline.iter_uploaded_audio(_tone_wav(2.0)))
+
+    assert (chunk.index, chunk.start_ms, chunk.end_ms) == (0, 0, 2000)
+    assert chunk.wav_bytes[:4] == b"RIFF"

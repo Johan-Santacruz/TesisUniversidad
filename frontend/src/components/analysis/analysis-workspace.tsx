@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
-import { apiClient } from "../../api/client"
+import { ApiError, apiClient } from "../../api/client"
+import { extractAudio } from "../../audio/separar-audio"
 import { analysisReady } from "../../audio/sonidos"
 import type { components } from "../../api/generated"
 import { useAnalysisEvents } from "../../hooks/use-analysis-events"
@@ -22,18 +23,25 @@ import { RouteStage } from "./route-stage"
 import { UploadPanel } from "./upload-panel"
 import { usePlayhead } from "./use-playhead"
 import { DocumentaryVideoRail } from "./video-panel"
+import { VideoTransferNote, type VideoTransfer } from "./video-transfer"
 
 
 type CaseData = components["schemas"]["CaseRead"]
 type FactReview = components["schemas"]["FactReviewRequest"]
 type Role = components["schemas"]["UserRole"]
 type VideoRead = components["schemas"]["VideoRead"]
+type VideoIntakeRead = components["schemas"]["VideoIntakeRead"]
 type AnalysisRead = components["schemas"]["AnalysisRead"]
 type AnalysisReadinessRead = components["schemas"]["AnalysisReadinessRead"]
 type Fact = components["schemas"]["FactRead"]
 type MemoryImage = components["schemas"]["MemoryImageRead"]
 type MemoryImageDecision = components["schemas"]["MemoryImageDecisionRead"]
 
+
+// Respuestas con las que el servidor dice que no toma el audio por separado:
+// no conoce la ruta (404, 405), el audio le pesa (413) o no lo pudo leer (415,
+// 422). Subir el video entero, como antes, sigue siendo un camino válido.
+const AUDIO_FIRST_FALLBACK = new Set([404, 405, 413, 415, 422])
 
 // Ritmo de sondeo mientras el cierre se genera o se renderiza.
 export const MEMORY_CLOSING_POLL_MS = 4000
@@ -123,6 +131,17 @@ export function AnalysisWorkspace({
   // vuelven a correr cuando el video aparece, después de la pantalla de carga.
   const [video, setVideo] = useState<HTMLVideoElement | null>(null)
   const railRef = useRef<HTMLElement>(null)
+  // El archivo recién subido se reproduce desde el equipo: bajarlo de vuelta
+  // del servidor era esperar otra vez por los mismos cientos de megas.
+  const [localVideo, setLocalVideo] = useState<{ videoId: string; url: string } | null>(null)
+  // El video que sigue subiendo después de que el análisis arrancó con su
+  // audio. Cada subida guarda su propio corte para poder cancelarla.
+  const [videoTransfer, setVideoTransfer] = useState<VideoTransfer | null>(null)
+  const transfersRef = useRef(new Map<string, AbortController>())
+  const transferFileRef = useRef<{ videoId: string; file: File } | null>(null)
+  const [analysisVideoId, setAnalysisVideoId] = useState<string | null>(null)
+  const caseRef = useRef<CaseData | null>(caseData)
+  caseRef.current = caseData
   // Al plegar, la franja conserva el alto que tenía el riel: si se encoge, su
   // punto medio sube y el botón salta a otra parte de la pantalla.
   const [railHeight, setRailHeight] = useState<number | null>(null)
@@ -196,7 +215,21 @@ export function AnalysisWorkspace({
     if (videoMode === "memory" && !renderedVideoUrl) setVideoMode("original")
   }, [videoMode, renderedVideoUrl])
 
+  const localSource = videoMode === "original"
+    && localVideo !== null
+    && caseData?.video_id === localVideo.videoId
+    ? localVideo.url
+    : null
+
+  useEffect(() => () => {
+    if (localVideo) URL.revokeObjectURL(localVideo.url)
+  }, [localVideo])
+
   useEffect(() => {
+    if (localSource) {
+      setVideoSource(localSource)
+      return
+    }
     if (!activeVideoUrl || !loadRemoteVideo) return
     let active = true
     let localUrl: string | null = null
@@ -214,7 +247,7 @@ export function AnalysisWorkspace({
       active = false
       if (localUrl) URL.revokeObjectURL(localUrl)
     }
-  }, [activeVideoUrl, loadRemoteVideo])
+  }, [activeVideoUrl, loadRemoteVideo, localSource])
 
   // La ruta de la imagen no cambia entre generaciones: la identidad y el estado
   // son los que deciden si hay que volver a descargar el recurso protegido.
@@ -424,21 +457,67 @@ export function AnalysisWorkspace({
     }
   }
 
+  const rememberLocalVideo = (videoId: string, file: File) => {
+    setLocalVideo({ videoId, url: URL.createObjectURL(file) })
+  }
+
+  /* Manda sólo el audio y arranca el análisis con él. Devuelve null cuando
+     este camino no sirve —el navegador no supo leer el audio, o el servidor
+     no lo toma— y entonces el video se sube entero, como antes. */
+  const sendAudioFirst = async (file: File): Promise<VideoIntakeRead | null> => {
+    let audio: Blob
+    try {
+      audio = await extractAudio(file)
+    } catch {
+      return null
+    }
+    const body = new FormData()
+    body.append("audio", audio, "audio.wav")
+    body.append("size_bytes", String(file.size))
+    body.append("media_type", file.type)
+    setUploadProgress(0)
+    try {
+      return await apiClient.upload<VideoIntakeRead>(
+        "/api/v1/videos/intake",
+        body,
+        setUploadProgress,
+      )
+    } catch (caught) {
+      if (caught instanceof ApiError && AUDIO_FIRST_FALLBACK.has(caught.status)) {
+        setUploadProgress(null)
+        return null
+      }
+      throw caught
+    }
+  }
+
   const upload = async (file: File) => {
     setBusy(true)
     setError("")
     setNarrativeStage("listening")
     setSelectedFactId(null)
-    setUploadProgress(0)
-    const body = new FormData()
-    body.append("file", file)
+    setUploadProgress(null)
     try {
+      const intake = await sendAudioFirst(file)
+      if (intake) {
+        setUploadProgress(null)
+        setAnalysisVideoId(intake.video.id)
+        rememberLocalVideo(intake.video.id, file)
+        setEventsUrl(intake.analysis.events_url)
+        void sendVideo(intake.video.id, file)
+        return
+      }
+      setUploadProgress(0)
+      const body = new FormData()
+      body.append("file", file)
       const video = await apiClient.upload<VideoRead>(
         "/api/v1/videos",
         body,
         setUploadProgress,
       )
       setUploadProgress(null)
+      setAnalysisVideoId(video.id)
+      rememberLocalVideo(video.id, file)
       await startAnalysis(video)
     } catch (caught) {
       setUploadProgress(null)
@@ -461,6 +540,69 @@ export function AnalysisWorkspace({
     } catch {
       // Lo que se guardó ya quedó registrado: la próxima lectura lo traerá.
     }
+  }, [])
+
+  const sendVideo = useCallback(async (videoId: string, file: File) => {
+    const controller = new AbortController()
+    transfersRef.current.set(videoId, controller)
+    transferFileRef.current = { videoId, file }
+    const update = (next: Partial<VideoTransfer> | null) =>
+      setVideoTransfer((current) => {
+        if (next === null) return current?.videoId === videoId ? null : current
+        if (current?.videoId === videoId) return { ...current, ...next }
+        return current
+      })
+    setVideoTransfer({ videoId, progress: 0, failed: null })
+    const body = new FormData()
+    body.append("file", file)
+    try {
+      await apiClient.upload<VideoRead>(
+        `/api/v1/videos/${videoId}/content`,
+        body,
+        (progress) => update({ progress }),
+        { method: "PUT", signal: controller.signal },
+      )
+      update(null)
+      // El caso abierto todavía cree que el video viene en camino: sin
+      // releerlo, la aprobación y el cierre de memoria seguirían esperando.
+      const current = caseRef.current
+      if (current?.video_id === videoId) void refreshCase(current.id)
+    } catch (caught) {
+      if (controller.signal.aborted) return
+      update({
+        failed: caught instanceof Error && caught.message
+          ? caught.message
+          : "Revisa la conexión e inténtalo de nuevo.",
+      })
+    } finally {
+      transfersRef.current.delete(videoId)
+    }
+  }, [refreshCase])
+
+  const retryVideo = useCallback(() => {
+    const pending = transferFileRef.current
+    if (pending) void sendVideo(pending.videoId, pending.file)
+  }, [sendVideo])
+
+  // Sin caso no hay testimonio que conservar: un video ajeno al conflicto se
+  // detiene en el cribado, y seguir subiéndolo sólo gastaba la conexión.
+  useEffect(() => {
+    const routes = stream.events.find((event) => event.stage === "routes")
+    if (!routes || typeof routes.payload.case_id === "string") return
+    if (!analysisVideoId) return
+    transfersRef.current.get(analysisVideoId)?.abort()
+    setVideoTransfer((current) => (current?.videoId === analysisVideoId ? null : current))
+  }, [stream.events, analysisVideoId])
+
+  // Cerrar la pestaña corta la subida y el caso se queda sin su video.
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (transfersRef.current.size === 0) return
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
   }, [])
 
   // El servidor reconstruye la ruta por su cuenta y no avisa al terminar:
@@ -532,13 +674,18 @@ export function AnalysisWorkspace({
     }
   }
 
+  const videoArrived = caseData?.video_status !== "receiving"
+
   // Un caso sin cierre no tiene por qué quedarse sin él. Los anteriores al
   // pipeline actual nunca tuvieron fila de imagen, y el panel se limitaba a
   // decirlo: se reclama aquí, al abrirlo. Una sola vez por caso —la generación
   // cuesta una llamada al proveedor y más de un minuto—, y sólo para quien
-  // puede revisarla, que es quien el endpoint autoriza.
+  // puede revisarla, que es quien el endpoint autoriza. Tampoco mientras el
+  // video sigue subiendo: el cierre toma un fotograma suyo, así que el
+  // servidor lo rechaza y lo genera él mismo cuando termina de recibirlo.
   useEffect(() => {
     if (!caseId || (role !== "validador" && role !== "admin")) return
+    if (!videoArrived) return
     if (memoryImage !== null || claimedClosingRef.current === caseId) return
     claimedClosingRef.current = caseId
     setClaimingClosing(true)
@@ -551,7 +698,7 @@ export function AnalysisWorkspace({
     // memoryImageAction se redefine en cada render y volvería a disparar el
     // efecto; el guardia por caso es lo que gobierna cuándo corre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caseId, memoryImage, role])
+  }, [caseId, memoryImage, role, videoArrived])
 
   const approve = async () => {
     if (!caseData) return
@@ -672,6 +819,11 @@ export function AnalysisWorkspace({
             error={stream.error || error}
             onRetry={stream.retry}
             onRestart={startAnother}
+            footnote={
+              videoTransfer && videoTransfer.videoId === analysisVideoId ? (
+                <VideoTransferNote transfer={videoTransfer} onRetry={retryVideo} />
+              ) : null
+            }
           />
         </motion.div>
       </AnimatePresence>
@@ -716,6 +868,13 @@ export function AnalysisWorkspace({
           frozenHeight={railCollapsed ? railHeight : null}
           collapsed={railCollapsed}
           playbackError={playbackError}
+          note={
+            videoTransfer?.videoId === caseData.video_id
+              ? <VideoTransferNote transfer={videoTransfer} onRetry={retryVideo} />
+              : caseData.video_status === "receiving"
+                ? <VideoTransferNote transfer={null} />
+                : null
+          }
           sourceLabel={
             videoMode === "memory"
               ? "Reproductor de la versión con cierre de memoria"

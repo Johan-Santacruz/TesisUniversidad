@@ -50,7 +50,7 @@ from app.services.media import (
 )
 from app.services.rag import RagCatalog
 from app.services.transcription import TranscriptionService
-from app.services.videos import VideoService
+from app.services.videos import RECEIVING_STATUSES, VideoService
 
 
 ANALYSIS_STAGES = tuple(stage.value for stage in AnalysisStage)
@@ -543,7 +543,9 @@ class AnalysisService:
         session.flush()
         return case_id
 
-    def run(self, analysis_id: str) -> None:
+    def run(self, analysis_id: str, audio: bytes | None = None) -> None:
+        """Corre el análisis. `audio` es el WAV que mandó el navegador cuando
+        el video todavía está subiendo; sin él, el audio sale del video."""
         started = time.monotonic()
         try:
             with self.database.session() as session:
@@ -557,7 +559,7 @@ class AnalysisService:
                 analysis.started_at = datetime.now(timezone.utc)
                 is_demo = video.is_demo
             if not is_demo:
-                self._run_uploaded(analysis_id)
+                self._run_uploaded(analysis_id, audio)
                 return
 
             payloads = self._demo_payloads()
@@ -1074,8 +1076,8 @@ class AnalysisService:
         routes, _, _ = self._reconcile_routes(reading, None)
         return routes
 
-    def _run_uploaded(self, analysis_id: str) -> None:
-        if self.video_service is None:
+    def _run_uploaded(self, analysis_id: str, audio: bytes | None = None) -> None:
+        if audio is None and self.video_service is None:
             self._finish_unavailable(
                 analysis_id,
                 from_stage=AnalysisStage.AUDIO,
@@ -1100,7 +1102,11 @@ class AnalysisService:
             video = session.get(Video, analysis.video_id)
             video_id = video.id
             try:
-                chunks = list(self.media.iter_audio_chunks(video))
+                chunks = list(
+                    self.media.iter_uploaded_audio(audio)
+                    if audio is not None
+                    else self.media.iter_audio_chunks(video)
+                )
             except (
                 MediaValidationError,
                 MediaToolUnavailableError,
@@ -1354,14 +1360,11 @@ class AnalysisService:
                 "admissibility": admissibility.model_dump(mode="json"),
             },
         )
-        if self.memory_images is not None:
-            try:
-                self.memory_images.generate_initial(case_id, is_demo=False)
-            except Exception:
-                logger.exception(
-                    "memory_image_generation_failed",
-                    extra={"case_id": case_id},
-                )
+        # El cierre toma un fotograma del video. Si el video todavía viene
+        # subiendo, lo genera quien lo reciba (generate_closing_for_video): el
+        # caso ya está guardado, así que uno de los dos lo encuentra.
+        if self.memory_images is not None and self._video_arrived(video_id):
+            self._generate_closing(case_id)
         partial = (
             gpt_reading is None
             or claude_reading is None
@@ -1374,6 +1377,36 @@ class AnalysisService:
                 "partial_provider_failure" if partial else None
             )
             analysis.completed_at = datetime.now(timezone.utc)
+
+    def _video_arrived(self, video_id: str) -> bool:
+        with self.database.session() as session:
+            video = session.get(Video, video_id)
+            return video is not None and video.status not in RECEIVING_STATUSES
+
+    def _generate_closing(self, case_id: str) -> None:
+        try:
+            self.memory_images.generate_initial(case_id, is_demo=False)
+        except Exception:
+            logger.exception(
+                "memory_image_generation_failed",
+                extra={"case_id": case_id},
+            )
+
+    def generate_closing_for_video(self, video_id: str) -> None:
+        """Genera el cierre de un caso cuyo video acaba de llegar.
+
+        Si el análisis todavía no guarda el caso, no hay nada que hacer aquí:
+        al terminar verá el video ya recibido y lo generará él. Si los dos lo
+        intentan a la vez, generate_initial deja pasar sólo a uno.
+        """
+        if self.memory_images is None:
+            return
+        with self.database.session() as session:
+            case_id = session.scalar(
+                select(CaseRecord.id).where(CaseRecord.video_id == video_id)
+            )
+        if case_id is not None:
+            self._generate_closing(case_id)
 
     def event_stream(
         self,

@@ -1,0 +1,44 @@
+/* El aviso de la subida del video vive bajo el reproductor y en la pantalla de
+   progreso: discreto mientras avanza, visible si se corta. */
+.video-transfer {
+  margin: 0.7rem 0 0;
+  color: var(--ink-faded);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+.video-transfer p { margin: 0; }
+
+.video-transfer-meter {
+  display: block;
+  height: 3px;
+  margin-top: 0.4rem;
+  background: color-mix(in oklch, var(--green) 14%, transparent);
+}
+.video-transfer-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  transform-origin: left;
+  transition: transform 200ms linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .video-transfer-meter > span { transition: none; }
+}
+
+.video-transfer.is-failed {
+  padding: 0.55rem 0.7rem;
+  border-left: 2px solid var(--rojo);
+  background: color-mix(in oklch, var(--rojo) 5%, transparent);
+  color: var(--ink);
+}
+.video-transfer.is-failed button {
+  margin-top: 0.45rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.video-transfer.is-failed button:hover { border-color: var(--ink-faded); }
