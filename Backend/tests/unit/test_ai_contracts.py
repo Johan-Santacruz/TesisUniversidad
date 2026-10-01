@@ -76,6 +76,10 @@ def test_whisper_chunk_requests_verbose_segments_and_preserves_local_timestamps(
                         text=" Testimonio ficticio. ",
                     )
                 ],
+                words=[
+                    SimpleNamespace(word="Testimonio", start=1.25, end=2.4),
+                    SimpleNamespace(word="ficticio", start=2.5, end=3.5),
+                ],
             )
 
     client = SimpleNamespace(
@@ -87,10 +91,15 @@ def test_whisper_chunk_requests_verbose_segments_and_preserves_local_timestamps(
 
     assert captured["model"] == "whisper-1"
     assert captured["response_format"] == "verbose_json"
-    assert captured["timestamp_granularities"] == ["segment"]
+    # Las palabras con su minuto dejan cortar donde termina la oración.
+    assert captured["timestamp_granularities"] == ["word", "segment"]
     assert result.segments[0].start_ms == 1250
     assert result.segments[0].end_ms == 3500
     assert result.segments[0].text == "Testimonio ficticio."
+    assert [(w.text, w.start_ms, w.end_ms) for w in result.words] == [
+        ("Testimonio", 1250, 2400),
+        ("ficticio", 2500, 3500),
+    ]
 
 
 def test_provider_name_is_limited_to_the_two_independent_readers():

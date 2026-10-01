@@ -29,9 +29,22 @@ class RawTranscriptSegment:
 
 
 @dataclass(frozen=True)
+class RawTranscriptWord:
+    """Una palabra con su minuto, sin puntuación: así la entrega Whisper."""
+
+    start_ms: int
+    end_ms: int
+    text: str
+
+
+@dataclass(frozen=True)
 class RawTranscriptChunk:
     text: str
     segments: tuple[RawTranscriptSegment, ...]
+    # Con el minuto de cada palabra el fragmento puede cerrarse donde termina
+    # la oración y no sólo donde Whisper hizo una pausa. Vacío si el proveedor
+    # no los dio: entonces se corta como antes.
+    words: tuple[RawTranscriptWord, ...] = ()
 
 
 def retry_call(
@@ -67,7 +80,7 @@ class WhisperAdapter:
             file=file_payload,
             model=self.model,
             response_format="verbose_json",
-            timestamp_granularities=["segment"],
+            timestamp_granularities=["word", "segment"],
             language="es",
         )
         segments = tuple(
@@ -78,9 +91,18 @@ class WhisperAdapter:
             )
             for segment in response.segments or []
         )
+        words = tuple(
+            RawTranscriptWord(
+                start_ms=round(float(word.start) * 1000),
+                end_ms=round(float(word.end) * 1000),
+                text=str(word.word).strip(),
+            )
+            for word in getattr(response, "words", None) or []
+        )
         return RawTranscriptChunk(
             text=str(response.text).strip(),
             segments=segments,
+            words=words,
         )
 
 

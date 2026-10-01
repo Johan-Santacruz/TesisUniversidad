@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from app.ai.providers import RawTranscriptChunk, RawTranscriptSegment
+from app.ai.providers import (
+    RawTranscriptChunk,
+    RawTranscriptSegment,
+    RawTranscriptWord,
+)
 from app.services.media import AudioChunk
 from app.ai.contracts import TranscriptSegment
 from app.services.transcription import (
@@ -11,6 +15,7 @@ from app.services.transcription import (
     TranscriptionError,
     TranscriptionService,
     merge_into_sentences,
+    split_at_sentences,
 )
 
 
@@ -203,3 +208,100 @@ def test_une_tambien_a_traves_de_los_trozos_de_audio():
     assert [s.text for s in resultado.segments] == ["Duramos viviendo 7 años allá."]
     assert resultado.segments[0].start_ms == 0
     assert resultado.segments[0].end_ms == 2_800
+
+
+# ── Fragmentos con sentido ─────────────────────────────────────────────────
+
+
+def _palabras(texto: str, inicio: int, paso: int = 300) -> tuple[RawTranscriptWord, ...]:
+    """Una palabra cada `paso` ms, sin puntuación, como las entrega Whisper."""
+    return tuple(
+        RawTranscriptWord(
+            start_ms=inicio + indice * paso,
+            end_ms=inicio + indice * paso + paso - 50,
+            text=palabra.strip(".,;:¿?¡!«»\""),
+        )
+        for indice, palabra in enumerate(texto.split())
+    )
+
+
+def test_corta_donde_termina_la_oracion_con_el_minuto_de_sus_palabras():
+    """El caso reportado: «…a nuestra vivienda. Por» en un solo trozo."""
+    texto = "La explosión pasó en la estación diagonal a nuestra vivienda. Por la cercanía"
+    trozo = RawTranscriptSegment(start_ms=7_000, end_ms=11_000, text=texto)
+
+    partes = split_at_sentences((trozo,), _palabras(texto, 7_000))
+
+    assert [parte.text for parte in partes] == [
+        "La explosión pasó en la estación diagonal a nuestra vivienda.",
+        "Por la cercanía",
+    ]
+    # Cada parte va del minuto de su primera palabra al de la última.
+    assert (partes[0].start_ms, partes[0].end_ms) == (7_000, 7_000 + 9 * 300 + 250)
+    assert partes[1].start_ms == 7_000 + 10 * 300
+
+
+def test_sin_palabras_que_casen_no_inventa_minutos():
+    """Si Whisper dictó «siete» y escribió «7», el trozo se queda entero."""
+    trozo = RawTranscriptSegment(start_ms=0, end_ms=3_000, text="Vivimos 7 años. Luego salimos.")
+    palabras = _palabras("Vivimos siete años. Luego salimos.", 0)
+
+    assert split_at_sentences((trozo,), palabras) == [trozo]
+    assert split_at_sentences((trozo,), ()) == [trozo]
+
+
+def test_no_corta_en_las_abreviaturas_ni_pierde_las_comillas():
+    texto = 'Habló con el Sr. Pérez y le dijo "váyanse." Esa noche salimos.'
+    trozo = RawTranscriptSegment(start_ms=0, end_ms=5_000, text=texto)
+
+    partes = split_at_sentences((trozo,), _palabras(texto, 0))
+
+    assert [parte.text for parte in partes] == [
+        'Habló con el Sr. Pérez y le dijo "váyanse."',
+        "Esa noche salimos.",
+    ]
+
+
+def test_al_llegar_al_tope_corta_donde_mejor_se_lee():
+    """Antes cortaba en el último límite aunque dejara «de» colgando."""
+    trozos = [
+        "Recuerdo que era una noche normal en el barrio, estábamos todos tranquilos en la casa,",
+        "cuando de repente se escuchó una explosión muy fuerte que venía de la estación de la",
+        "policía que queda en la esquina diagonal a nuestra vivienda y que siempre estaba llena de",
+        "gente del pueblo que iba a poner denuncias o a pedir ayuda por cualquier cosa que pasara.",
+    ]
+    unidos = merge_into_sentences([
+        _segmento(i, i * 4_000, (i + 1) * 4_000, texto) for i, texto in enumerate(trozos)
+    ])
+
+    assert unidos[0].text == trozos[0]
+    for fragmento in unidos[:-1]:
+        ultima = fragmento.text.split()[-1].strip(".,;:")
+        assert ultima.lower() not in {"de", "la", "por", "que", "y"}
+    for fragmento in unidos:
+        assert len(fragmento.text) <= MAX_FRAGMENT_CHARS
+
+
+def test_el_servicio_parte_por_oraciones_con_tiempos_reales():
+    texto = "Mi casa quedó sin ventanas. Por la cercanía todo tembló."
+    whisper = FakeWhisper([
+        RawTranscriptChunk(
+            text=texto,
+            segments=(RawTranscriptSegment(start_ms=0, end_ms=3_000, text=texto),),
+            words=_palabras(texto, 0),
+        ),
+    ])
+
+    resultado = TranscriptionService(whisper).transcribe(
+        analysis_id="analysis-1",
+        video_id="video-1",
+        chunks=[_audio_chunk(0, 10_000, 14_000)],
+    )
+
+    assert [s.text for s in resultado.segments] == [
+        "Mi casa quedó sin ventanas.",
+        "Por la cercanía todo tembló.",
+    ]
+    assert resultado.segments[0].start_ms == 10_000
+    assert resultado.segments[1].start_ms == 10_000 + 5 * 300
+    assert len({s.id for s in resultado.segments}) == 2
