@@ -41,6 +41,13 @@ links = [
   # los cambios de YouTube, así que el pin es flexible a propósito.
   "yt-dlp>=2025.1",
 ]
+voz = [
+  # Narración de la ruta guiada con ElevenLabs. Es un extra porque la voz es
+  # opcional: sin clave o sin timbre la ruta se lee con la síntesis del
+  # navegador. Estaba instalado a mano en el entorno local y faltaba en la
+  # imagen, así que el servidor tenía la clave pero no podía usarla.
+  "elevenlabs>=2,<3",
+]
 test = [
   "httpx>=0.28,<1",  # la usa fastapi.testclient.TestClient
   "pytest>=8.3,<9",

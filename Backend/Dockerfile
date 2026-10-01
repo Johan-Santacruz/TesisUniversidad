@@ -25,8 +25,10 @@ proyecto = tomllib.load(open("pyproject.toml", "rb"))["project"]
 dependencias = list(proyecto["dependencies"])
 dependencias += proyecto.get("optional-dependencies", {}).get("ml", [])
 # El extra de enlaces viaja en la imagen aunque la función venga apagada: así
-# encenderla en el servidor es cambiar una variable, no reconstruir.
+# encenderla en el servidor es cambiar una variable, no reconstruir. Lo mismo
+# la voz: sin clave de ElevenLabs no se usa, pero si la hay, funciona.
 dependencias += proyecto.get("optional-dependencies", {}).get("links", [])
+dependencias += proyecto.get("optional-dependencies", {}).get("voz", [])
 open("/tmp/requisitos.txt", "w").write("\n".join(dependencias) + "\n")
 PY
 
