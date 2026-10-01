@@ -7,6 +7,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
+# yt-dlp necesita un motor de JavaScript para leer YouTube: sin él la extracción
+# está obsoleta y puede quedarse sin formatos. Deno es el que usa por omisión;
+# se copia el binario de la imagen oficial, sin instalar nada más.
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
+
 WORKDIR /app
 
 # Las dependencias se instalan antes que el código y se leen del propio
