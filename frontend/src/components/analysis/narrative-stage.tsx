@@ -41,10 +41,13 @@ export const NARRATIVE_STAGES: Array<{
 export function NarrativeStageHeader({
   stage,
   aside,
+  description,
   onStageChange,
 }: {
   stage: NarrativeStage
   aside?: ReactNode
+  // Reemplaza la descripción de la etapa cuando no corresponde a lo que se ve.
+  description?: string
   onStageChange: (stage: NarrativeStage) => void
 }) {
   const current = NARRATIVE_STAGES.find((item) => item.id === stage)
@@ -72,7 +75,7 @@ export function NarrativeStageHeader({
         <div>
           <h1>{current.title}</h1>
           <span className="narrative-title-rule" aria-hidden="true" />
-          <p>{current.description}</p>
+          <p>{description ?? current.description}</p>
         </div>
         {aside}
       </div>

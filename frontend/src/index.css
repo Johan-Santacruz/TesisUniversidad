@@ -32,12 +32,29 @@
   /* Voz sans del lado narrativo —libro y login—: geométrica, frente a la
      grotesca institucional de --font-ui en el módulo de análisis. Los
      titulares y la prosa de ambos siguen en serif. */
-  --font-narrative: "Poppins", "Public Sans", Inter, system-ui, sans-serif;
+  --font-narrative: "Poppins", system-ui, sans-serif;
+
+  /* Escala tipográfica de todo el producto. Cinco tamaños de texto y uno de
+     titular: cualquier otro es un error. Rótulos y notas, cuerpo y botones,
+     datos que destacan, títulos de sección, y el titular de cada pantalla en
+     serifa. */
+  --t-meta: 0.72rem;
+  --t-cuerpo: 0.84rem;
+  --t-destacado: 1rem;
+  --t-seccion: 1.2rem;
+  --t-titulo: 1.5rem;
+  --t-display: 2rem;
+  /* Interletrado del titular en serifa y de los antetítulos en versalitas:
+     uno para cada uno, el mismo en todas las pantallas. */
+  --tracking-display: -0.02em;
+  --tracking-rotulo: 0.12em;
 }
 
 @theme inline {
-  --font-serif: "Libre Caslon Text", "EB Garamond", Georgia, serif;
-  --font-sans: "Public Sans", Inter, system-ui, sans-serif;
+  /* Dos familias y nada más: la serifa del libro para titulares y prosa, la
+     geométrica para todo lo demás. */
+  --font-serif: "Libre Caslon Text", Georgia, serif;
+  --font-sans: var(--font-narrative);
   /* Era una grotesca institucional (Archivo) a propósito distinta de la voz
      del libro. Esa separación se retiró: el producto entero habla con la
      misma geométrica. El token se conserva porque nombra el papel —voz de
@@ -90,7 +107,7 @@
       radial-gradient(circle at 12% 0%, color-mix(in oklch, var(--amarillo) 9%, transparent), transparent 28rem),
       var(--paper);
     color: var(--ink);
-    font-family: "Public Sans", Inter, system-ui, sans-serif;
+    font-family: var(--font-narrative);
     font-feature-settings: "liga", "kern", "onum";
     -webkit-font-smoothing: antialiased;
   }
@@ -137,7 +154,7 @@
   display: grid;
   min-height: 100vh;
   min-height: 100svh;
-  grid-template-columns: minmax(0, 1fr) minmax(21rem, 24rem);
+  grid-template-columns: minmax(0, 1fr);
   width: min(100%, 1140px);
   justify-content: center;
   align-items: center;
@@ -368,20 +385,35 @@
   pointer-events: none;
 }
 
-/* El mosaico se asienta sobre su propia hoja de papel para no mezclarse con el
-   libro que sirve de telón de fondo al login. */
-.login-collage {
+/* Mosaico y formulario comparten una sola hoja de papel, que además los
+   separa del libro que sirve de telón de fondo. Eran dos tarjetas sueltas, una
+   casi cuadrada y otra alta y angosta, cada una con su borde, su sombra y su
+   altura: al lado la una de la otra no se leían como la misma pieza. */
+.login-sheet {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(21rem, 25rem);
   width: 100%;
-  /* El segundo término es el techo real: el mosaico nunca pasa del alto de
-     la ventana, así que no arrastra la página a un scroll que no hace falta. */
-  height: min(clamp(28rem, 78svh, 46rem), calc(100svh - 5rem));
+  /* El segundo término es el techo real: la hoja nunca pasa del alto de la
+     ventana, así que no arrastra la página a un scroll que no hace falta. Si
+     el formulario necesita más, la hoja crece con él. */
+  min-height: min(clamp(28rem, 78svh, 46rem), calc(100svh - 5rem));
   overflow: hidden;
   border: 1px solid var(--login-border);
   border-radius: var(--login-radius);
   background: var(--login-glass);
-  box-shadow: 0 26px 70px color-mix(in oklch, var(--ink) 16%, transparent);
-  animation: login-collage-in 620ms 60ms both cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    0 30px 76px rgb(38 34 26 / 22%),
+    0 8px 22px rgb(38 34 26 / 12%),
+    inset 0 1px 0 rgb(255 255 255 / 82%);
+  animation: login-panel-in 620ms 120ms both cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* El mosaico ocupa todo el alto de su lado: lo da la hoja, no él. */
+.login-collage {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .login-collage::after {
@@ -519,24 +551,12 @@
   position: relative;
   z-index: 10;
   display: flex;
-  width: 100%;
-  max-width: 24rem;
   min-width: 0;
   align-items: center;
-  justify-self: center;
-  margin-left: 0;
-  padding: clamp(1.5rem, 2.2vw, 2.1rem);
+  padding: clamp(1.5rem, 2.4vw, 2.4rem);
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 72%);
-  border-radius: clamp(1.35rem, 2vw, 1.85rem);
-  background: var(--login-glass);
-  box-shadow:
-    0 30px 76px rgb(38 34 26 / 24%),
-    0 8px 22px rgb(38 34 26 / 13%),
-    inset 0 1px 0 rgb(255 255 255 / 82%);
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
-  animation: login-panel-in 620ms 120ms both cubic-bezier(0.16, 1, 0.3, 1);
+  border-left: 1px solid color-mix(in oklch, var(--rule) 55%, transparent);
+  background: var(--login-glass-strong);
 }
 
 .login-panel::before {
@@ -586,7 +606,7 @@
   color: var(--ink);
   cursor: pointer;
   font-family: var(--font-narrative);
-  font-size: 0.74rem;
+  font-size: var(--t-meta);
   font-weight: 600;
   letter-spacing: 0.01em;
   transition:
@@ -621,9 +641,9 @@
   gap: 0.65rem;
   margin: 0 0 0.95rem;
   color: color-mix(in oklch, var(--ink) 72%, var(--paper));
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
 }
 
@@ -661,10 +681,10 @@
 
 .login-form-shell h1 {
   max-width: 10.5ch;
-  font-family: "Newsreader", "Libre Caslon Text", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2.15rem, 2.9vw, 2.8rem);
-  font-weight: 500;
-  letter-spacing: -0.055em;
+  font-weight: 400;
+  letter-spacing: var(--tracking-display);
   line-height: 0.94;
   text-wrap: balance;
 }
@@ -673,7 +693,7 @@
   max-width: 27rem;
   margin: 0.7rem 0 0;
   color: color-mix(in oklch, var(--ink) 72%, var(--paper));
-  font-size: 0.86rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.62;
 }
 
@@ -687,16 +707,16 @@
   display: grid;
   gap: 0.4rem;
   color: color-mix(in oklch, var(--ink) 88%, var(--paper));
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--t-meta);
+  font-weight: 600;
 }
 
 .fact-review-form label {
   display: grid;
   gap: 0.4rem;
   color: var(--ink-soft);
-  font-size: 0.72rem;
-  font-weight: 650;
+  font-size: var(--t-meta);
+  font-weight: 600;
 }
 
 .login-form-shell input {
@@ -733,8 +753,8 @@
 .fact-review-form .fact-options legend {
   margin-bottom: 0.35rem;
   color: var(--ink-soft);
-  font-size: 0.72rem;
-  font-weight: 650;
+  font-size: var(--t-meta);
+  font-weight: 600;
 }
 
 .fact-review-form .fact-options label {
@@ -743,8 +763,8 @@
   gap: 0.6rem;
   min-height: 2.25rem;
   color: var(--ink);
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: var(--t-cuerpo);
+  font-weight: 400;
   cursor: pointer;
 }
 
@@ -792,8 +812,8 @@
   color: var(--azul);
   cursor: pointer;
   translate: 0 -50%;
-  font-size: 0.66rem;
-  font-weight: 700;
+  font-size: var(--t-meta);
+  font-weight: 600;
   transition:
     border-color 160ms ease,
     background 160ms ease;
@@ -813,9 +833,9 @@
   color: white;
   box-shadow: 0 10px 22px color-mix(in oklch, var(--azul) 17%, transparent);
   cursor: pointer;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.055em;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
   transition:
     background 180ms ease,
@@ -850,9 +870,9 @@
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.055em;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
   transition:
     border-color 160ms ease,
@@ -873,6 +893,8 @@
 .login-demo-hint {
   margin: 0;
   color: var(--ink-faded);
+  /* No var(--t-meta): esa escala vive en .analysis-app, y fuera de ella la
+     nota heredaba el tamaño del texto corrido y salía el doble de grande. */
   font-size: var(--t-meta);
   line-height: 1.4;
   text-align: center;
@@ -895,7 +917,7 @@
   margin-top: 0.1rem;
   color: color-mix(in oklch, var(--ink) 74%, var(--paper));
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: var(--t-meta);
   font-weight: 600;
   line-height: 1.45;
 }
@@ -922,7 +944,7 @@
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-size: 0.74rem;
+  font-size: var(--t-meta);
   line-height: 1.45;
   transition: padding 120ms ease;
 }
@@ -956,17 +978,6 @@
   }
 }
 
-@keyframes login-collage-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem) scale(0.995);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 @keyframes login-accent-sweep {
   0%,
   12% {
@@ -986,25 +997,16 @@
   }
 }
 
-/* La hoja de acceso se guarda: con la sesión abierta, el formulario se aleja
-   y se apaga y el mosaico se retira un paso. La ruta cambia justo después. */
-.login-page.is-departing .login-panel,
-.login-page.is-departing .login-collage {
+/* La hoja de acceso se guarda: con la sesión abierta se aleja y se apaga
+   entera. La ruta cambia justo después. */
+.login-page.is-departing .login-sheet {
   animation: none;
+  opacity: 0;
+  transform: translateY(-0.6rem) scale(0.985);
   transition:
     opacity 300ms cubic-bezier(0.4, 0, 1, 1),
     transform 320ms cubic-bezier(0.4, 0, 1, 1);
   pointer-events: none;
-}
-
-.login-page.is-departing .login-panel {
-  opacity: 0;
-  transform: translateY(-0.6rem) scale(0.985);
-}
-
-.login-page.is-departing .login-collage {
-  opacity: 0;
-  transform: scale(0.99);
 }
 
 @keyframes login-panel-in {
@@ -1033,22 +1035,16 @@
 
 @media (min-width: 768px) and (max-width: 1079px) {
   .login-page {
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 22rem);
-    gap: 2rem;
     padding: 1.25rem;
   }
 
-  .login-collage {
-    width: 100%;
-    height: clamp(25rem, 64svh, 38rem);
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+  .login-sheet {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 22rem);
+    min-height: clamp(25rem, 64svh, 38rem);
   }
 
   .login-panel {
-    margin-left: 0;
     padding: 1.85rem 1.65rem;
-    border-radius: 1.5rem;
   }
 
   /* En pantallas medianas el mosaico se queda en dos columnas para que las
@@ -1090,13 +1086,23 @@
     overflow-y: visible;
   }
 
+  /* La hoja se apila: la banda de fotos arriba y el formulario debajo. El
+     formulario se montaba 2,25 rem sobre las fotos y dejaba ver el libro a
+     través; ahora empieza donde ellas terminan y el papel es opaco. */
+  .login-sheet {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    border-radius: 1.35rem;
+    background: var(--paper-white);
+    box-shadow:
+      0 20px 46px rgb(38 34 26 / 18%),
+      inset 0 1px 0 white;
+  }
+
   .login-collage {
-    order: 1;
-    width: 100%;
-    height: clamp(18rem, 40svh, 23rem);
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr);
-    gap: 0;
+    height: clamp(12rem, 30svh, 16rem);
+    flex: none;
   }
 
   .login-collage::after {
@@ -1123,16 +1129,10 @@
   }
 
   .login-panel {
-    order: 2;
-    width: calc(100% - 1rem);
-    max-width: none;
-    margin: -2.25rem auto 0;
     padding: 1.4rem 1.2rem 1.25rem;
-    border-radius: 1.35rem;
-    background: var(--login-glass-strong);
-    box-shadow:
-      0 20px 46px rgb(38 34 26 / 18%),
-      inset 0 1px 0 white;
+    border-top: 1px solid color-mix(in oklch, var(--rule) 55%, transparent);
+    border-left: 0;
+    background: var(--paper-white);
   }
 
   .login-form-heading {
@@ -1150,7 +1150,7 @@
 
   .login-intro {
     margin-top: 0.65rem;
-    font-size: 0.8rem;
+    font-size: var(--t-cuerpo);
     line-height: 1.52;
   }
 
@@ -1180,7 +1180,7 @@
 
   .login-intro {
     margin-top: 0.6rem;
-    font-size: 0.83rem;
+    font-size: var(--t-cuerpo);
     line-height: 1.55;
   }
 
@@ -1194,9 +1194,8 @@
     padding-block: 0.75rem;
   }
 
-  .login-collage {
-    height: calc(100svh - 1.5rem);
-    min-height: 31rem;
+  .login-sheet {
+    min-height: max(31rem, calc(100svh - 1.5rem));
   }
 
   .login-panel {
@@ -1213,7 +1212,7 @@
 
   .login-intro {
     margin-top: 0.55rem;
-    font-size: 0.8rem;
+    font-size: var(--t-cuerpo);
     line-height: 1.48;
   }
 
@@ -1231,7 +1230,7 @@
   }
 
   .login-form-shell .login-terms {
-    font-size: 0.7rem;
+    font-size: var(--t-meta);
   }
 }
 
@@ -1261,7 +1260,7 @@
   gap: 0.8rem;
   margin: 0;
   font-family: var(--font-ui);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
 }
 
@@ -1298,9 +1297,9 @@
   color: var(--ink-soft);
   cursor: pointer;
   font-family: var(--font-ui);
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  letter-spacing: normal;
   transition:
     background 180ms ease,
     box-shadow 180ms ease,
@@ -1341,8 +1340,8 @@
 .narrative-stage-title-row h1 {
   margin: 1rem 0 0;
   font-family: var(--font-ui);
-  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
-  font-weight: 500;
+  font-size: var(--t-display);
+  font-weight: 400;
   letter-spacing: -0.02em;
   line-height: 1.15;
 }
@@ -1365,7 +1364,7 @@
   margin: 0.6rem 0 0;
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 0.86rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.6;
 }
 
@@ -1391,7 +1390,7 @@
 .narrative-stage-actions p {
   margin: 0;
   color: var(--ink-faded);
-  font-size: 0.72rem;
+  font-size: var(--t-meta);
 }
 
 .narrative-stage-actions button {
@@ -1402,7 +1401,7 @@
   background: var(--azul);
   color: white;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .narrative-stage-actions button:hover {
@@ -1455,8 +1454,8 @@
 .documentary-rail > h2 {
   margin: 0 0 0.75rem;
   font-family: var(--font-ui);
-  font-size: 1.6rem;
-  font-weight: 500;
+  font-size: var(--t-titulo);
+  font-weight: 600;
 }
 
 .documentary-video {
@@ -1477,26 +1476,79 @@
   object-fit: contain;
 }
 
+/* ── El riel del testimonio: una línea de tiempo por secciones ───────────
+   Los momentos del caso son las secciones: cada uno cuelga del hilo con un
+   nodo propio y su título, y debajo los fragmentos que le corresponden. Los
+   fragmentos ya no son tarjetas —cajas de 300 caracteres apiladas, todas con
+   el mismo peso—: son texto colgado del hilo, y cada oración arranca renglón. */
 .documentary-fragments {
+  --hilo: 0.3rem;
   position: relative;
   display: grid;
   padding-left: 1.35rem;
-  gap: 0.8rem;
-  /* Las dos claves para que el texto no se salga de la tarjeta: las filas se
-     miden por su contenido y la lista se apila desde arriba. Sin esto, al
-     vivir la lista dentro de un contenedor de alto fijo que se recorre, las
-     filas se reparten el alto disponible y los fragmentos largos desbordan
-     su propio borde. */
+  gap: 1.1rem;
+  /* Las filas se miden por su contenido y la lista se apila desde arriba: al
+     vivir dentro de un contenedor de alto fijo que se recorre, sin esto las
+     filas se reparten el alto disponible y el texto se desborda. */
   align-content: start;
   grid-auto-rows: max-content;
 }
 
 .documentary-fragments::before {
   position: absolute;
-  inset: 0 auto 0 0.25rem;
+  inset: 0 auto 0 var(--hilo);
   width: 1px;
   background: var(--rule);
   content: "";
+}
+
+.documentary-moment {
+  position: relative;
+  display: grid;
+  gap: 0.15rem;
+}
+
+/* El título del momento con su nodo, más grande que el de un fragmento: es
+   donde empieza una sección. */
+.analysis-app .documentary-moment-title {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.2rem;
+  padding: 0 0.6rem;
+  color: var(--ink);
+  font-size: var(--t-cuerpo);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.analysis-app .documentary-moment-title span { font-size: inherit; font-weight: inherit; }
+
+.documentary-moment-title::before {
+  position: absolute;
+  top: 0.3rem;
+  left: calc(-1.35rem + var(--hilo) - 0.3rem + 0.5px);
+  width: 0.6rem;
+  height: 0.6rem;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+  content: "";
+}
+
+.documentary-moment.is-active .documentary-moment-title::before {
+  border-color: var(--amarillo);
+  background: var(--amarillo);
+}
+
+.analysis-app .documentary-moment-title time {
+  flex: none;
+  color: var(--ink-faded);
+  font-size: var(--t-meta);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .documentary-fragments button {
@@ -1505,64 +1557,76 @@
   width: 100%;
   height: auto;
   min-height: 0;
-  padding: 0.8rem 0.9rem;
-  grid-template-columns: 46px 1fr;
+  padding: 0.5rem 0.6rem;
+  grid-template-columns: 2.4rem 1fr;
   align-items: start;
-  gap: 0.45rem;
-  border: 1px solid var(--rule);
-  border-radius: 15px;
-  background: color-mix(in oklch, var(--paper-white) 90%, transparent);
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
   text-align: left;
-  transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
+.documentary-fragments button:hover {
+  background: color-mix(in oklch, var(--paper-white) 70%, transparent);
+  color: var(--ink);
+}
+
+/* El punto de cada fragmento, más chico que el del momento. */
 .documentary-fragments button::before {
   position: absolute;
-  top: 1.1rem;
-  left: -1.35rem;
-  width: 9px;
-  height: 9px;
+  top: 0.95rem;
+  left: calc(-1.35rem + var(--hilo) - 2.5px + 0.5px);
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: var(--ink);
+  background: color-mix(in oklch, var(--ink) 40%, transparent);
   content: "";
 }
 
+/* Lo que suena ahora: papel claro, filete y punto en amarillo, como el
+   momento activo en Escucha. */
 .documentary-fragments button.is-active {
-  border-color: color-mix(in oklch, var(--amarillo) 36%, var(--rule));
   background: var(--paper-white);
   color: var(--ink);
-  /* Sin halo de color: el fragmento se marca, no se ilumina. */
   box-shadow: inset 3px 0 0 var(--amarillo);
 }
 
-/* El punto del riel dice en que parte del relato va el cabezal. */
 .documentary-fragments button.is-active::before {
+  width: 9px;
+  height: 9px;
+  top: calc(0.95rem - 2px);
+  left: calc(-1.35rem + var(--hilo) - 4.5px + 0.5px);
   background: var(--amarillo);
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--amarillo) 26%, transparent);
 }
 
-.documentary-fragments button.is-active time {
-  color: var(--ink);
+/* Metadato, como en Escucha. */
+.documentary-fragments button time {
+  color: var(--ink-faded);
+  font-family: var(--font-ui);
+  font-size: var(--t-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.75;
 }
 
+.documentary-fragments button.is-active time { color: var(--ink); }
 
-.documentary-fragments time {
-  color: var(--azul);
+.documentary-text {
+  display: grid;
+  gap: 0.4rem;
   font-family: var(--font-ui);
-  font-size: 0.7rem;
-}
-
-.documentary-fragments button span {
-  font-family: var(--font-ui);
-  font-size: 0.9rem;
   line-height: 1.5;
   text-wrap: pretty;
 }
+
+.documentary-sentence { display: block; }
+
+.documentary-text.is-cut .documentary-sentence:last-child::after { content: "…"; }
+.documentary-text.is-continued .documentary-sentence:first-child::before { content: "…"; }
 
 .listening-stage {
   margin-top: 2rem;
@@ -1592,7 +1656,7 @@
 .routes-section h2 {
   margin: 0;
   font-family: var(--font-ui);
-  font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+  font-size: var(--t-seccion);
   line-height: 1.2;
 }
 
@@ -1613,7 +1677,7 @@
 }
 
 .video-placeholder span {
-  font-family: "Libre Caslon Text", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 2.4rem;
 }
 .video-placeholder p { margin: 0.3rem 0 0; color: color-mix(in oklch, var(--paper) 65%, transparent); font-size: 0.65rem; }
@@ -1626,7 +1690,7 @@
   gap: 0.25rem;
   margin-top: 0.7rem;
   color: var(--ink-soft);
-  font-size: 0.62rem;
+  font-size: var(--t-meta);
   font-weight: 600;
 }
 .status-icon {
@@ -1642,7 +1706,7 @@
   margin: 0;
   color: var(--ink-faded);
   font-family: var(--font-ui);
-  font-size: 0.6rem;
+  font-size: var(--t-meta);
   font-weight: 400;
 }
 
@@ -1661,21 +1725,21 @@
   border-color: var(--azul);
   box-shadow: inset 4px 0 0 var(--azul);
 }
-.fact-card-heading h4 { margin: 0; font-family: var(--font-ui); font-size: 0.88rem; }
+.fact-card-heading h4 { margin: 0; font-family: var(--font-ui); font-size: var(--t-cuerpo); }
 .fact-card-heading .status-badge { justify-content: flex-end; margin-top: 0; }
 .fact-value {
   margin: 0.7rem 0;
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: var(--t-cuerpo);
 }
 /* Detalle plegado: sólo se abre cuando alguien quiere contrastar los modelos. */
 .provider-readings {
   margin: 0 0 0.8rem;
 }
 .provider-readings > div { padding: 0.45rem; background: var(--paper-deep); }
-.provider-readings dt { color: var(--ink-faded); font-size: 0.56rem; text-transform: uppercase; }
-.provider-readings dd { margin: 0.2rem 0 0; font-size: 0.68rem; }
+.provider-readings dt { color: var(--ink-faded); font-size: var(--t-meta); text-transform: uppercase; }
+.provider-readings dd { margin: 0.2rem 0 0; font-size: var(--t-meta); }
 
 .fact-review-form button {
   min-height: 44px;
@@ -1686,85 +1750,92 @@
   margin-top: 2rem;
 }
 
-/* La clasificación es contexto de apoyo, no el foco de la etapa: se apoya en
-   el papel sin bloque de color que compita con las señales. */
-.classification-summary {
-  display: grid;
-  padding: 0.9rem 0;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.7rem;
-  border: 0;
-  border-block: 1px solid var(--rule);
-  border-radius: 0;
-  background: transparent;
-}
-
-.classification-summary h2,
 .stage-section-heading h2 {
   margin: 0.2rem 0 0;
   font-family: var(--font-ui);
-  font-size: 1.2rem;
-  font-weight: 500;
+  font-size: var(--t-seccion);
+  font-weight: 600;
   letter-spacing: -0.015em;
   line-height: 1.2;
 }
 
-.classification-summary h2 {
-  font-size: 1.02rem;
+/* ── Las etapas del análisis: una sola rejilla ───────────────────────────
+   Escucha, Señales y Ruta comparten forma: el título de la sección suelto y
+   el contenido como renglones de una caja, en columnas —marca, nombre, dato,
+   estado, chevrón— para que nombres, datos y estados caigan en las mismas
+   verticales de arriba abajo. Antes cada bloque tenía su propia rejilla, y
+   nada alineaba con nada. */
+.analysis-app {
+  --ledger-columns: 1.6rem minmax(11rem, 15rem) minmax(0, 1fr) auto 1.4rem;
+  --ledger-gap: 1rem;
+  --ledger-padding: 0.85rem 1rem 0.85rem 1.1rem;
 }
 
+.evidence-stage { container-type: inline-size; }
+
+/* ── Tipo de caso ────────────────────────────────────────────────────────
+   Título fuera y renglones dentro, como "Señales encontradas" debajo: la
+   pestaña se lee como un documento con dos secciones, no como fichas de
+   formatos distintos. */
+.classification-summary { margin: 0 0 2rem; }
+
+.analysis-app .classification-summary h2 { margin: 0 0 0.75rem; }
+
 .classification-summary dl {
-  display: grid;
   margin: 0;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--paper-white) 45%, transparent);
 }
 
 .classification-summary dl > div {
   display: grid;
-  padding: 0.5rem 0;
-  grid-template-columns: minmax(6rem, 7.5rem) minmax(0, 1fr);
-  align-items: baseline;
-  gap: 0.15rem 1rem;
-  border: 0;
-  border-top: 1px dotted var(--rule);
-  background: transparent;
+  grid-template-columns: var(--ledger-columns);
+  column-gap: var(--ledger-gap);
+  align-items: start;
+  padding: var(--ledger-padding);
 }
 
-.classification-summary dl > div:first-child {
-  border-top: 0;
+.classification-summary dl > div + div { border-top: 1px solid var(--rule); }
+
+/* Nombre y dato con el mismo trato que en las señales: el nombre en cuerpo
+   suave, el dato en cuerpo y negrita. */
+.analysis-app .classification-summary dt {
+  grid-column: 2;
+  color: var(--ink-soft);
+  font-size: var(--t-cuerpo);
+  line-height: 1.45;
 }
 
-.classification-summary dt {
-  color: var(--ink-faded);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.classification-summary dd {
+.analysis-app .classification-summary dd {
+  grid-column: 3;
   margin: 0;
   color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.92rem;
-  font-weight: 500;
-  line-height: 1.35;
+  font-size: var(--t-cuerpo);
+  font-weight: 600;
+  line-height: 1.45;
 }
 
-.classification-summary .model-confidence {
-  grid-column: 2;
-  margin: 0;
+.analysis-app .classification-summary .model-confidence {
+  grid-column: 4;
+  justify-self: end;
   color: var(--ink-faded);
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: var(--t-meta);
   font-weight: 400;
+  line-height: 1.8;
 }
 
-.classification-summary > p {
-  margin: 0;
-  grid-column: 1 / -1;
-  color: var(--ink-faded);
-  font-size: 0.72rem;
+/* Las mismas columnas que las señales cuando el ancho se acaba. */
+@media (max-width: 900px) {
+  .classification-summary dl > div { grid-template-columns: 1.6rem minmax(0, 1fr) auto 1.4rem; }
+  .analysis-app .classification-summary dt { grid-column: 2; grid-row: 1; }
+  .analysis-app .classification-summary dd { grid-column: 2; grid-row: 2; }
+  .analysis-app .classification-summary .model-confidence { grid-column: 3 / 5; grid-row: 1; }
+}
+
+@media (max-width: 600px) {
+  .classification-summary dl > div { grid-template-columns: 1.4rem minmax(0, 1fr) 1.2rem; column-gap: 0.7rem; padding: 0.75rem 0.8rem 0.75rem 0.85rem; }
+  .analysis-app .classification-summary .model-confidence { grid-column: 2; grid-row: 3; justify-self: start; }
 }
 
 .stage-section-heading {
@@ -1778,9 +1849,11 @@
   max-width: 18rem;
   margin: 0;
   color: var(--ink-faded);
-  font-size: 0.72rem;
+  font-size: var(--t-meta);
   line-height: 1.5;
   text-align: right;
+  /* Alineada a la derecha, la última palabra se quedaba sola en su renglón. */
+  text-wrap: balance;
 }
 
 /* Cada tarjeta ocupa sólo su alto: una señal ya confirmada no necesita
@@ -1809,7 +1882,7 @@
 
 .evidence-grid .fact-card-heading h4 {
   font-family: var(--font-ui);
-  font-size: 1.125rem;
+  font-size: var(--t-seccion);
   font-weight: 600;
 }
 
@@ -1830,7 +1903,7 @@
   background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: var(--t-meta);
   font-weight: 600;
 }
 
@@ -1883,8 +1956,8 @@
 .action-error {
   margin: 0.6rem 0 0;
   color: var(--rojo);
-  font-size: 0.68rem;
-  font-weight: 650;
+  font-size: var(--t-meta);
+  font-weight: 600;
   line-height: 1.45;
 }
 
@@ -1893,16 +1966,29 @@
   background: transparent;
   color: var(--ink-soft);
 }
+/* El título y su advertencia a la izquierda, el estado de la recomendación a
+   la derecha, como nota. */
 .routes-heading {
-  align-items: center;
-  padding: 0 0 1rem;
+  align-items: start;
+  padding: 0;
 }
-.recommendation-label {
+
+.analysis-app .routes-heading h2 { margin: 0; }
+
+.routes-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 0.4rem;
+}
+/* El rojo del producto significa "esto bloquea". Una recomendación preliminar
+   no bloquea nada: es el estado normal antes de aprobar, y va en tinta. */
+.analysis-app .recommendation-label {
   padding: 0.45rem 0.8rem;
-  border: 1px solid color-mix(in oklch, var(--rojo) 45%, var(--rule));
+  border: 1px solid color-mix(in oklch, var(--ink) 22%, var(--rule));
   border-radius: 999px;
-  color: var(--rojo);
-  font-size: 0.66rem;
+  color: var(--ink-soft);
+  font-size: var(--t-meta);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1931,42 +2017,60 @@
 }
 .routes-disclaimer {
   max-width: 60rem;
-  margin: 1rem 0 1.5rem;
+  margin: 0.35rem 0 0;
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 0.82rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.55;
 }
-/* Las rutas se listan como fichas de una guía: caja de papel con esquinas
-   redondeadas y el color de la ruta como filete superior. */
+/* ── Ruta ────────────────────────────────────────────────────────────────
+   La forma de Escucha y Señales: el título de la sección suelto y las rutas
+   como renglones de una caja. Eran portadas fotográficas de 12rem con filete
+   de color, radio de 18px y sombra: tres fichas que ocupaban dos pantallas
+   antes de llegar a la aprobación. La fotografía de cada ruta se queda como
+   miniatura en la columna de la marca, y su color como filete del renglón
+   abierto, igual que el azul de la señal que se revisa. */
+
+.route-emergency { --route-accent: var(--amarillo); }
+.route-housing_stabilization { --route-accent: var(--azul); }
+.route-return_relocation { --route-accent: var(--rojo); }
+
+.routes-section {
+  /* La marca es la miniatura: necesita más que el punto de las señales. */
+  --ledger-columns: 3.75rem minmax(11rem, 15rem) minmax(0, 1fr) auto 1.4rem;
+  --route-indent: calc(1.1rem + 3.75rem + var(--ledger-gap));
+  margin: 0;
+  padding: 0;
+}
+
 .route-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
+  margin: 1rem 0 0;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--paper-white) 45%, transparent);
 }
+
 .route-journey {
   position: relative;
   min-width: 0;
+  margin: 0;
   padding: 0;
-  overflow: hidden;
-  border: 1px solid color-mix(in oklch, var(--rule) 82%, white);
-  border-top: 4px solid var(--route-accent, var(--ink));
-  border-radius: 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.route-journey + .route-journey { border-top: 1px solid var(--rule); }
+
+.route-journey.is-open {
+  padding-bottom: 1.25rem;
   background: var(--paper-white);
-  box-shadow: 0 8px 24px color-mix(in oklch, var(--ink) 4%, transparent);
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease;
-}
-.route-journey:hover,
-.route-journey:focus-within {
-  box-shadow: 0 18px 38px color-mix(in oklch, var(--ink) 10%, transparent);
+  box-shadow: inset 3px 0 0 var(--route-accent, var(--ink));
 }
 
-.route-emergency { --route-accent: var(--amarillo); }
-
-.route-journey > h3 { margin: 0.45rem 0; font-family: var(--font-ui); font-size: 1.125rem; }
-.route-journey > p { min-height: 3.6rem; color: var(--ink-soft); font-size: 0.72rem; line-height: 1.55; }
 .approval-bar {
   display: flex;
   align-items: center;
@@ -1977,7 +2081,7 @@
   border-top: 1px solid var(--rule);
 }
 .approval-bar strong { font-family: var(--font-ui); }
-.approval-bar p { margin: 0.3rem 0 0; color: var(--ink-faded); font-size: 0.66rem; }
+.approval-bar p { margin: 0.3rem 0 0; color: var(--ink-faded); font-size: var(--t-meta); }
 .approval-bar button {
   min-height: 48px;
   padding: 0.75rem 1.1rem;
@@ -1987,7 +2091,7 @@
   box-shadow: 0 10px 24px color-mix(in oklch, var(--azul) 18%, transparent);
   color: white;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
 }
 .approval-action {
   display: grid;
@@ -1998,51 +2102,25 @@
   max-width: 22rem;
   text-align: right;
 }
-.role-note { margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--ink-faded); font-size: 0.7rem; }
+.role-note { margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--ink-faded); font-size: var(--t-meta); }
 
 .route-stage {
   margin-top: 2rem;
 }
 
-.route-stage .routes-section {
-  margin-top: 2rem;
-  padding: 2rem 0 0;
-  border: 0;
-  border-top: 1px solid var(--rule);
-  background: transparent;
-}
-
-.route-stage .route-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-}
-
-.route-stage .route-journey {
-  border: 1px solid color-mix(in oklch, var(--rule) 82%, white);
-  border-top-width: 5px;
-  border-radius: 18px;
-  background: var(--paper-white);
-}
-
-.route-stage .route-emergency { border-top-color: var(--amarillo); }
-.route-stage .route-housing_stabilization { border-top-color: var(--azul); }
-.route-stage .route-return_relocation { border-top-color: var(--rojo); }
+.analysis-app .route-stage .routes-section { margin-top: 0; }
 
 .route-stage .approval-bar button {
   min-height: 44px;
   border-radius: 0.65rem;
   background: var(--azul);
+  box-shadow: none;
   color: white;
 }
 
 /* Cierre de memoria: cierra la etapa de ruta, después del recorrido. */
 .memory-image-panel {
   display: grid;
-  margin-top: 2rem;
-  padding: 2rem 0 0;
-  border-top: 1px solid var(--rule);
-  gap: 1.25rem;
 }
 
 .memory-image-header {
@@ -2050,17 +2128,17 @@
   gap: 0.4rem;
 }
 
-.memory-image-header h3 {
+.analysis-app .memory-image-header h3 {
   margin: 0;
-  font-family: var(--font-serif);
-  font-size: 1.35rem;
+  font-family: var(--font-ui);
+  font-size: var(--t-seccion);
 }
 
 .memory-image-status {
   margin: 0;
   max-width: 62ch;
   color: var(--ink-soft);
-  font-size: 0.92rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.55;
   transition: opacity 0.24s ease;
 }
@@ -2094,8 +2172,8 @@
 .memory-image-placeholder {
   color: var(--ink-faded);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
-  letter-spacing: 0.24em;
+  font-size: var(--t-cuerpo);
+  letter-spacing: normal;
 }
 
 /* La leyenda es papel, no imagen: sobrevive a una descarga fallida. */
@@ -2106,7 +2184,7 @@
   border-radius: 0 0 14px 14px;
   background: var(--paper-white);
   color: var(--ink);
-  font-size: 0.82rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.5;
 }
 
@@ -2124,7 +2202,7 @@
   background: var(--paper-white);
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.88rem;
+  font-size: var(--t-cuerpo);
 }
 
 .memory-image-actions button:disabled {
@@ -2153,7 +2231,7 @@
   background: var(--paper-white);
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: var(--t-cuerpo);
 }
 
 /* La versión activa no se distingue sólo por color: el borde y el peso
@@ -2208,11 +2286,21 @@
   }
 
   .documentary-fragments::before,
-  .documentary-fragments button::before {
+  .documentary-fragments button::before,
+  .documentary-moment-title::before {
     display: none;
   }
 
-  .documentary-fragments button {
+  /* En el carrusel cada sección es una tarjeta que se desliza, con su propio
+     alto: estiradas a la más larga, las cortas quedaban casi vacías. */
+  .documentary-fragments { align-items: start; }
+
+  .documentary-moment {
+    align-content: start;
+    padding: 0.75rem 0.5rem;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: color-mix(in oklch, var(--paper-white) 45%, transparent);
     scroll-snap-align: start;
   }
 
@@ -2262,13 +2350,11 @@
   }
 
   .documentary-video,
-  .evidence-grid .fact-card,
-  .route-stage .route-journey {
+  .evidence-grid .fact-card {
     border-radius: 12px;
   }
 
-  .evidence-grid .fact-card,
-  .route-stage .route-journey {
+  .evidence-grid .fact-card {
     box-shadow: 0 6px 18px color-mix(in oklch, var(--ink) 4%, transparent);
   }
 
@@ -2288,7 +2374,7 @@
     min-width: 0;
     padding-inline: 0.35rem;
     border-radius: 12px;
-    font-size: 0.7rem;
+    font-size: var(--t-meta);
   }
 
   .narrative-stage-label {
@@ -2301,7 +2387,7 @@
   }
 
   .narrative-stage-title-row h1 {
-    font-size: clamp(2.35rem, 14vw, 3.4rem);
+    font-size: var(--t-display);
   }
 
   .stage-section-heading,
@@ -2322,17 +2408,6 @@
     width: 100%;
   }
 
-  .listening-stage button {
-    grid-template-columns: 34px 1fr;
-  }
-
-  .listening-stage time {
-    grid-column: 2;
-  }
-
-  .recommendation-label {
-    width: 100%;
-  }
 }
 
 .processing-note {
@@ -2360,7 +2435,7 @@
   background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
-  font-size: 0.68rem;
+  font-size: var(--t-meta);
   font-weight: 600;
   transition:
     border-color 180ms ease,
@@ -2388,7 +2463,7 @@
 /* Un momento lleva título y una línea de contexto; un fragmento sólo su texto. */
 .listening-stage blockquote strong {
   display: block;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .listening-stage blockquote small {
@@ -2396,7 +2471,7 @@
   margin-top: 0.3rem;
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 0.78rem;
+  font-size: var(--t-meta);
   line-height: 1.5;
   text-wrap: pretty;
 }
@@ -2408,15 +2483,15 @@
   color: var(--ink-faded);
   cursor: pointer;
   font-family: var(--font-ui);
-  font-size: 0.62rem;
+  font-size: var(--t-meta);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: normal;
   list-style: none;
 }
 .provider-readings > summary::-webkit-details-marker { display: none; }
 .provider-readings > summary::before {
   content: "▸";
-  font-size: 0.6rem;
+  font-size: var(--t-meta);
   transition: transform 160ms ease;
 }
 .provider-readings[open] > summary::before { transform: rotate(90deg); }
@@ -2437,216 +2512,140 @@
   margin: 0;
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 0.8rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.55;
   text-align: left;
 }
 
-/* La ruta es una portada fotográfica velada en blanco. La imagen permanece en
-   la cabecera al abrir el recorrido y se funde con el papel de la línea. */
+/* La cabecera del renglón: miniatura, nombre, resumen con su estado debajo,
+   y el chevrón. Todo el renglón abre y cierra la ruta. */
 .route-journey-toggle {
-  position: relative;
-  isolation: isolate;
   display: grid;
+  grid-template-columns: var(--ledger-columns);
+  column-gap: var(--ledger-gap);
+  align-items: start;
   width: 100%;
-  min-height: 12rem;
-  padding: 1.35rem 1.5rem;
-  overflow: hidden;
+  padding: var(--ledger-padding);
   border: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-content: center;
-  align-items: center;
-  gap: 0.25rem 1.25rem;
   text-align: left;
-  transition: color 180ms ease, min-height 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background 160ms ease;
 }
 
-.route-card-artwork {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: saturate(0.9) contrast(0.94) brightness(1.04);
-  pointer-events: none;
-  user-select: none;
-  transition: filter 260ms ease;
-}
-
-.route-journey-toggle::before,
-.route-journey-toggle::after {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  content: "";
-  transition: opacity 220ms ease, background-color 180ms ease;
-}
-
-.route-journey-toggle::before {
-  z-index: 1;
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in oklch, var(--paper-white) 97%, transparent) 0%,
-      color-mix(in oklch, var(--paper-white) 91%, transparent) 38%,
-      color-mix(in oklch, var(--paper-white) 64%, transparent) 68%,
-      color-mix(in oklch, var(--paper-white) 20%, transparent) 100%
-    ),
-    linear-gradient(
-      0deg,
-      color-mix(in oklch, var(--paper-white) 72%, transparent),
-      transparent 58%
-    );
-}
-
-.route-journey-toggle::after {
-  z-index: 2;
-  background: linear-gradient(
-    0deg,
-    color-mix(in oklch, var(--paper-white) 90%, transparent),
-    transparent 52%
-  );
-  opacity: 0.28;
-}
-
-.route-journey-toggle > :not(.route-card-artwork) {
-  position: relative;
-  z-index: 3;
+.route-journey:not(.is-open) .route-journey-toggle:hover {
+  background: color-mix(in oklch, var(--paper-white) 80%, transparent);
 }
 
 .route-journey-toggle:focus-visible {
-  outline: 3px solid color-mix(in oklch, var(--route-accent, var(--amarillo)) 80%, white);
-  outline-offset: -5px;
+  outline: 2px solid var(--azul);
+  outline-offset: -3px;
 }
 
-.route-journey:hover .route-card-artwork,
-.route-journey:focus-within .route-card-artwork {
-  filter: saturate(0.98) contrast(0.98) brightness(1.07);
-}
-
-.route-journey .route-journey-toggle {
-  color: var(--ink);
-  text-shadow: none;
-}
-
-.route-journey-toggle h3 {
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: 1.4rem;
-  font-weight: 500;
+.route-card-artwork {
   grid-column: 1;
-  line-height: 1.2;
+  grid-row: 1 / span 3;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  object-fit: cover;
+  filter: saturate(0.9);
+  pointer-events: none;
+  user-select: none;
 }
 
-.route-journey-toggle p {
-  margin: 0.35rem 0 0;
-  color: var(--ink-soft);
-  font-family: var(--font-ui);
-  font-size: 0.82rem;
-  grid-column: 1;
-  line-height: 1.55;
-  max-width: 52ch;
-}
-
-.route-journey-toggle .status-badge { grid-column: 1; }
-
-.route-journey-hint {
-  align-self: center;
-  color: var(--ink-faded);
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  font-weight: 600;
+.analysis-app .route-journey-toggle h3 {
   grid-column: 2;
-  grid-row: 1 / span 4;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  grid-row: 1;
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  line-height: 1.45;
+}
+
+.analysis-app .route-journey-toggle p {
+  grid-column: 3;
+  grid-row: 1;
+  max-width: none;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--t-cuerpo);
+  line-height: 1.45;
+}
+
+.route-journey-toggle .status-badge {
+  grid-column: 3;
+  grid-row: 2;
+  margin-top: 0.3rem;
+}
+
+/* El faltante de respaldo se lee sin abrir la ruta, como nota en rojo y no
+   como una caja en versalitas. */
+.analysis-app .route-journey-warning {
+  grid-column: 3;
+  grid-row: 3;
+  margin-top: 0.3rem;
+  color: var(--rojo);
+  font-size: var(--t-meta);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* El chevrón, el mismo de las señales. */
+.route-journey-toggle::after {
+  grid-column: 5;
+  grid-row: 1;
+  justify-self: end;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: 0.2rem;
+  background: currentColor;
+  color: var(--ink-faded);
+  content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: rotate 200ms ease, color 160ms ease;
+}
+
+.route-journey.is-open .route-journey-toggle::after {
+  color: var(--ink);
+  rotate: 180deg;
+}
+
+/* "Ver recorrido" lo dice el chevrón; la frase queda para el lector de
+   pantalla, que no lo ve. */
+.analysis-app .route-journey-hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
-.route-journey:not(.is-open) .route-journey-hint {
-  padding: 0.55rem 0.8rem;
-  border: 1px solid color-mix(in oklch, var(--ink) 18%, transparent);
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--paper-white) 82%, transparent);
-  color: var(--ink);
-  box-shadow: 0 8px 24px color-mix(in oklch, var(--ink) 9%, transparent);
+@media (max-width: 900px) {
+  .route-journey-toggle { grid-template-columns: 3.75rem minmax(0, 1fr) auto 1.4rem; }
+  .analysis-app .route-journey-toggle p { grid-column: 2 / 4; grid-row: 2; margin-top: 0.15rem; }
+  .route-journey-toggle .status-badge { grid-column: 2 / 4; grid-row: 3; }
+  .analysis-app .route-journey-warning { grid-column: 2 / 4; grid-row: 4; }
+  .route-journey-toggle::after { grid-column: 4; }
 }
-
-.route-journey.is-open .route-journey-hint { color: var(--route-accent, var(--ink)); }
-
-.route-journey-warning {
-  width: fit-content;
-  margin-top: 0.65rem;
-  padding: 0.42rem 0.58rem;
-  border-radius: 0.45rem;
-  background: color-mix(in oklch, var(--rojo) 9%, var(--paper-white));
-  color: var(--rojo);
-  font-family: var(--font-ui);
-  font-size: 0.58rem;
-  font-weight: 600;
-  grid-column: 1;
-  letter-spacing: 0.08em;
-  line-height: 1.45;
-  text-transform: uppercase;
-}
-
-.route-journey:not(.is-open) .route-journey-warning {
-  border: 1px solid color-mix(in oklch, var(--rojo) 22%, transparent);
-  background: color-mix(in oklch, var(--paper-white) 86%, transparent);
-  color: color-mix(in oklch, var(--rojo) 82%, var(--ink));
-}
-
-/* La ruta abierta se asienta sobre papel más claro y proyecta más sombra. */
-.route-journey.is-open {
-  border-color: color-mix(in oklch, var(--route-accent, var(--ink)) 30%, var(--rule));
-  box-shadow: 0 20px 44px color-mix(in oklch, var(--ink) 12%, transparent);
-}
-
-.route-journey.is-open .route-journey-toggle {
-  min-height: 10rem;
-  color: var(--ink);
-  text-shadow: none;
-}
-
-.route-journey.is-open .route-journey-toggle::after { opacity: 0.68; }
 
 @media (max-width: 600px) {
+  .routes-section { --route-indent: 0.85rem; }
   .route-journey-toggle {
-    min-height: 10.5rem;
-    padding: 1.15rem;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.2rem;
+    grid-template-columns: 3rem minmax(0, 1fr) 1.2rem;
+    column-gap: 0.7rem;
+    padding: 0.75rem 0.8rem 0.75rem 0.85rem;
   }
-
-  .route-journey-toggle::before {
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklch, var(--paper-white) 94%, transparent) 0%,
-        color-mix(in oklch, var(--paper-white) 78%, transparent) 100%
-      ),
-      linear-gradient(
-        90deg,
-        color-mix(in oklch, var(--paper-white) 96%, transparent),
-        color-mix(in oklch, var(--paper-white) 38%, transparent)
-      );
-  }
-
-  .route-journey-hint {
-    justify-self: start;
-    margin-top: 0.8rem;
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  .route-journey.is-open .route-journey-hint {
-    margin-top: 0.65rem;
-  }
+  .route-journey-toggle::after { grid-column: 3; }
+  .analysis-app .route-journey-toggle p,
+  .route-journey-toggle .status-badge,
+  .analysis-app .route-journey-warning { grid-column: 2 / 4; }
 }
+
 /* Los pasos de cada ruta se recorren como una línea de tiempo horizontal: las
    paradas alternan sobre y bajo un eje, y cada una despliega su detalle al
    presionarla. */
@@ -2674,12 +2673,9 @@
 .route-journey > .route-stop-detail,
 .route-journey > .route-empty,
 .route-journey > .action-error {
-  margin-inline: 1.5rem;
-}
-
-/* Y aire abajo: el panel de la parada terminaba contra el borde inferior. */
-.route-journey.is-open {
-  padding-bottom: 1.5rem;
+  /* Desde la columna del nombre: el recorrido se lee como parte del renglón
+     que lo abrió, no como otra ficha. */
+  margin-inline: var(--route-indent, 1.5rem) 1rem;
 }
 
 .route-stops-head {
@@ -2687,7 +2683,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem 1.25rem;
-  margin-top: 1.25rem;
+  margin-top: 0.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid color-mix(in oklch, var(--rule) 55%, transparent);
 }
@@ -2700,7 +2696,7 @@
 
 .route-stops-route {
   color: var(--ink-faded);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* Una ausencia merece su propio recuadro. Antes iba pegada a la posición con
@@ -2796,7 +2792,7 @@
 .route-stop-node-number {
   color: var(--ink-faded);
   font-family: var(--font-ui);
-  font-size: 0.78rem;
+  font-size: var(--t-meta);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
@@ -2863,8 +2859,8 @@
   background: var(--rojo);
   color: var(--paper-white);
   font-family: var(--font-ui);
-  font-size: 0.58rem;
-  font-weight: 700;
+  font-size: var(--t-meta);
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -2916,6 +2912,31 @@
     max-width: 13rem;
     text-align: right;
   }
+
+  /* Una sola parada es primera y última a la vez: como última colgaba el
+     rótulo hacia la izquierda de un nodo pegado al borde, y se salía de la
+     tarjeta. Sola, el rótulo va hacia dentro. */
+  .route-stops[data-diagrama] .route-stop:only-child { flex: 1 1 auto; }
+
+  .route-stops[data-diagrama] .route-stop:only-child .route-stop-card {
+    grid-template-columns: none;
+    justify-items: start;
+  }
+
+  .route-stops[data-diagrama] .route-stop:only-child .route-stop-title {
+    text-align: left;
+  }
+
+  /* Y sin las bandas de rótulo arriba y abajo de la línea, que sólo sirven
+     para alternar: con una parada dejaban un hueco de casi 200px. */
+  .route-stops[data-diagrama]:has(> .route-stop:only-child) { padding-block: 0.75rem 0.25rem; }
+
+  .route-stops[data-diagrama] .route-stop:only-child .route-stop-card {
+    grid-template-rows: var(--nodo) auto;
+  }
+
+  .route-stops[data-diagrama] .route-stop:only-child .route-stop-mark { grid-row: 1; }
+  .route-stops[data-diagrama] .route-stop:only-child .route-stop-title { grid-row: 2; }
 
   .route-stops[data-diagrama] .route-stop-card {
     align-items: stretch;
@@ -2979,13 +3000,15 @@
 
 /* ── El panel de la parada ─────────────────────────────────────────────── */
 
+/* Una caja como las demás, sin tinte: el color de la ruta ya está en el
+   filete del renglón y en la barra del punto clave. Teñida y con su propia
+   ficha de fuente dentro eran tres cajas anidadas. */
 .route-stop-detail {
-  margin-top: 1.5rem;
-  padding: 1.5rem clamp(1rem, 2vw, 1.75rem);
-  border: 1px solid color-mix(in oklch, var(--route-accent, var(--ink)) 30%, var(--rule));
-  border-left: 4px solid var(--route-accent, var(--ink));
-  border-radius: 0.85rem;
-  background: color-mix(in oklch, var(--route-accent, var(--ink)) 5%, var(--paper-white));
+  margin-top: 1rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: transparent;
 }
 
 .route-stop-detail-head {
@@ -2995,18 +3018,17 @@
   gap: 0.5rem 1rem;
 }
 
-.route-stop-detail-which {
+.analysis-app .route-stop-detail-which {
   color: var(--ink-faded);
   font-family: var(--font-ui);
+  font-size: var(--t-meta);
   font-weight: 600;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
 }
 
 .route-stop-detail h4 {
   margin: 0;
   font-family: var(--font-ui);
-  font-size: clamp(1.02rem, 1.4vw, 1.2rem);
+  font-size: var(--t-cuerpo);
   font-weight: 600;
   line-height: 1.2;
 }
@@ -3069,7 +3091,7 @@
   padding: 1rem 0 0;
   border-top: 1px solid var(--rule);
   color: var(--ink-faded);
-  font-size: 0.7rem;
+  font-size: var(--t-meta);
   line-height: 1.5;
 }
 
@@ -3079,7 +3101,6 @@
    pantalla de espera y el dato útil quedaba en 12px.
    ══════════════════════════════════════════════════════════════════════════ */
 
-.intake,
 .processing-view {
   --module-column: 50rem;
   display: grid;
@@ -3124,14 +3145,14 @@
 .route-gate-list strong {
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.86rem;
+  font-size: var(--t-cuerpo);
   font-weight: 600;
 }
 
 .route-gate-list span {
   color: var(--ink-faded);
   font-family: var(--font-narrative);
-  font-size: 0.76rem;
+  font-size: var(--t-meta);
 }
 
 .route-gate-note {
@@ -3139,7 +3160,7 @@
   margin: 1.1rem 0 0;
   color: var(--ink-faded);
   font-family: var(--font-narrative);
-  font-size: 0.78rem;
+  font-size: var(--t-meta);
   line-height: 1.55;
   text-wrap: pretty;
 }
@@ -3152,7 +3173,7 @@
   margin: 0;
   color: var(--ink-soft);
   font-family: var(--font-narrative);
-  font-size: 0.82rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.5;
   text-wrap: pretty;
 }
@@ -3164,7 +3185,7 @@
 
 .verification-done {
   color: var(--green);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* La política sigue estando, una línea más abajo y con menos peso. */
@@ -3172,326 +3193,33 @@
   margin: 0.55rem 0 0;
   color: var(--ink-faded);
   font-family: var(--font-narrative);
-  font-size: 0.72rem;
-}
-
-/* ── Ficha del archivo elegido ───────────────────── */
-
-.intake-file {
-  display: flex;
-  align-items: center;
-  margin-top: 0.85rem;
-  padding: 0.8rem 0.9rem;
-  gap: 0.8rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.8rem;
-  background: var(--paper-white);
-}
-
-.intake-file-mark {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--green) 14%, transparent);
-}
-
-.intake-file-meta {
-  display: grid;
-  min-width: 0;
-  flex: 1;
-  gap: 0.1rem;
-}
-
-.intake-file-meta strong {
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 0.86rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.intake-file-meta small {
-  color: var(--ink-faded);
-  font-size: 0.72rem;
-}
-
-.intake-file-remove {
-  min-height: 0;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.55rem;
-  background: transparent;
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-size: 0.72rem;
-}
-
-.intake-file-remove:hover {
-  border-color: var(--ink-faded);
-  color: var(--ink);
-}
-
-.intake-problem {
-  margin: 0.75rem 0 0;
-  padding: 0.65rem 0.8rem;
-  border-left: 2px solid var(--rojo);
-  background: color-mix(in oklch, var(--rojo) 5%, transparent);
-  color: var(--ink);
-  font-size: 0.8rem;
-}
-
-/* ── Acciones ──────────────────────────────────────────────────────────── */
-
-.intake-actions {
-  display: flex;
-  align-items: center;
-  margin-top: 1.35rem;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-}
-
-.intake-start {
-  padding: 0.72rem 1.35rem;
-  border: 1px solid var(--azul);
-  border-radius: 0.7rem;
-  background: var(--azul);
-  color: white;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 600;
-  transition: background 180ms ease, box-shadow 180ms ease;
-}
-
-.intake-start:hover:not(:disabled) {
-  background: color-mix(in oklch, var(--azul) 88%, var(--ink));
-  box-shadow: 0 8px 18px color-mix(in oklch, var(--azul) 22%, transparent);
-}
-
-.intake-start:disabled {
-  border-color: var(--rule);
-  background: var(--paper-deep);
-  color: var(--ink-faded);
-  cursor: not-allowed;
-}
-
-/* Botón secundario de verdad, no un enlace tenue: sin archivo elegido es la
-   única acción que la persona puede ejecutar, y el primario está apagado. */
-.intake-demo {
-  padding: 0.72rem 1.2rem;
-  border: 1px solid color-mix(in oklch, var(--ink) 34%, var(--rule));
-  border-radius: 0.7rem;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 600;
-  transition: border-color 180ms ease, background 180ms ease;
-}
-
-.intake-demo:hover:not(:disabled) {
-  border-color: var(--ink);
-  background: color-mix(in oklch, var(--ink) 5%, transparent);
-}
-
-.intake-demo:disabled {
-  border-color: var(--rule);
-  color: var(--ink-faded);
-  cursor: not-allowed;
+  font-size: var(--t-meta);
 }
 
 /* ── Las tres etapas, ahora como pie y no como protagonista ────────────── */
 
-/* ── Procesamiento ───────────────────────────────────────────────
+/* ── Procesamiento ─────────────────────────────────────────────── */
 
-.processing-status {
-  display: grid;
-  align-items: center;
-  margin-top: 1.75rem;
-  padding: 1.15rem 1.25rem;
-  gap: 0.9rem 1.25rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.9rem;
-  background: var(--paper-white);
-  grid-template-columns: 1fr auto;
-}
-
-.processing-meter {
-  overflow: hidden;
-  height: 4px;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--rule) 55%, var(--paper-white));
-  grid-column: 1 / -1;
-}
-
-.processing-meter-fill {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform-origin: left center;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--azul), color-mix(in oklch, var(--azul) 70%, var(--amarillo)));
-}
-
-.processing-readout {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.processing-readout strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1.4rem;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.processing-readout strong span {
-  color: var(--ink-faded);
-  font-size: 0.82rem;
-}
-
-.processing-readout strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1.4rem;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
+/* Este encabezado no cerraba su comentario, y las 190 líneas siguientes
+   quedaron dentro de él desde agosto: el navegador nunca las vio. Lo que
+   hacía falta de ese bloque ya se repuso más abajo; faltaba el botón que
+   ofrece otro análisis, que se veía como texto suelto. */
 .processing-retry {
-  padding: 0.55rem 1rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
   border: 1px solid var(--ink);
   border-radius: 0.65rem;
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: var(--t-cuerpo);
   font-weight: 600;
+  transition: background 160ms ease, color 160ms ease;
 }
 
 .processing-retry:hover {
   background: var(--ink);
   color: var(--paper);
-}
-
-.processing-chapters {
-  display: grid;
-  margin: 1.5rem 0 0;
-  padding: 0;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  list-style: none;
-}
-
-.processing-chapters > li {
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.85rem;
-  background: color-mix(in oklch, var(--paper-white) 55%, transparent);
-  transition: border-color 260ms ease, background 260ms ease;
-}
-
-.processing-chapters > li.is-active {
-  border-color: color-mix(in oklch, var(--azul) 42%, var(--rule));
-  background: color-mix(in oklch, var(--azul) 4%, var(--paper-white));
-}
-
-.processing-chapters > li.is-done {
-  border-color: color-mix(in oklch, var(--green) 34%, var(--rule));
-}
-
-.processing-chapter-head {
-  display: flex;
-  align-items: baseline;
-  margin-bottom: 0.7rem;
-  gap: 0.55rem;
-}
-
-.processing-chapter-number {
-  color: var(--ink-faded);
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
-}
-
-.processing-chapter-head strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.processing-chapters ul {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  gap: 0.42rem;
-  list-style: none;
-}
-
-.processing-chapter-head strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.processing-dot {
-  width: 7px;
-  height: 7px;
-  border: 1px solid var(--ink-faded);
-  border-radius: 50%;
-  transition: background 240ms ease, border-color 240ms ease;
-}
-
-.processing-chapters ul li.is-settled .processing-dot {
-  border-color: var(--green);
-  background: var(--green);
-}
-
-.processing-chapters ul li.is-current .processing-dot {
-  border-color: var(--azul);
-  background: var(--azul);
-  animation: processing-pulse 1.5s ease-in-out infinite;
-}
-
-.processing-chapters ul li.state-failed .processing-dot,
-.processing-chapters ul li.state-unavailable .processing-dot {
-  border-color: var(--rojo);
-  background: color-mix(in oklch, var(--rojo) 40%, transparent);
-}
-
-.processing-stage-label {
-  color: var(--ink-soft);
-  font-size: 0.82rem;
-}
-
-.processing-chapters ul li.is-settled .processing-stage-label,
-.processing-chapters ul li.is-current .processing-stage-label {
-  color: var(--ink);
-}
-
-.processing-chapters ul li small {
-  color: var(--ink-faded);
-  font-size: 0.7rem;
-}
-
-.processing-chapters ul li.state-failed small,
-.processing-chapters ul li.state-unavailable small {
-  color: var(--rojo);
-}
-
-.processing-note {
-  margin: 1.4rem 0 0;
-  color: var(--ink-faded);
-  font-size: 0.76rem;
-}
-
-@keyframes processing-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--azul) 34%, transparent); }
-  50% { box-shadow: 0 0 0 4px color-mix(in oklch, var(--azul) 0%, transparent); }
 }
 
 /* Una etapa que termina se asienta: el punto se llena y suelta un anillo,
@@ -3569,72 +3297,108 @@
   .processing-status {
     grid-template-columns: 1fr;
   }
-
-  .intake-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
    Línea de tiempo del caso · navegación común a Escucha, Señales y Rutas
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Escucha ───────────────────────────────────────────────────────────── */
+/* ── Escucha ─────────────────────────────────────────────────────────────
+   La forma de Señales: el título de la sección suelto, una línea que dice
+   qué hacer, y los momentos como renglones de una sola caja en las columnas
+   del módulo —número, título, lo que se cuenta, minuto—. Eran tarjetas
+   sueltas con un desplazamiento propio: un recuadro con scroll dentro de una
+   página que ya lo tiene. */
+
+.listening-stage .stage-section-heading { display: block; }
+.analysis-app .listening-stage h2 { margin: 0; }
+
+.analysis-app .listening-stage .stage-section-heading > p {
+  max-width: none;
+  margin: 0.35rem 0 0;
+  color: var(--ink-soft);
+  font-size: var(--t-cuerpo);
+  line-height: 1.6;
+  text-align: left;
+}
 
 .listening-entries {
   display: grid;
-  max-height: min(46vh, 30rem);
-  margin: 1.15rem 0 0;
-  padding: 0 0.25rem 0 0;
-  overflow-y: auto;
-  gap: 0.6rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--paper-white) 45%, transparent);
   list-style: none;
-  scrollbar-gutter: stable;
 }
+
+.listening-entries > li + li { border-top: 1px solid var(--rule); }
 
 .listening-entry {
   display: grid;
+  grid-template-columns: var(--ledger-columns);
+  column-gap: var(--ledger-gap);
+  align-items: start;
   width: 100%;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--rule);
-  border-left: 3px solid transparent;
-  border-radius: 0.7rem;
-  background: color-mix(in oklch, var(--paper-white) 55%, transparent);
+  padding: var(--ledger-padding);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
-  gap: 0.75rem;
-  grid-template-columns: 1.9rem minmax(0, 1fr) auto;
   text-align: left;
-  transition:
-    border-color 200ms ease,
-    background 200ms ease,
-    translate 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background 160ms ease;
 }
 
-.listening-entry:hover {
-  border-color: color-mix(in oklch, var(--ink) 24%, var(--rule));
-  background: var(--paper-white);
-}
+.listening-entry:hover { background: color-mix(in oklch, var(--paper-white) 80%, transparent); }
 
-/* "Vamos por aqui" es una marca de lectura, no una seleccion de interfaz. Usa
-   el mismo trazo de marcador que ya subraya la transcripcion: el azul de esta
-   app nombra acciones (Aprobar, Revisar senales), no posicion. Sin `translate`,
-   porque la tarjeta saltaba cada vez que el relato avanzaba. */
+/* "Vamos por aquí" es una marca de lectura, no una selección: el filete y el
+   trazo de marcador van en amarillo, como el resto de lo que dice dónde se
+   va. El azul del módulo nombra acciones, no posición. */
 .listening-entry.is-active {
-  border-color: color-mix(in oklch, var(--amarillo) 34%, var(--rule));
-  border-left-color: var(--amarillo);
   background: var(--paper-white);
+  box-shadow: inset 3px 0 0 var(--amarillo);
 }
 
-.listening-entry.is-active .listening-index,
-.listening-entry.is-active time {
+/* El cuerpo del renglón se reparte en las columnas de la caja: el título en
+   la del nombre, lo que se cuenta en la del dato. */
+.listening-body { display: contents; }
+
+.analysis-app .listening-index {
+  grid-column: 1;
+  color: var(--ink-faded);
+  font-size: var(--t-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.7;
+}
+
+.analysis-app .listening-body strong {
+  grid-column: 2;
+  grid-row: 1;
   color: var(--ink);
+  line-height: 1.45;
 }
 
-/* El trazo va sobre una caja en linea, no sobre el <strong>: <strong> es un
-   item de rejilla y el degradado pintaria la fila entera hasta el borde. Con
-   una caja en linea `clone` reparte un trazo por renglon, que es lo que hace
-   un marcador de verdad cuando el titulo baja a dos lineas. */
+.analysis-app .listening-body small {
+  grid-column: 3;
+  grid-row: 1;
+  color: var(--ink-soft);
+  font-size: var(--t-cuerpo);
+  line-height: 1.45;
+}
+
+/* Un fragmento sin momentos sólo trae su texto: ocupa nombre y dato, y en
+   peso normal, porque es la transcripción y no un título. */
+.analysis-app .listening-body strong:only-child {
+  grid-column: 2 / 4;
+  font-weight: 400;
+}
+
+/* El trazo va sobre una caja en línea, no sobre el <strong>: <strong> es un
+   ítem de rejilla y el degradado pintaría la fila entera hasta el borde. Con
+   una caja en línea `clone` reparte un trazo por renglón, que es lo que hace
+   un marcador de verdad cuando el título baja a dos líneas. */
 .listening-entry.is-active strong span {
   margin: 0 -0.16em;
   padding: 0 0.16em;
@@ -3646,62 +3410,56 @@
   -webkit-box-decoration-break: clone;
 }
 
-.listening-index {
-  color: var(--ink-faded);
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
-}
-
-.listening-body {
-  display: grid;
-  min-width: 0;
-  gap: 0.25rem;
-}
-
-.listening-body strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.98rem;
-  font-weight: 500;
-  line-height: 1.35;
-}
-
-.listening-body small {
-  color: var(--ink-soft);
-  font-size: 0.79rem;
-  line-height: 1.45;
-}
-
-/* Qué señales nacieron de este momento. */
-.listening-signals {
+/* Qué señales nacieron de este momento, como una nota bajo lo que se cuenta.
+   Eran pastillas: cajas dentro de una caja dentro de otra. */
+.analysis-app .listening-signals {
+  grid-column: 3;
+  grid-row: 2;
   display: flex;
-  margin-top: 0.2rem;
   flex-wrap: wrap;
-  gap: 0.3rem;
-}
-
-.listening-body strong {
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 0.98rem;
-  font-weight: 500;
-  line-height: 1.35;
-}
-
-.listening-signal {
-  padding: 0.12rem 0.45rem;
-  border: 1px solid color-mix(in oklch, var(--amarillo) 55%, var(--rule));
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--amarillo) 14%, transparent);
-  color: color-mix(in oklch, var(--ink) 82%, var(--amarillo));
-  font-size: 0.66rem;
-  letter-spacing: 0.03em;
-}
-
-.listening-entry time {
+  gap: 0 0.4rem;
+  margin-top: 0.3rem;
   color: var(--ink-faded);
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-size: var(--t-meta);
+  line-height: 1.5;
+}
+
+.analysis-app .listening-signals span { font-size: inherit; }
+.analysis-app .listening-signal { color: var(--ink-soft); }
+.listening-signal + .listening-signal::before {
+  margin-right: 0.4rem;
+  color: var(--ink-faded);
+  content: "·";
+}
+
+.analysis-app .listening-entry time {
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: end;
+  color: var(--ink-faded);
+  font-size: var(--t-meta);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.7;
+}
+
+.listening-entry.is-active .listening-index,
+.analysis-app .listening-entry.is-active time { color: var(--ink); }
+
+/* Las mismas columnas que Señales cuando el ancho se acaba: el título encima
+   de lo que se cuenta, el minuto a la derecha. */
+@media (max-width: 900px) {
+  .listening-entry { grid-template-columns: 1.6rem minmax(0, 1fr) auto 1.4rem; }
+  .analysis-app .listening-body small { grid-column: 2 / 4; grid-row: 2; margin-top: 0.15rem; }
+  .analysis-app .listening-signals { grid-column: 2 / 4; grid-row: 3; }
+  .analysis-app .listening-entry time { grid-column: 3; }
+}
+
+@media (max-width: 600px) {
+  .listening-entry {
+    grid-template-columns: 1.4rem minmax(0, 1fr) auto;
+    column-gap: 0.7rem;
+    padding: 0.75rem 0.8rem 0.75rem 0.85rem;
+  }
 }
 
 /* ── Señales ───────────────────────────────────────────────────────────── */
@@ -3724,7 +3482,7 @@
   background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
-  font-size: 0.76rem;
+  font-size: var(--t-meta);
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 
@@ -3742,7 +3500,7 @@
 .signal-filters button span {
   color: inherit;
   font-family: var(--font-ui);
-  font-size: 0.68rem;
+  font-size: var(--t-meta);
   opacity: 0.7;
 }
 
@@ -3787,8 +3545,8 @@
   margin: 0;
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.88rem;
-  font-style: italic;
+  font-size: var(--t-cuerpo);
+  font-style: normal;
   line-height: 1.5;
 }
 
@@ -3799,12 +3557,14 @@
   margin-top: 0.55rem;
   padding: 0.3rem 0.6rem;
   gap: 0.45rem;
-  border: 1px solid color-mix(in oklch, var(--azul) 40%, var(--rule));
+  /* Azul mezclado con el beige del filete daba un rosado: el borde va neutro
+     como el de los demás botones con contorno, y el azul queda en el texto. */
+  border: 1px solid color-mix(in oklch, var(--ink) 22%, var(--rule));
   border-radius: 0.5rem;
   background: var(--paper-white);
   color: var(--azul);
   cursor: pointer;
-  font-size: 0.73rem;
+  font-size: var(--t-meta);
   font-weight: 600;
 }
 
@@ -3817,21 +3577,21 @@
   margin: 0;
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.88rem;
-  font-style: italic;
+  font-size: var(--t-cuerpo);
+  font-style: normal;
   line-height: 1.5;
 }
 
 .fact-quote-jump time {
   font-family: var(--font-ui);
-  font-size: 0.68rem;
+  font-size: var(--t-meta);
   opacity: 0.75;
 }
 
 .fact-quote-empty {
   margin: 0.7rem 0 0;
   color: var(--ink-faded);
-  font-size: 0.78rem;
+  font-size: var(--t-meta);
 }
 
 @media (max-width: 900px) {
@@ -3865,12 +3625,12 @@
   flex: 1;
   gap: 0.1rem;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: var(--t-meta);
 }
 
 .routes-gate strong {
   color: var(--ink);
-  font-size: 0.85rem;
+  font-size: var(--t-cuerpo);
 }
 
 .routes-gate button {
@@ -3881,7 +3641,7 @@
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  font-size: 0.76rem;
+  font-size: var(--t-meta);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -3893,10 +3653,10 @@
 
 .source-inspector {
   margin-top: 0.5rem;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.6rem;
-  background: var(--paper-white);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .source-inspector dl {
@@ -3906,18 +3666,17 @@
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 
+/* Etiqueta encima y dato debajo, como en el tipo de caso: sin versalitas. */
 .source-inspector dt {
   margin-bottom: 0.1rem;
   color: var(--ink-faded);
-  font-size: 0.63rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-size: var(--t-meta);
 }
 
-.source-inspector dd {
+.analysis-app .source-inspector dd {
   margin: 0;
   color: var(--ink);
-  font-size: 0.78rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.4;
 }
 
@@ -3952,12 +3711,12 @@
 
 .source-footer a {
   color: var(--azul);
-  font-size: 0.76rem;
+  font-size: var(--t-meta);
 }
 
 .source-validity {
   color: var(--ink-faded);
-  font-size: 0.7rem;
+  font-size: var(--t-meta);
 }
 
 .source-validity.is-expired {
@@ -3999,7 +3758,7 @@
 .fact-card-open {
   color: var(--ink-faded);
   font-family: var(--font-ui);
-  font-size: 1.15rem;
+  font-size: var(--t-seccion);
   line-height: 1;
 }
 
@@ -4007,7 +3766,7 @@
   margin: 0;
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.95rem;
+  font-size: var(--t-destacado);
   font-weight: 600;
   letter-spacing: -0.005em;
 }
@@ -4016,8 +3775,8 @@
   margin: 0;
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 1.32rem;
-  font-weight: 500;
+  font-size: var(--t-seccion);
+  font-weight: 600;
   letter-spacing: -0.015em;
   line-height: 1.2;
 }
@@ -4032,7 +3791,7 @@
 .fact-card-blocking {
   color: var(--rojo);
   font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-size: var(--t-meta);
   font-weight: 600;
 }
 
@@ -4052,13 +3811,14 @@
   min-height: 0;
   padding: 0.34rem 0.7rem;
   gap: 0.4rem;
-  border: 1px solid color-mix(in oklch, var(--azul) 34%, var(--rule));
+  /* Neutro, como "Ver en el video": azul con el beige del filete da rosado. */
+  border: 1px solid color-mix(in oklch, var(--ink) 22%, var(--rule));
   border-radius: 999px;
   background: var(--paper-white);
   color: var(--azul);
   cursor: pointer;
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: var(--t-meta);
   font-weight: 600;
   white-space: nowrap;
   transition: background 160ms ease, border-color 160ms ease;
@@ -4143,7 +3903,6 @@
 
 /* El contenido es tinta sobre claro: iría ilegible sobre el nogal. Se apoya en
    una hoja de papel, igual que el libro se apoya en la mesa. */
-.desk-stage .intake,
 .desk-stage .processing-view {
   position: relative;
   z-index: 1;
@@ -4159,10 +3918,13 @@
     inset 0 1px 0 rgb(255 255 255 / 55%);
 }
 
-/* La hoja ya centra el contenido: la escena sólo la coloca. */
+/* La hoja ya centra el contenido: la escena sólo la coloca. "safe" centra
+   sólo cuando cabe: en un teléfono la hoja es más alta que la ventana, y el
+   centrado a secas repartía el sobrante arriba y abajo, así que el antetítulo
+   y el principio del titular quedaban debajo de la barra fija. */
 .desk-stage {
   display: grid;
-  align-content: center;
+  align-content: safe center;
 }
 
 /* Los tres pasos comparten rejilla: si cada uno se apila por su cuenta, los
@@ -4210,14 +3972,16 @@
    —más que el contexto de la pantalla— mientras que cerrar sesión, que se usa
    una vez, llevaba píldora con borde y volver al inicio, que sí se usa, era
    sólo texto. Las dos acciones comparten ahora el mismo tratamiento en cada
-   extremo. */
-.workspace-back,
-.workspace-identity small,
-.workspace-identity button {
+   extremo. Van bajo .workspace-bar porque la escala general de botones del
+   módulo (.analysis-app button) pesa lo mismo y, al ir después, le devolvía a
+   "Cerrar sesión" el cuerpo y la negrita. */
+.workspace-bar .workspace-back,
+.workspace-bar .workspace-identity small,
+.workspace-bar .workspace-identity button {
   font-family: var(--font-ui);
-  font-size: 0.625rem;
+  font-size: var(--t-meta);
   font-weight: 500;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -4242,7 +4006,7 @@
 .workspace-context {
   color: var(--ink-soft);
   font-family: var(--font-ui);
-  font-size: 0.78rem;
+  font-size: var(--t-cuerpo);
   white-space: nowrap;
 }
 
@@ -4271,7 +4035,7 @@
   overflow: hidden;
   color: var(--ink-faded);
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: var(--t-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4319,11 +4083,14 @@
    contenido, así que la rejilla quedaba dentada. Cuatro tamaños, no ocho.
    ══════════════════════════════════════════════════════════════════════════ */
 
+/* Alias de la escala del módulo. Era una escala paralela (0.78, 1.05, 0.76)
+   que competía con la general; se conservan los nombres para no tocar las
+   reglas que los usan. */
 .verification-panel {
-  --paso-etiqueta: 0.78rem;
-  --paso-valor: 1.05rem;
-  --paso-meta: 0.72rem;
-  --paso-accion: 0.76rem;
+  --paso-etiqueta: var(--t-meta);
+  --paso-valor: var(--t-destacado);
+  --paso-meta: var(--t-meta);
+  --paso-accion: var(--t-cuerpo);
 }
 
 .evidence-grid {
@@ -4357,7 +4124,7 @@
 }
 
 .fact-card-open {
-  font-size: 0.95rem;
+  font-size: var(--t-destacado);
   line-height: 1;
 }
 
@@ -4414,7 +4181,7 @@
 .status-badge { font-size: var(--paso-meta); }
 
 /* El encabezado del panel baja de tamaño: competía con los valores. */
-.verification-panel .stage-section-heading h2 { font-size: 1.15rem; }
+.verification-panel .stage-section-heading h2 { font-size: var(--t-seccion); }
 .signal-filters button { font-size: var(--paso-meta); }
 
 /* Cuatro escalones y ni uno más dentro de la tarjeta. Había ocho tamaños
@@ -4441,7 +4208,7 @@
 
 .fact-card .provider-readings dt {
   color: var(--ink-faded);
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
 }
 
@@ -4520,16 +4287,6 @@
   .narrative-workspace-grid { transition: none; }
 }
 
-/* ── Etiquetas del relato: una sola tinta ──────────────────────────────── */
-
-/* Iban en amarillo y rojo según criticidad. Pintar por categoría cuando la
-   categoría no cambia lo que hay que hacer sólo añade ruido: café y punto. */
-.listening-signal {
-  border-color: color-mix(in oklch, var(--ink) 22%, var(--rule));
-  background: color-mix(in oklch, var(--ink) 5%, transparent);
-  color: color-mix(in oklch, var(--ink) 78%, var(--paper));
-  font-weight: 500;
-}
 
 
 .documentary-rail-toggle:hover {
@@ -4649,7 +4406,7 @@
 /* Una señal ya confirmada no reclama nada: se apaga y cede el turno. */
 .fact-card:not(.is-blocking):not(.is-contextual) .fact-value {
   color: var(--ink-soft);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 @media (max-width: 720px) {
@@ -4738,7 +4495,6 @@
    Es el mismo objeto que la portada, apoyado en la misma mesa.
    ══════════════════════════════════════════════════════════════════════════ */
 
-.desk-stage .intake,
 .desk-stage .processing-view {
   position: relative;
   /* Una página no tiene esquinas de 18px. */
@@ -4748,7 +4504,6 @@
 
 /* El bloque de hojas que quedan debajo: tres slivers desplazados, cada uno
    más tenue, como el canto de un libro abierto. */
-.desk-stage .intake::after,
 .desk-stage .processing-view::after {
   position: absolute;
   top: 0.5rem;
@@ -4770,7 +4525,6 @@
 }
 
 /* La sombra del lomo: el papel se curva al nacer de la encuadernación. */
-.desk-stage .intake::before,
 .desk-stage .processing-view::before {
   position: absolute;
   inset: 0 auto 0 0;
@@ -4787,13 +4541,11 @@
 }
 
 /* El contenido se aparta del lomo para no caer sobre la curvatura. */
-.desk-stage .intake > *,
 .desk-stage .processing-view > * {
   position: relative;
   z-index: 1;
 }
 
-.desk-stage .intake,
 .desk-stage .processing-view {
   padding-left: clamp(2.5rem, 5vw, 3.75rem);
 }
@@ -4834,8 +4586,8 @@
 
 .fact-reading small {
   color: var(--ink-faded);
-  font-size: 0.66rem;
-  letter-spacing: 0.06em;
+  font-size: var(--t-meta);
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
 }
 
@@ -4852,7 +4604,7 @@
   margin: 0;
   color: var(--ink-faded);
   font-size: var(--paso-meta);
-  font-style: italic;
+  font-style: normal;
 }
 
 /* ── El scroll baja al contenido, no al riel ───────────────────────────── */
@@ -4901,13 +4653,6 @@
    letras distintas. Cuatro tamaños y dos pesos: nada más.
    ══════════════════════════════════════════════════════════════════════════ */
 
-.analysis-app {
-  --t-meta: 0.72rem;
-  --t-cuerpo: 0.84rem;
-  --t-destacado: 1rem;
-  --t-titulo: 1.5rem;
-}
-
 /* Todo parte del cuerpo y peso normal; lo que suba, sube a propósito. */
 .analysis-app p,
 .analysis-app li,
@@ -4924,14 +4669,21 @@
   letter-spacing: normal;
 }
 
-.analysis-app h1 {
-  font-size: var(--t-titulo);
-  font-weight: 600;
-  letter-spacing: -0.015em;
+/* El titular de la etapa habla con la voz del libro: serifa, como la portada,
+   el login y la subida. En sans parecía un encabezado de otra aplicación. */
+.analysis-app h1,
+.analysis-app .live-results-header .narrative-stage-title-row h2 {
+  font-family: var(--font-serif);
+  font-size: var(--t-display);
+  font-weight: 400;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.12;
 }
 
+/* Todos los títulos de sección en el mismo paso: "Tu declaración" y
+   "3 momentos del relato" iban a 16 px al lado de "Señales encontradas" a 19. */
 .analysis-app h2 {
-  font-size: var(--t-destacado);
+  font-size: var(--t-seccion);
   font-weight: 600;
   letter-spacing: -0.005em;
 }
@@ -4957,24 +4709,38 @@
   letter-spacing: normal;
 }
 
-/* Único tratamiento con espaciado: los antetítulos en versalitas. */
+/* Único tratamiento con espaciado: los antetítulos en versalitas, y los
+   nombres de los modelos, que son siglas. Las etiquetas de datos van en
+   minúsculas encima o al lado de su dato. */
 .analysis-app .eyebrow,
-.analysis-app .route-stop-detail-which,
-.analysis-app .source-inspector dt {
+.analysis-app .provider-readings dt {
   font-size: var(--t-meta);
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
+  color: var(--ink-faded);
 }
 
-/* Los dos datos que sí deben destacar sobre el cuerpo. */
+/* El dato principal de cada renglón —el título de un momento, el valor de
+   una señal, el nombre de una ruta o de una parada— destaca por peso, no por
+   tamaño: con 1rem al lado del cuerpo cada renglón traía dos tamaños. */
 .analysis-app .fact-value,
 .analysis-app .listening-body strong,
 .analysis-app .route-stop-title,
 .analysis-app .route-journey-toggle h3 {
-  font-size: var(--t-destacado);
+  font-size: var(--t-cuerpo);
   font-weight: 600;
 }
+
+/* El título de cada momento lleva un span dentro para el subrayado del
+   activo, y la regla general de los span lo bajaba a cuerpo y peso normal:
+   se leía igual que la descripción que tiene debajo. */
+.analysis-app .listening-body strong span { font: inherit; }
+
+/* El pie de la fuente es metadato entero: entidad, cobertura y vigencia
+   iban en tres tamaños distintos. */
+.analysis-app .source-footer,
+.analysis-app .source-footer :is(span, a) { font-size: var(--t-meta); }
 
 .analysis-app .fact-card-state,
 .analysis-app .fact-card-state *,
@@ -4983,7 +4749,6 @@
 .analysis-app .processing-chapters ul li small,
 .analysis-app .listening-entry time,
 .analysis-app .listening-signal,
-.analysis-app .intake-hint,
 .analysis-app .model-confidence {
   font-size: var(--t-meta);
 }
@@ -4992,7 +4757,6 @@
 .analysis-app .routes-disclaimer,
 .analysis-app .stage-section-heading > p,
 .analysis-app .narrative-stage-title-row p,
-.analysis-app .intake-lede,
 .analysis-app .processing-lede,
 .analysis-app .classification-summary > p,
 .analysis-app .narrative-stage-actions p,
@@ -5159,6 +4923,12 @@
     min-height: 0;
   }
 
+  /* Con las páginas apiladas no hay columna que plegar: el botón quedaba
+     suelto, medio fuera de la hoja. */
+  .analysis-workspace .documentary-rail-toggle {
+    display: none;
+  }
+
   .analysis-workspace .narrative-workspace-grid {
     height: auto;
     grid-template-columns: minmax(0, 1fr);
@@ -5237,7 +5007,7 @@
 
 .marginalia-orphan {
   color: var(--ink-faded);
-  font-style: italic;
+  font-style: normal;
 }
 
 /* El filete que une el pasaje con su nota: el gesto de la anotación. */
@@ -5285,8 +5055,8 @@
 .marginalia .fact-card .fact-card-heading h4 {
   color: var(--ink-faded);
   font-size: var(--t-meta);
-  font-weight: 500;
-  letter-spacing: 0.055em;
+  font-weight: 600;
+  letter-spacing: var(--tracking-rotulo);
   text-transform: uppercase;
 }
 
@@ -5493,7 +5263,7 @@
 
 .marginalia-echo-label {
   font-size: var(--t-meta);
-  font-style: italic;
+  font-style: normal;
 }
 
 .marginalia-echo-back {
@@ -5509,12 +5279,6 @@
 
 /* ── El tipo de caso, dentro del pliego ────────────────────────────────── */
 
-/* Pedía 11rem + 18rem mínimos, más de lo que da el recto: la rejilla
-   desbordaba y el panel salía cortado. Se reordena en dos filas. */
-.analysis-workspace .classification-summary {
-  gap: 0.6rem;
-  padding: 0.85rem 0;
-}
 
 /* La guía por voz vive en la cabecera del recorrido, junto a la posición: es
    una forma de recorrer la ruta, no una acción sobre el caso. */
@@ -5527,7 +5291,7 @@
   background: var(--paper-white);
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 0.8rem;
+  font-size: var(--t-cuerpo);
 }
 
 .route-narrate[aria-pressed="true"] {
@@ -5536,165 +5300,6 @@
   font-weight: 600;
 }
 
-
-/* ══════════════════════════════════════════════════════════════════════════
-   El fotograma de entrada
-   No es una caja: son cuatro escuadras, como las marcas de corte de una
-   imprenta. El recuadro cerrado con un icono centrado es el patrón por
-   defecto de cualquier dropzone; aquí la zona sólo delimita, y al arrastrar
-   las escuadras crecen hasta juntarse en un marco completo.
-   ══════════════════════════════════════════════════════════════════════════ */
-.intake-dropzone {
-  --mark-len: clamp(18px, 2.6vw, 26px);
-  --mark-color: color-mix(in oklch, var(--ink) 32%, transparent);
-  position: relative;
-  display: grid;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  cursor: pointer;
-  transition: background 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Cuatro esquinas y sólo dos pseudo-elementos por caja: dos los pone la zona
-   y dos el marco interior. Cada una es un cuadrado con dos bordes. */
-.intake-dropzone::before,
-.intake-dropzone::after,
-.intake-frame::before,
-.intake-frame::after {
-  position: absolute;
-  width: var(--mark-len);
-  height: var(--mark-len);
-  border: 0 solid var(--mark-color);
-  content: "";
-  transition:
-    width 260ms cubic-bezier(0.16, 1, 0.3, 1),
-    height 260ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.intake-dropzone::before {
-  top: 0;
-  left: 0;
-  border-top-width: 1.5px;
-  border-left-width: 1.5px;
-}
-
-.intake-frame::before {
-  top: 0;
-  right: 0;
-  border-top-width: 1.5px;
-  border-right-width: 1.5px;
-}
-
-.intake-frame::after {
-  bottom: 0;
-  left: 0;
-  border-bottom-width: 1.5px;
-  border-left-width: 1.5px;
-}
-
-.intake-dropzone::after {
-  bottom: 0;
-  right: 0;
-  border-bottom-width: 1.5px;
-  border-right-width: 1.5px;
-}
-
-/* Sin dos páginas no hay lomo: apilada, la ingesta es una hoja sola y una
-   banda vertical a media altura no sería más que una raya. */
-.intake > .book-spine {
-  display: none;
-}
-
-.intake-frame {
-  display: grid;
-  gap: 0.3rem;
-  padding: clamp(2.2rem, 4.5vw, 3.4rem) clamp(1.6rem, 3vw, 2.6rem);
-  justify-items: center;
-  text-align: center;
-}
-
-.intake-frame strong {
-  color: var(--ink);
-  font-family: var(--font-narrative);
-  font-size: clamp(1rem, 1.5vw, 1.14rem);
-  font-weight: 500;
-}
-
-.intake-alt {
-  color: var(--ink-soft);
-  font-family: var(--font-narrative);
-  font-size: 0.85rem;
-}
-
-.intake-dropzone:hover {
-  --mark-color: color-mix(in oklch, var(--ink) 58%, transparent);
-  background: color-mix(in oklch, var(--paper-white) 42%, transparent);
-}
-
-/* Llegar con teclado tiene que verse tan claro como soltar el archivo: es la
-   misma acción por otra vía. */
-.intake-dropzone:focus-visible {
-  outline: 2px solid var(--azul);
-  outline-offset: 4px;
-}
-
-/* Al 50% las cuatro escuadras se tocan: el marco se cierra solo. */
-.intake-dropzone.is-dragging {
-  --mark-len: 50%;
-  --mark-color: var(--azul);
-  background: color-mix(in oklch, var(--azul) 5%, var(--paper-white));
-}
-
-.intake-dropzone.is-dragging .intake-frame strong {
-  color: var(--azul);
-}
-
-/* Fuera del encuadre y en escala de metadato: es una referencia, no una
-   tercera línea de invitación. */
-.intake-hint {
-  margin: 0.8rem 0 0;
-  color: var(--ink-faded);
-  font-family: var(--font-narrative);
-  font-size: 0.76rem;
-}
-
-/* La acción principal aparece cuando hay algo que analizar; la demostración
-   se ofrece como texto, no como un botón que compite con ella. */
-.intake-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.9rem;
-}
-
-.intake-actions .intake-start {
-  min-height: 46px;
-  padding: 0 1.35rem;
-  border: 0;
-  border-radius: 0.7rem;
-  background: var(--azul);
-  color: white;
-  font-family: var(--font-narrative);
-  font-size: 0.92rem;
-}
-
-.intake-actions .intake-demo {
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid color-mix(in oklch, var(--ink) 32%, transparent);
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink-soft);
-  font-family: var(--font-narrative);
-  font-size: 0.86rem;
-}
-
-.intake-actions .intake-demo:hover { color: var(--ink); border-bottom-color: var(--ink); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    Etapas del análisis · la fila tenía tres elementos en línea sin separación,
@@ -5821,7 +5426,6 @@
 .approval-bar button,
 .route-stage .approval-bar button,
 .memory-image-actions .memory-image-approve:not(:disabled),
-.intake-actions .intake-start,
 .read-aloud.is-speaking {
   border-color: var(--ink);
   background: var(--ink);
@@ -5832,8 +5436,7 @@
 .narrative-stage-actions button:hover,
 .approval-bar button:hover,
 .route-stage .approval-bar button:hover,
-.memory-image-actions .memory-image-approve:not(:disabled):hover,
-.intake-actions .intake-start:hover {
+.memory-image-actions .memory-image-approve:not(:disabled):hover {
   background: color-mix(in oklch, var(--ink) 86%, var(--paper));
 }
 
@@ -5869,49 +5472,67 @@
   justify-content: center;
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   La imagen de cierre como lámina
-   Es el final del caso, no un adjunto: se presenta centrada y con paspartú,
-   como una fotografía montada en un libro. La leyenda va debajo en cursiva
-   menor, que es como se imprime un pie de lámina —y así se distingue del
-   cuerpo del caso sin dejar de leerse.
-   ══════════════════════════════════════════════════════════════════════════ */
-.memory-image-figure {
-  max-width: 52rem;
-  margin: 0 auto;
-  padding: clamp(0.9rem, 1.8vw, 1.4rem);
-  border: 1px solid color-mix(in oklch, var(--rule) 78%, white);
-  border-radius: 6px;
-  background: var(--paper-white);
-  box-shadow: 0 18px 44px color-mix(in oklch, var(--ink) 9%, transparent);
-}
-
-.memory-image-frame {
-  border: 0;
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--ink) 18%, transparent);
-}
-
-.memory-image-disclosure {
-  margin-top: clamp(0.85rem, 1.6vw, 1.15rem);
+/* ── Cierre de memoria ───────────────────────────────────────────────────
+   La forma de las demás secciones: el título suelto, el estado debajo y la
+   imagen con su leyenda en una caja. Era una lámina centrada de 44rem con
+   paspartú y sombra, y el cierre ocupaba más que las tres rutas juntas. La
+   imagen grande sigue a un clic, en la lámina a pantalla completa. */
+.memory-image-panel {
+  justify-items: stretch;
+  gap: 0;
+  margin-top: 2rem;
   padding: 0;
   border: 0;
-  border-radius: 0;
+}
+
+.memory-image-panel .memory-image-header {
+  gap: 0.35rem;
+  max-width: none;
+  text-align: left;
+}
+
+.memory-image-panel .memory-image-figure {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ledger-gap);
+  max-width: none;
+  margin: 1rem 0 0;
+  padding: var(--ledger-padding);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--paper-white) 45%, transparent);
+  box-shadow: none;
+}
+
+.memory-image-panel .memory-image-frame {
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--ink) 14%, transparent);
+}
+
+.memory-image-panel .memory-image-disclosure {
+  margin: 0;
+  padding: 0;
+  border: 0;
   background: transparent;
-  color: var(--ink-soft);
-  font-family: var(--font-serif);
-  font-size: 0.8rem;
-  font-style: italic;
+  color: var(--ink-faded);
+  font-family: var(--font-ui);
+  font-size: var(--t-meta);
   line-height: 1.55;
-  text-align: center;
+  text-align: left;
   text-wrap: pretty;
 }
 
-/* El panel entero se ordena en torno a la lámina. */
-.memory-image-panel { justify-items: center; }
-.memory-image-header { max-width: 46rem; text-align: center; }
-.memory-image-actions,
-.memory-video-selector { justify-content: center; }
+.memory-image-panel .memory-image-actions,
+.memory-image-panel .memory-video-selector {
+  justify-content: flex-start;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .memory-image-panel .memory-image-figure { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* La barra decía "8 de 8 etapas" y se veía vacía: el relleno dependía de un
    span escalado que no llegaba a pintarse. El componente ya publica el avance
@@ -6026,70 +5647,104 @@
   max-width: 60ch;
   margin: 0;
   color: color-mix(in oklch, var(--paper) 76%, transparent);
-  font-family: var(--font-serif);
-  font-size: 0.9rem;
-  font-style: italic;
+  font-family: var(--font-ui);
+  font-size: var(--t-cuerpo);
+  font-style: normal;
   line-height: 1.6;
   text-align: center;
   text-wrap: pretty;
 }
 
 
-/* La miniatura anclada. Es papel sobre la mesa, no un adhesivo de interfaz:
-   mismo borde y mismo grano que las fichas del caso. Se levanta por encima
-   del pie para no tapar la acción que continúa el recorrido. */
+/* A quiet photographic print on the right, with a compact draggable caption.
+   Es una copia en papel, como las fichas del caso: mismo papel, mismo filete
+   y la misma tinta. En verde oscuro se leía como el control de otra
+   aplicación puesto encima del libro. */
 .memory-image-dock {
   position: fixed;
   z-index: 40;
-  right: clamp(1rem, 2.4vw, 2.2rem);
-  bottom: calc(clamp(1rem, 2.4vw, 2.2rem) + 78px);
-  display: grid;
-  width: clamp(132px, 13vw, 172px);
-  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  width: clamp(184px, 16vw, 228px);
+  max-width: calc(100vw - 24px);
+  padding: 5px 5px 0;
   border: 1px solid color-mix(in oklch, var(--rule) 72%, white);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--paper-white);
-  box-shadow: 0 14px 34px color-mix(in oklch, var(--ink) 22%, transparent);
-  cursor: zoom-in;
-  gap: 0.35rem;
+  box-shadow:
+    0 2px 6px color-mix(in oklch, var(--ink) 12%, transparent),
+    0 16px 38px color-mix(in oklch, var(--ink) 20%, transparent);
+  transition: box-shadow .3s;
 }
-
-.memory-image-dock img {
-  display: block;
-  width: 100%;
-  border-radius: 3px;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-}
-
-.memory-image-dock span {
-  color: var(--ink-faded);
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  letter-spacing: 0.09em;
-  text-align: center;
-  text-transform: uppercase;
-}
-
 .memory-image-dock:hover {
-  box-shadow: 0 18px 42px color-mix(in oklch, var(--ink) 28%, transparent);
+  box-shadow:
+    0 4px 10px color-mix(in oklch, var(--ink) 14%, transparent),
+    0 22px 48px color-mix(in oklch, var(--ink) 24%, transparent);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .memory-image-dock { transition: none; }
+.memory-image-dock[data-dragging="true"] {
+  box-shadow:
+    0 12px 24px color-mix(in oklch, var(--ink) 18%, transparent),
+    0 30px 65px color-mix(in oklch, var(--ink) 28%, transparent);
 }
-
-/* En teléfono la miniatura queda como una estampa pequeña: a su ancho normal
-   tapaba media cita del testimonio. */
+.memory-image-dock-tools { display: flex; align-items: center; gap: 2px; order: 2; padding: 2px 3px; }
+.memory-image-drag, .memory-image-hide, .memory-image-preview, .memory-image-tab, .memory-image-close {
+  color: var(--ink);
+  font-family: var(--font-ui);
+  border: 0;
+}
+.memory-image-drag {
+  display: flex; align-items: center; gap: 8px; flex: 1;
+  min-width: 0; min-height: 38px; padding: 0 3px;
+  background: transparent; cursor: grab; touch-action: none; user-select: none;
+  font-size: var(--t-meta); font-weight: 600; white-space: nowrap; color: var(--ink-soft);
+}
+.memory-image-grip {
+  flex-shrink: 0; width: 7px; height: 12px; opacity: .45;
+  background: radial-gradient(circle, currentColor 1px, transparent 1.2px) 0 0 / 4px 4px;
+}
+.memory-image-dock[data-dragging="true"] .memory-image-drag { cursor: grabbing; }
+.memory-image-hide { flex-shrink: 0; width: 30px; height: 32px; background: transparent; cursor: pointer; font-size: 19px; border-radius: 6px; color: var(--ink-faded); transition: background .2s, color .2s; }
+.memory-image-hide:hover { background: color-mix(in oklch, var(--ink) 7%, transparent); color: var(--ink); }
+.memory-image-preview { position: relative; display: block; width: 100%; padding: 0; background: var(--paper-deep); cursor: zoom-in; border-radius: 6px; overflow: hidden; }
+.memory-image-preview img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; transition: transform .65s cubic-bezier(.2,.7,.2,1), filter .5s; }
+.memory-image-preview:hover img { transform: scale(1.045); filter: saturate(1.08); }
+.memory-image-preview::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 25%, #fff8e130 49%, transparent 72%);
+  transform: translateX(-140%); animation: memory-print-light 1.1s .25s ease-out both;
+}
+@keyframes memory-print-light { to { transform: translateX(140%); } }
+.memory-image-preview > span {
+  position: absolute; right: 7px; bottom: 7px; display: grid; place-items: center;
+  width: 26px; height: 26px; border: 1px solid rgb(255 255 255 / 60%); border-radius: 50%;
+  background: color-mix(in oklch, var(--ink) 72%, transparent); color: var(--paper-white); font-size: 16px;
+  transition: background .2s, transform .3s;
+}
+.memory-image-preview:hover > span { background: var(--ink); transform: translate(1px, -1px); }
+.memory-image-tab {
+  position: fixed; z-index: 40; right: 0; display: flex; align-items: center; gap: 7px;
+  min-height: 44px; padding: 10px 13px 10px 10px; border: 1px solid color-mix(in oklch, var(--rule) 72%, white);
+  border-radius: 10px 0 0 10px; background: var(--paper-white); box-shadow: 0 4px 16px color-mix(in oklch, var(--ink) 14%, transparent);
+  font-size: var(--t-meta); cursor: pointer;
+}
+.memory-image-tab > span:first-child { font-size: 20px; }
+.memory-image-close { padding: 10px 18px; border-radius: 5px; background: var(--paper-white); cursor: pointer; }
+.memory-image-dock button:focus-visible, .memory-image-tab:focus-visible, .memory-image-close:focus-visible {
+  outline: 2px solid var(--azul); outline-offset: 2px;
+}
+.memory-image-close:focus-visible { outline-color: var(--paper-white); }
+/* En un teléfono la copia ocupaba casi la mitad del ancho y tapaba el texto
+   del caso: se queda en una miniatura, que es lo que es mientras no se abre. */
 @media (max-width: 600px) {
-  .memory-image-dock {
-    width: 76px;
-    padding: 0.25rem;
-    gap: 0;
-  }
-  .memory-image-dock span {
-    display: none;
-  }
+  .memory-image-dock { width: 136px; }
+  .memory-image-drag, .memory-image-hide { min-height: 40px; }
+  .memory-image-drag { gap: 5px; }
+  .memory-image-drag > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .memory-image-preview > span, .memory-image-preview img, .memory-image-dock, .memory-image-hide { transition: none; }
+  .memory-image-preview:hover img { transform: none; }
+  .memory-image-preview::after { animation: none; display: none; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -6183,16 +5838,15 @@
   margin: 0 0 0.55rem;
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 1.34rem;
+  font-size: var(--t-seccion);
   font-weight: 600;
   line-height: 1.2;
-  letter-spacing: -0.01em;
 }
 
 .tour-body {
   margin: 0;
-  color: color-mix(in oklch, var(--ink) 78%, var(--paper));
-  font-size: 0.83rem;
+  color: var(--ink-soft);
+  font-size: var(--t-cuerpo);
   line-height: 1.6;
   text-wrap: pretty;
 }
@@ -6209,7 +5863,7 @@
   position: relative;
   padding-left: 0.95rem;
   color: color-mix(in oklch, var(--ink) 74%, var(--paper));
-  font-size: 0.78rem;
+  font-size: var(--t-meta);
   line-height: 1.5;
 }
 
@@ -6248,8 +5902,8 @@
   background: transparent;
   color: var(--ink-faded);
   cursor: pointer;
-  font-size: 0.7rem;
-  font-weight: 650;
+  font-size: var(--t-meta);
+  font-weight: 600;
   transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
 }
 
@@ -6263,7 +5917,7 @@
   border-color: var(--ink);
   background: var(--ink);
   color: var(--paper);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .tour-controls .tour-next:hover {
@@ -6342,20 +5996,28 @@
 }
 
 .analysis-live-workspace .processing-head h1 {
-  margin-top: 0.3rem;
-  font-size: 1.3rem;
+  margin: 0.3rem 0 0.55rem;
+  font-size: var(--t-titulo);
   line-height: 1.2;
+  /* "Construyendo la lectura del" + "caso" solo en el segundo renglón. */
+  text-wrap: balance;
 }
 
 .analysis-live-workspace .processing-lede {
-  font-size: 0.8rem;
+  font-size: var(--t-cuerpo);
   line-height: 1.5;
 }
 
+/* En la columna lateral no caben el recuento y el botón lado a lado: el
+   botón apretaba el texto a una tira de 90 px partida en siete renglones. */
 .analysis-live-workspace .processing-status {
   margin-top: 1.25rem;
   padding: 0.9rem;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.analysis-live-workspace .processing-retry {
+  justify-self: start;
 }
 
 .analysis-live-workspace .processing-readout strong {

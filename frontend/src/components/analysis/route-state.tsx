@@ -22,14 +22,18 @@ function RouteDrawing({ working }: { working: boolean }) {
   )
 }
 
+/* El mapa a un lado y lo que hay que hacer al otro. Apilados en una columna
+ * de 36rem —mapa, antetítulo, titular, conteo, frase, lista, botón y un
+ * tricolor de adorno— la espera medía más que la página y el botón quedaba
+ * debajo del pliegue, con dos tercios del ancho vacíos a los costados. */
 export function RouteState({ working = false, children }: { working?: boolean; children: ReactNode }) {
   return (
     <section className={`route-state${working ? " is-working" : ""}`} aria-labelledby="route-state-title">
       <RouteDrawing working={working} />
-      <p className="route-state-eyebrow">{working ? "Trazando el siguiente paso" : "Antes de continuar"}</p>
-      <h2 id="route-state-title">{working ? "Tu ruta toma forma." : "La ruta espera"}</h2>
-      {children}
-      <div className="route-state-rule" aria-hidden="true"><i /><i /><i /></div>
+      <div className="route-state-body">
+        <h2 id="route-state-title">{working ? "Tu ruta toma forma." : "La ruta espera"}</h2>
+        {children}
+      </div>
     </section>
   )
 }

@@ -93,7 +93,6 @@ export function UploadPanel({
   const reduceMotion = useReducedMotion() ?? false
   const hintId = useId()
   const problemId = useId()
-  const linkId = useId()
 
   const state = busy
     ? "uploading"
@@ -144,6 +143,10 @@ export function UploadPanel({
       variants={staggerContainer}
       aria-labelledby="upload-title"
     >
+      {/* Un pliego, como el de los resultados: el verso invita y explica, el
+          recto recibe el video. Antes era una ficha dentro de la hoja, con su
+          propio antetítulo y su propio titular repitiendo lo que ya decía el
+          de la izquierda. */}
       <motion.header
         className="intake-head"
         variants={staggerItem}
@@ -151,6 +154,8 @@ export function UploadPanel({
       >
         <p className="eyebrow">Nuevo análisis</p>
         <h1 id="upload-title">Cada relato es<br />un punto de partida.</h1>
+        {/* El mismo tricolor con que la portada subraya su titular. */}
+        <span className="intake-rule" aria-hidden="true"><i /><i /><i /></span>
         <p className="intake-lede">
           Añade el video del testimonio para empezar a construir una ruta
           de acción. Podrás revisar cada paso.
@@ -163,19 +168,15 @@ export function UploadPanel({
         variants={staggerItem}
         transition={motionTransition(reduceMotion)}
       >
-        <div className="intake-source-heading">
-          <span className="intake-source-kicker">Empieza aquí</span>
-          <h2>Añade tu testimonio</h2>
-          <p>
-            Selecciona un video
-            {linkIngestEnabled && onLink ? " o comparte su enlace." : " de tu equipo."}
-          </p>
-        </div>
         {/* Es un <button> real: antes era un div con manejadores de arrastre,
             inalcanzable con teclado y mudo para un lector de pantalla. */}
         <button
           type="button"
-          className={dragging ? "intake-dropzone is-dragging" : "intake-dropzone"}
+          className={[
+            "intake-dropzone",
+            dragging ? "is-dragging" : "",
+            file ? "has-file" : "",
+          ].filter(Boolean).join(" ")}
           aria-describedby={problem ? `${hintId} ${problemId}` : hintId}
           onClick={() => inputRef.current?.click()}
           onDragEnter={(event) => {
@@ -187,31 +188,27 @@ export function UploadPanel({
           onDrop={drop}
         >
           <span className="intake-frame">
-            <span className="intake-icon-disc">
-              <svg
-                className="intake-mark"
-                viewBox="0 0 64 40"
-                width="64"
-                height="40"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                aria-hidden="true"
-              >
-                <rect x="0.7" y="0.7" width="62.6" height="38.6" rx="3" />
-                <path d="M12 0.7V39.3M52 0.7V39.3" />
-                <g strokeWidth="1.1">
-                  <path d="M4.5 6.5h3M4.5 14.5h3M4.5 22.5h3M4.5 30.5h3" />
-                  <path d="M56.5 6.5h3M56.5 14.5h3M56.5 22.5h3M56.5 30.5h3" />
-                </g>
-                <path d="m28 13 11 7-11 7Z" fill="currentColor" stroke="none" />
-              </svg>
-            </span>
+            <svg
+              className="intake-mark"
+              viewBox="0 0 64 40"
+              width="64"
+              height="40"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              aria-hidden="true"
+            >
+              <rect x="0.7" y="0.7" width="62.6" height="38.6" rx="3" />
+              <path d="M12 0.7V39.3M52 0.7V39.3" />
+              <g strokeWidth="1.1">
+                <path d="M4.5 6.5h3M4.5 14.5h3M4.5 22.5h3M4.5 30.5h3" />
+                <path d="M56.5 6.5h3M56.5 14.5h3M56.5 22.5h3M56.5 30.5h3" />
+              </g>
+              <path d="m28 13 11 7-11 7Z" fill="currentColor" stroke="none" />
+            </svg>
             <strong>Arrastra aquí el testimonio</strong>
-            <span className="intake-alt">o selecciónalo desde tu equipo</span>
             <span className="intake-browse">
               {file ? "Cambiar archivo" : "Elegir archivo"}
-              <span aria-hidden="true">↗</span>
             </span>
             <span id={hintId} className="intake-hint">
               MP4, WebM o MOV · hasta 500 MB
@@ -222,6 +219,9 @@ export function UploadPanel({
         <input
           ref={inputRef}
           className="visually-hidden"
+          // La zona de arrastre ya lo abre: dos paradas de tabulador para la
+          // misma acción sobraban.
+          tabIndex={-1}
           type="file"
           aria-label="Archivo de video del testimonio"
           accept={ACCEPTED.join(",")}
@@ -272,20 +272,22 @@ export function UploadPanel({
 
         {/* El enlace es la segunda puerta, no la principal: quien tiene el
             archivo lo suelta arriba, y quien tiene el video en YouTube pega la
-            dirección aquí. Sólo aparece si el servidor la tiene encendida. */}
-        {linkIngestEnabled && onLink ? (
+            dirección aquí. Sólo aparece si el servidor la tiene encendida, y
+            se retira mientras haya un archivo elegido: ya no es una opción, es
+            ruido. El separador dice también el tope, una línea menos. */}
+        {linkIngestEnabled && onLink && !file ? (
           <div className="intake-link">
-            <span className="intake-link-or" aria-hidden="true">o usa un enlace</span>
-            <label className="intake-link-label" htmlFor={linkId}>
-              Enlace del video en YouTube
-            </label>
+            <p className="intake-link-or">
+              o un enlace de YouTube, de hasta{" "}
+              {Math.round(linkMaxSeconds / 60)} minutos
+            </p>
             <div className="intake-link-row">
               <input
-                id={linkId}
                 type="url"
                 inputMode="url"
                 autoComplete="off"
                 spellCheck={false}
+                aria-label="Enlace del video en YouTube"
                 placeholder="Pega aquí el enlace…"
                 value={link}
                 disabled={busy}
@@ -310,10 +312,6 @@ export function UploadPanel({
                 {busy ? "Trayendo…" : "Analizar"}
               </button>
             </div>
-            <p className="intake-hint">
-              Hasta{" "}
-              {Math.round(linkMaxSeconds / 60)} minutos de duración.
-            </p>
           </div>
         ) : null}
 
@@ -322,11 +320,7 @@ export function UploadPanel({
             {problem}
           </p>
         ) : null}
-        <motion.div
-          className="intake-actions"
-          variants={staggerItem}
-          transition={motionTransition(reduceMotion)}
-        >
+        <div className="intake-actions">
           {/* El análisis se ofrece cuando hay un archivo válido. */}
           <AnimatePresence initial={false}>
             {file ? (
@@ -352,14 +346,16 @@ export function UploadPanel({
           >
             Ver primero el caso de demostración <span aria-hidden="true">→</span>
           </button>
-        </motion.div>
+        </div>
       </motion.div>
+
       <motion.div
         className="intake-guide"
         variants={staggerItem}
         transition={motionTransition(reduceMotion)}
       >
-        <p className="intake-index-title">Del relato a la ruta</p>
+        <p className="eyebrow">Del relato a la ruta</p>
+        {/* Los pasos van unidos por un trazo: son una senda, no una lista. */}
         <ol className="intake-index" aria-label="Lo que hará el sistema">
           {NARRATIVE_STAGES.map((stage) => (
             <li key={stage.id}>
@@ -373,14 +369,6 @@ export function UploadPanel({
             </li>
           ))}
         </ol>
-
-        <p className="intake-note">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-            <rect x="5" y="10" width="14" height="11" rx="2" />
-            <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
-          </svg>
-          <span>Nada se publica. El video queda cifrado y se borra a los siete días.</span>
-        </p>
       </motion.div>
     </motion.section>
   )

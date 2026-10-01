@@ -9,6 +9,30 @@ type CaseData = components["schemas"]["CaseRead"]
 type Role = components["schemas"]["UserRole"]
 
 
+export function isRouteHeld(caseData: CaseData) {
+  return caseData.facts.some(
+    (fact) => fact.is_critical && fact.verification_status !== "confirmed",
+  )
+}
+
+export function isRouteRebuilding(caseData: CaseData) {
+  return !isRouteHeld(caseData) && caseData.routes_status === "rebuilding"
+}
+
+/* El encabezado de la etapa dice "Elige una ruta y recorre sus paradas": una
+ * instrucción imposible mientras la ruta espera. En esos dos estados dice
+ * cuándo aparecerá, y el cuerpo se queda con el qué falta. */
+export function routeStageDescription(caseData: CaseData) {
+  if (isRouteHeld(caseData)) {
+    return "Aparecerán cuando las señales críticas del caso estén confirmadas."
+  }
+  if (isRouteRebuilding(caseData)) {
+    return "Aparecerán aquí en cuanto terminen de ajustarse."
+  }
+  return undefined
+}
+
+
 /* La ruta no se muestra mientras haya señales críticas sin confirmar.
  *
  * Antes se mostraba con un aviso encima. El aviso decía la verdad —que la
@@ -41,9 +65,8 @@ function RouteGate({
 
   return (
     <RouteState>
-      <p className="route-state-copy" role="status">
-        <strong>{total === 1 ? "1 señal crítica sin confirmar" : `${total} señales críticas sin confirmar`}</strong>
-        Confirma estos datos para construir una orientación que corresponda al caso.
+      <p className="route-state-count" role="status">
+        {total === 1 ? "1 señal crítica sin confirmar" : `${total} señales críticas sin confirmar`}
       </p>
 
       {pendientes.length ? (
@@ -87,9 +110,7 @@ function RouteRebuilding() {
       <p className="route-state-copy" role="status">
         <strong>Ajustando la ruta con las señales confirmadas…</strong>
         Estamos preparando los pasos y sus fuentes institucionales.
-        La orientación aparecerá aquí cuando esté lista.
       </p>
-      <p className="route-state-working"><span aria-hidden="true" />Preparando la orientación</p>
     </RouteState>
   )
 }
@@ -112,10 +133,8 @@ export function RouteStage({
   onGoToSignals?: () => void
   onRetryRebuild?: () => Promise<void> | void
 }) {
-  const retenida = caseData.facts.some(
-    (fact) => fact.is_critical && fact.verification_status !== "confirmed",
-  )
-  const ajustando = !retenida && caseData.routes_status === "rebuilding"
+  const retenida = isRouteHeld(caseData)
+  const ajustando = isRouteRebuilding(caseData)
 
   return (
     <div className={retenida || ajustando ? "route-stage is-waiting" : "route-stage"}>

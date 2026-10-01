@@ -611,7 +611,6 @@ export function VerificationPanel({
       <div className="signal-review-summary">
         <div className="stage-section-heading">
           <div>
-            <p className="eyebrow">Control humano</p>
             <h2 id="verification-title">Señales encontradas</h2>
           </div>
           {/* El resumen distingue el trabajo pendiente de lo que bloquea la ruta. */}
@@ -667,9 +666,6 @@ export function VerificationPanel({
           </div>
         ) : null}
       </div>
-      <p className="verification-policy">
-        Cada corrección conserva autor, valor anterior y estado.
-      </p>
 
       {/* Agrupar sin convertir esto en un tablero: tres cortes derivados de
           campos que ya existen, no facetas inventadas. */}
@@ -718,6 +714,11 @@ export function VerificationPanel({
           )
         })}
       </div>
+      {/* Describe la lista, así que va al pie de ella: suelta entre el resumen
+          y los filtros era una línea huérfana. */}
+      <p className="verification-policy">
+        Cada corrección conserva autor, valor anterior y estado.
+      </p>
     </section>
   )
 }

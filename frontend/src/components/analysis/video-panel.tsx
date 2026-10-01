@@ -1,10 +1,11 @@
-import { forwardRef, useEffect, useMemo } from "react"
+import { Fragment, forwardRef, useEffect, useMemo } from "react"
 import type React from "react"
 
 import type { components } from "../../api/generated"
 
 
 type Segment = components["schemas"]["TranscriptSegment"]
+type TimelineEvent = components["schemas"]["TimelineEventRead"]
 
 function timestamp(milliseconds: number) {
   const seconds = Math.floor(milliseconds / 1000)
@@ -18,6 +19,67 @@ function vttTimestamp(milliseconds: number) {
   const seconds = Math.floor((totalMs % 60_000) / 1000)
   const millis = totalMs % 1000
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(millis).padStart(3, "0")}`
+}
+
+/* Corta el fragmento en oraciones sólo para leerlo: cada una arranca renglón
+ * propio, pero ninguna lleva minuto, porque Whisper no lo da por oración y
+ * repartir el del fragmento sería inventarlo. El clic sigue cayendo en el
+ * minuto real del fragmento. Sólo corta si lo que sigue empieza en mayúscula o
+ * con signo de apertura: "Sr. Pérez" no es el fin de nada. */
+const CLOSES = /[.?!…]["'»)\]]*$/u
+
+function sentencesOf(text: string) {
+  const pieces = text
+    .split(/(?<=[.?!…])\s+(?=[A-ZÁÉÍÓÚÜÑ¿¡"«])/u)
+    .filter((sentence) => sentence.trim())
+  // El servidor cierra el fragmento al llegar a su tope aunque la frase siga,
+  // y el pedazo que sobra ("Por") quedaba solo en su renglón. Se queda pegado
+  // a la oración anterior, que es donde se dijo.
+  if (pieces.length > 1 && !CLOSES.test(pieces[pieces.length - 1].trim())) {
+    const tail = pieces.pop()
+    pieces[pieces.length - 1] += ` ${tail}`
+  }
+  return pieces
+}
+
+/* La frase que el tope partió sigue en el fragmento siguiente: los puntos
+ * suspensivos lo dicen a cada lado del corte. Van por CSS y no en el texto,
+ * que es la transcripción y no se toca. */
+function cutsOff(text: string) {
+  return !CLOSES.test(text.trim())
+}
+
+function continues(text: string) {
+  return /^[a-záéíóúüñ]/u.test(text.trim())
+}
+
+/* Los momentos del caso son las secciones de la línea de tiempo: cada
+ * fragmento va con el momento con el que más se solapa, o con el último que
+ * empezó antes que él si no toca ninguno. Lo que llega antes del primer
+ * momento queda arriba, sin título. Un momento sin fragmentos no se pinta:
+ * sería un título colgando sobre nada. */
+function groupByMoment(segments: Segment[], timeline: TimelineEvent[]) {
+  const moments = [...timeline].sort((a, b) => a.start_ms - b.start_ms)
+  const groups: Array<{ moment: TimelineEvent | null; segments: Segment[] }> = [
+    { moment: null, segments: [] },
+    ...moments.map((moment) => ({ moment, segments: [] as Segment[] })),
+  ]
+  for (const segment of segments) {
+    let best = 0
+    let bestOverlap = 0
+    moments.forEach((moment, index) => {
+      const overlap = Math.min(segment.end_ms, moment.end_ms)
+        - Math.max(segment.start_ms, moment.start_ms)
+      if (overlap > bestOverlap) {
+        best = index + 1
+        bestOverlap = overlap
+      } else if (bestOverlap === 0 && moment.start_ms <= segment.start_ms) {
+        best = index + 1
+      }
+    })
+    groups[best].segments.push(segment)
+  }
+  return groups.filter((group) => group.segments.length)
 }
 
 // Los subtitulos se arman en el navegador a partir de los mismos fragmentos
@@ -37,7 +99,10 @@ export const DocumentaryVideoRail = forwardRef<
   {
     source: string | null
     segments: Segment[]
+    // Los momentos del caso, que parten el relato en secciones.
+    timeline?: TimelineEvent[]
     activeSegmentId: string | null
+    activeEventId?: string | null
     collapsed?: boolean
     frozenHeight?: number | null
     sourceLabel?: string
@@ -52,7 +117,9 @@ export const DocumentaryVideoRail = forwardRef<
   {
     source,
     segments,
+    timeline = [],
     activeSegmentId,
+    activeEventId = null,
     collapsed = false,
     frozenHeight,
     sourceLabel = "Reproductor del testimonio ficticio",
@@ -74,6 +141,11 @@ export const DocumentaryVideoRail = forwardRef<
       if (captionsUrl) URL.revokeObjectURL(captionsUrl)
     }
   }, [captionsUrl])
+
+  const groups = useMemo(
+    () => groupByMoment(segments, timeline),
+    [segments, timeline],
+  )
 
   return (
     <aside
@@ -137,20 +209,52 @@ export const DocumentaryVideoRail = forwardRef<
         role="group"
         aria-label="Fragmentos de la transcripción"
       >
-        {segments.map((segment) => (
-          <button
-            type="button"
-            key={segment.id}
-            className={segment.id === activeSegmentId ? "is-active" : ""}
-            aria-pressed={segment.id === activeSegmentId}
-            aria-current={
-              segment.id === activeSegmentId ? "true" : undefined
+        {groups.map(({ moment, segments: fragments }) => (
+          <section
+            key={moment?.id ?? "antes"}
+            className={
+              moment && moment.id === activeEventId
+                ? "documentary-moment is-active"
+                : "documentary-moment"
             }
-            onClick={() => onSegmentSelect(segment)}
           >
-            <time>{timestamp(segment.start_ms)}</time>
-            <span>{segment.text}</span>
-          </button>
+            {/* Un título y no un botón: elegir el momento ya se hace en
+                Escucha, y dos controles con el mismo nombre confunden. */}
+            {moment ? (
+              <h3 className="documentary-moment-title">
+                <span>{moment.title}</span>
+                <time>{timestamp(moment.start_ms)}</time>
+              </h3>
+            ) : null}
+            {fragments.map((segment) => (
+              <button
+                type="button"
+                key={segment.id}
+                className={segment.id === activeSegmentId ? "is-active" : ""}
+                aria-pressed={segment.id === activeSegmentId}
+                aria-current={
+                  segment.id === activeSegmentId ? "true" : undefined
+                }
+                onClick={() => onSegmentSelect(segment)}
+              >
+                <time>{timestamp(segment.start_ms)}</time>
+                <span
+                  className={[
+                    "documentary-text",
+                    cutsOff(segment.text) ? "is-cut" : "",
+                    continues(segment.text) ? "is-continued" : "",
+                  ].filter(Boolean).join(" ")}
+                >
+                  {sentencesOf(segment.text).map((sentence, index) => (
+                    <Fragment key={index}>
+                      {index ? " " : null}
+                      <span className="documentary-sentence">{sentence}</span>
+                    </Fragment>
+                  ))}
+                </span>
+              </button>
+            ))}
+          </section>
         ))}
       </div>
     </aside>

@@ -73,9 +73,6 @@ export function ListeningStage({
     <section className="listening-stage" aria-labelledby="listening-summary">
       <div className="stage-section-heading">
         <div>
-          <p className="eyebrow">
-            {showMoments ? "Lo que ocurrió" : "Transcripción protegida"}
-          </p>
           <h2 id="listening-summary">
             {showMoments
               ? `${moments.length} momentos del relato`
@@ -141,6 +138,7 @@ export function ListeningStage({
                           viene de EvidenceRef, no se deduce. */}
                       {signals.length ? (
                         <span className="listening-signals">
+                          Señales:
                           {signals.map((fact) => (
                             <span key={fact.id} className="listening-signal">
                               {fact.label}

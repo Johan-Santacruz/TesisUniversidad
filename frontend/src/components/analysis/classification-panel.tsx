@@ -55,12 +55,9 @@ export function ClassificationPanel({
       className="classification-summary"
       aria-labelledby="classification-title"
     >
-      <div>
-        {/* Quien lee esto no necesita saber qué modelo clasifica: le importa
-            qué tipo de caso es y con cuánta seguridad se afirma. */}
-        <p className="eyebrow">Lectura del relato</p>
-        <h2 id="classification-title">Tipo de caso</h2>
-      </div>
+      {/* Quien lee esto no necesita saber qué modelo clasifica: le importa
+          qué tipo de caso es y con cuánta seguridad se afirma. */}
+      <h2 id="classification-title">Tipo de caso</h2>
       <dl>
         <div>
           <dt>Categoría</dt>

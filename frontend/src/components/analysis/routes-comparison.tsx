@@ -418,23 +418,29 @@ export function RoutesComparison({
 
   return (
     <section className="routes-section" aria-labelledby="routes-title">
-      {/* El encabezado de la etapa ya nombra las rutas: aquí basta el estado de
-          la recomendación y la advertencia. */}
+      {/* Como en Escucha y Señales, la sección dice cuántas hay y qué hacer
+          con ellas; el estado de la recomendación va a la derecha. */}
       <div className="stage-section-heading routes-heading">
-        <h2 id="routes-title" className="visually-hidden">
-          Rutas institucionales
-        </h2>
-        <p className="routes-disclaimer">
-          Confirme siempre disponibilidad y requisitos con la entidad.
-        </p>
-        <span className={isFinal ? "recommendation-label is-final" : "recommendation-label"}>
-          {isFinal ? "Orientación final aprobada" : "Recomendación preliminar"}
-        </span>
-        {caseData.routes_status === "rebuilt" ? (
-          <span className="recommendation-label is-rebuilt">
-            Construida con las señales confirmadas
+        <div>
+          <h2 id="routes-title">
+            {caseData.routes.length === 1
+              ? "1 ruta propuesta"
+              : `${caseData.routes.length} rutas propuestas`}
+          </h2>
+          <p className="routes-disclaimer">
+            Confirma siempre la disponibilidad y los requisitos con la entidad.
+          </p>
+        </div>
+        <div className="routes-status">
+          <span className={isFinal ? "recommendation-label is-final" : "recommendation-label"}>
+            {isFinal ? "Orientación final aprobada" : "Recomendación preliminar"}
           </span>
-        ) : null}
+          {caseData.routes_status === "rebuilt" ? (
+            <span className="recommendation-label is-rebuilt">
+              Construida con las señales confirmadas
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {/* Si el ajuste con las señales confirmadas falló, se dice: las rutas que

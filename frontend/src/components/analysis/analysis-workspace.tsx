@@ -19,7 +19,7 @@ import {
 import { MemoryImagePanel, type VideoMode } from "./memory-image-panel"
 import { MemoryImagePlate } from "./memory-image-plate"
 import { narrativeStageTransition, stageVariants } from "./motion"
-import { RouteStage } from "./route-stage"
+import { RouteStage, routeStageDescription } from "./route-stage"
 import { UploadPanel } from "./upload-panel"
 import { usePlayhead } from "./use-playhead"
 import { DocumentaryVideoRail } from "./video-panel"
@@ -726,6 +726,13 @@ export function AnalysisWorkspace({
 
   const onIntake = !caseData && !eventsUrl
 
+  // Subida, progreso y caso comparten ruta: sin esto, cada pantalla heredaba
+  // el desplazamiento de la anterior y en un teléfono empezaba a media hoja.
+  const phase = onIntake ? "intake" : caseData ? "case" : "progress"
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [phase])
+
   /* El análisis tarda cerca de un minuto y en ese rato la persona se va a
      mirar otra cosa. El aviso suena una sola vez, cuando el caso llega: la
      referencia guarda que ya sonó para que un re-render no lo repita. */
@@ -863,7 +870,9 @@ export function AnalysisWorkspace({
           ref={setVideo}
           source={videoSource}
           segments={caseData.segments}
+          timeline={caseData.timeline}
           activeSegmentId={activeSegment?.id ?? null}
+          activeEventId={playhead.activeEvent?.id ?? null}
           ref2={railRef}
           frozenHeight={railCollapsed ? railHeight : null}
           collapsed={railCollapsed}
@@ -891,6 +900,11 @@ export function AnalysisWorkspace({
         <main className="narrative-sheet" aria-live="polite">
           <NarrativeStageHeader
             stage={narrativeStage}
+            description={
+              narrativeStage === "route"
+                ? routeStageDescription(caseData)
+                : undefined
+            }
             onStageChange={takeControl}
           />
 
