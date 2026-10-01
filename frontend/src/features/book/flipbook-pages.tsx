@@ -137,7 +137,7 @@ function PageShell({
         variants={fadeOnly}
         transition={{ duration: 0.5 }}
         className={cx(
-          "relative z-10 mb-5 flex items-center justify-between gap-5 font-sans text-[10px] uppercase",
+          "relative z-10 mb-5 flex items-center justify-between gap-5 font-sans text-[11px] uppercase tracking-[0.12em]",
           isDark ? "text-paper/58" : "text-ink-faded"
         )}
       >
@@ -185,7 +185,7 @@ function PageShell({
           variants={fadeOnly}
           transition={{ duration: 0.5, delay: 0.2 }}
           className={cx(
-            "relative z-10 mt-5 border-t pt-4 font-sans text-[10px] uppercase",
+            "relative z-10 mt-5 border-t pt-4 font-sans text-[11px] uppercase tracking-[0.12em]",
             isDark ? "border-paper/18 text-paper/54" : "border-rule text-ink-faded"
           )}
         >
@@ -222,13 +222,13 @@ function ClosedCoverPage() {
       </div>
 
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col p-6 md:p-9">
-        <div className="flex shrink-0 items-center justify-between font-sans text-[10px] uppercase text-paper/62">
+        <div className="flex shrink-0 items-center justify-between font-sans text-[11px] uppercase tracking-[0.12em] text-paper/62">
           <span>Crónica visual</span>
           <span>Derechos y acompañamiento</span>
         </div>
 
         <div className="mt-auto max-w-[27rem]">
-          <p className="mb-[1.5vh] font-sans text-[10px] uppercase text-paper/56">
+          <p className="mb-[1.5vh] font-sans text-[11px] uppercase tracking-[0.12em] text-paper/56">
             Un libro abierto
           </p>
           <h2 className="font-serif text-[clamp(2.05rem,6vh,3.9rem)] leading-[0.92] text-paper">
@@ -272,7 +272,7 @@ function PrologueFlipPage() {
       <motion.header
         variants={fadeOnly}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mb-5 flex shrink-0 items-center justify-between gap-5 font-sans text-[10px] uppercase text-ink-faded"
+        className="relative z-10 mb-5 flex shrink-0 items-center justify-between gap-5 font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded"
       >
         <span>Prólogo</span>
         <span>003</span>
@@ -293,7 +293,7 @@ function PrologueFlipPage() {
           <motion.figcaption
             variants={fadeUp}
             transition={{ duration: 0.5, delay: 0.25 }}
-            className="absolute bottom-3 left-4 right-4 font-sans text-[10px] uppercase leading-snug text-paper/76"
+            className="absolute bottom-3 left-4 right-4 font-sans text-[11px] uppercase tracking-[0.12em] leading-snug text-paper/76"
           >
             La pregunta no es qué dato falta, sino qué necesita entender una
             persona para recuperar agencia
@@ -342,7 +342,7 @@ function PrologueFlipPage() {
       <motion.footer
         variants={fadeOnly}
         transition={{ duration: 0.5, delay: 0.3 }}
-        className="relative z-10 mt-5 shrink-0 border-t border-rule pt-4 font-sans text-[10px] uppercase text-ink-faded"
+        className="relative z-10 mt-5 shrink-0 border-t border-rule pt-4 font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded"
       >
         Una nota para leer con calma
       </motion.footer>
@@ -374,7 +374,7 @@ function ContextFlipPage() {
       <motion.header
         variants={fadeOnly}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mb-5 flex shrink-0 items-center justify-between gap-5 font-sans text-[10px] uppercase text-ink-faded"
+        className="relative z-10 mb-5 flex shrink-0 items-center justify-between gap-5 font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded"
       >
         <span>Capítulo I</span>
         <span>004</span>
@@ -416,7 +416,7 @@ function ContextFlipPage() {
             className="h-full w-full object-cover object-center duotone-ink"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-ink/56 via-transparent to-transparent" />
-          <figcaption className="absolute bottom-3 left-4 right-4 font-sans text-[10px] uppercase text-paper/72">
+          <figcaption className="absolute bottom-3 left-4 right-4 font-sans text-[11px] uppercase tracking-[0.12em] text-paper/72">
             Caminar también puede ser una forma de resistencia
           </figcaption>
         </motion.figure>
@@ -425,7 +425,7 @@ function ContextFlipPage() {
       <motion.footer
         variants={fadeOnly}
         transition={{ duration: 0.5, delay: 0.3 }}
-        className="relative z-10 mt-5 shrink-0 border-t border-rule pt-4 font-sans text-[10px] uppercase text-ink-faded"
+        className="relative z-10 mt-5 shrink-0 border-t border-rule pt-4 font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded"
       >
         Contexto y magnitud
       </motion.footer>
@@ -457,7 +457,7 @@ function DocumentsFlipPage() {
       <motion.header
         variants={fadeOnly}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mb-5 flex shrink-0 items-center justify-between gap-5 font-sans text-[10px] uppercase text-ink-faded"
+        className="relative z-10 mb-5 flex shrink-0 items-center justify-between gap-5 font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded"
       >
         <span>Capítulo II</span>
         <span>005</span>
@@ -504,7 +504,7 @@ function DocumentsFlipPage() {
       <motion.footer
         variants={fadeOnly}
         transition={{ duration: 0.5, delay: 0.3 }}
-        className="relative z-10 mt-5 shrink-0 border-t border-rule pt-4 font-sans text-[10px] uppercase text-ink-faded"
+        className="relative z-10 mt-5 shrink-0 border-t border-rule pt-4 font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded"
       >
         Memoria, papeles y acceso
       </motion.footer>
@@ -515,7 +515,7 @@ function DocumentsFlipPage() {
 function ToolIntroFlipPage() {
   return (
     <PageShell
-      kicker="Capítulo IV"
+      kicker="Capítulo III"
       folio="006"
       title={
         <>
@@ -542,7 +542,7 @@ function ToolIntroFlipPage() {
             className="h-full w-full object-cover object-center opacity-90 duotone-ink"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-ink/64 via-transparent to-transparent" />
-          <figcaption className="absolute bottom-3 left-4 right-4 flex justify-between font-sans text-[10px] uppercase text-paper/60">
+          <figcaption className="absolute bottom-3 left-4 right-4 flex justify-between font-sans text-[11px] uppercase tracking-[0.12em] text-paper/60">
             <span>Asistencia artificial</span>
             <span>Decisiones humanas</span>
           </figcaption>
@@ -592,7 +592,7 @@ function ToolStepsFlipPage() {
             className="h-full w-full object-cover object-center duotone-ink"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-paper/84 via-paper/22 to-transparent" />
-          <figcaption className="absolute bottom-3 left-4 font-sans text-[10px] uppercase text-ink-faded">
+          <figcaption className="absolute bottom-3 left-4 font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded">
             Datos que vuelven a tener orden
           </figcaption>
         </motion.figure>
@@ -613,7 +613,7 @@ function ToolStepsFlipPage() {
               className="border-t border-rule pt-3"
             >
               <div className="flex items-baseline gap-3">
-                <span className="font-mono text-[10px] text-ink-faded">
+                <span className="font-sans text-[11px] tabular-nums tracking-[0.12em] text-ink-faded">
                   {step.n}
                 </span>
                 <h3 className="font-serif text-[clamp(1.1rem,2.45vh,1.5rem)] leading-none text-ink">
@@ -729,11 +729,11 @@ function ConversationFlipPage() {
               turn.accent ? turnAccent[turn.accent] : "border-rule"
             )}
           >
-            <div className="pt-0.5 font-mono text-[10px] uppercase text-ink-faded">
+            <div className="pt-0.5 font-sans text-[11px] uppercase tabular-nums tracking-[0.12em] text-ink-faded">
               {String(index + 1).padStart(2, "0")}
             </div>
             <div>
-              <p className="mb-0.5 font-sans text-[10px] uppercase text-ink-faded">
+              <p className="mb-0.5 font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded">
                 {BOOK_TURN_LABELS[turn.who]}
               </p>
               <WordReveal
@@ -813,7 +813,7 @@ function TrustFlipPage() {
               }}
               className="grid grid-cols-[2.5rem_1fr] gap-4 py-2.5"
             >
-              <span className="font-mono text-[10px] text-ink-faded">
+              <span className="font-sans text-[11px] tabular-nums tracking-[0.12em] text-ink-faded">
                 0{index + 1}
               </span>
               <div>
@@ -890,7 +890,7 @@ function ColophonFlipPage() {
       <motion.header
         variants={fadeOnly}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mb-5 flex shrink-0 items-center justify-between gap-5 font-sans text-[10px] uppercase text-paper/58"
+        className="relative z-10 mb-5 flex shrink-0 items-center justify-between gap-5 font-sans text-[11px] uppercase tracking-[0.12em] text-paper/58"
       >
         <span>Colofón</span>
         <span>010</span>
@@ -951,7 +951,7 @@ function ColophonFlipPage() {
       <motion.footer
         variants={fadeOnly}
         transition={{ duration: 0.5, delay: 0.6 }}
-        className="relative z-10 mt-5 shrink-0 border-t border-paper/18 pt-4 font-sans text-[10px] uppercase text-paper/54"
+        className="relative z-10 mt-5 shrink-0 border-t border-paper/18 pt-4 font-sans text-[11px] uppercase tracking-[0.12em] text-paper/54"
       >
         Fin del volumen
       </motion.footer>
@@ -987,7 +987,7 @@ export const BOOK_PAGES: FlipbookPageItem[] = [
   },
   {
     id: "herramienta",
-    eyebrow: "Capítulo IV",
+    eyebrow: "Capítulo III",
     label: "Una herramienta que escucha",
     Component: ToolIntroFlipPage,
   },

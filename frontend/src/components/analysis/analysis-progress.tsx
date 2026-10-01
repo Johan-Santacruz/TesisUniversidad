@@ -172,7 +172,11 @@ export function AnalysisProgress({
             className={
               error
                 ? "processing-message is-error"
-                : "processing-message is-working"
+                : endedWithoutCase
+                  // Terminado, sin los puntos de "trabajando": seguían
+                  // animándose junto a "El análisis terminó sin caso".
+                  ? "processing-message"
+                  : "processing-message is-working"
             }
           >
             {error

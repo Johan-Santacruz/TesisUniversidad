@@ -88,6 +88,9 @@ export default function LoginPage() {
 
   return (
     <main className={departing ? "login-page is-departing" : "login-page"}>
+      {/* Mosaico y formulario son una sola hoja: sueltos, una tarjeta casi
+          cuadrada junto a otra alta y angosta no se leían como la misma pieza. */}
+      <div className="login-sheet">
       <section className="login-collage" aria-hidden="true">
         <PhotoMosaic columns={DISPLACEMENT_MOSAIC} />
         <span className="login-mosaic-fade login-mosaic-fade--top" />
@@ -211,6 +214,7 @@ export default function LoginPage() {
           </form>
         </div>
       </section>
+      </div>
     </main>
   )
 }

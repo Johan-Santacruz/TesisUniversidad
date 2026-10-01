@@ -110,34 +110,34 @@ export function BookCover({
       >
         <img
           src="/images/cover-andes.jpg"
-          alt="Montañas andinas cubiertas de niebla"
-          className="absolute inset-0 h-full w-full object-cover object-[center_44%] contrast-125 saturate-0 brightness-[0.82]"
+          alt="Un camino entre montañas andinas cubiertas de niebla"
+          className="absolute inset-0 h-full w-full object-cover object-[center_62%] sepia-[.18] contrast-[1.08]"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/72 via-ink/38 to-ink/96" />
-        <div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-ink via-ink/86 to-transparent" />
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 z-10 flex h-[3px]">
-          <span className="h-full w-1/2 bg-amarillo" />
-          <span className="h-full w-1/4 bg-azul" />
-          <span className="h-full w-1/4 bg-rojo" />
-        </div>
-        <div className="relative z-10 flex h-full min-h-0 flex-col p-5 sm:p-7 md:p-9">
-          <div className="flex items-center justify-between font-sans text-[10px] uppercase tracking-normal text-paper/62">
+        <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,27,24,.90)_0%,rgba(17,27,24,.65)_34%,rgba(17,27,24,.06)_57%,rgba(17,27,24,.32)_72%,rgba(17,27,24,.96)_100%)]" />
+        <div aria-hidden="true" className="absolute inset-3 border border-paper/20 sm:inset-4" />
+        <div className="relative z-10 flex h-full min-h-0 flex-col px-7 py-8 sm:px-10 sm:py-10 md:px-11 md:py-11 [@media(max-height:560px)]:px-7 [@media(max-height:560px)]:pt-16 [@media(max-height:560px)]:pb-5">
+          <div className="flex items-center justify-between gap-3 border-b border-paper/25 pb-3 font-sans text-[11px] uppercase tracking-[0.12em] text-paper/80 [@media(max-height:560px)]:hidden">
             <span>Crónica visual</span>
-            <span>Derechos</span>
+            <span>Memoria · Derechos</span>
           </div>
-          <div className="mt-auto max-w-[24rem]">
-            <p className="mb-3 font-sans text-[10px] uppercase text-paper/56 md:mb-4">Libro interactivo</p>
-            <h2 className="font-serif text-[clamp(1.9rem,min(8vh,13vw),5rem)] leading-[0.88] text-paper">
-              <span className="block italic font-normal">Los que</span>
-              <span className="block">caminan</span>
-              <span className="block italic font-normal text-paper/72">todavía.</span>
+          <div className="mt-5 sm:mt-7 [@media(max-height:560px)]:mt-0">
+            <h2 className="font-serif text-[clamp(2.2rem,min(8.8vh,12vw),5.5rem)] leading-[0.96] tracking-[-0.035em] text-paper [@media(max-height:560px)]:text-[1.8rem]">
+              <span className="mb-1 block text-[0.65em] font-normal">Los que</span>
+              <span className="block font-normal">caminan</span>
+              <span className="block font-normal italic text-[#e4c58b]">todavía.</span>
             </h2>
-            <p className="mt-4 border-t border-paper/22 pt-4 font-serif text-[clamp(0.95rem,min(2.6vh,4.2vw),1.34rem)] leading-snug text-paper/82 text-pretty md:mt-5 md:pt-5">
+            <p className="mt-4 flex items-center gap-3 font-sans text-[11px] uppercase tracking-[0.12em] text-paper/80 [@media(max-height:560px)]:hidden">
+              <span aria-hidden="true" className="h-px w-7 bg-[#e4c58b]" />
+              Libro interactivo
+            </p>
+          </div>
+          <div className="mt-auto pt-5 [@media(max-height:560px)]:pt-2">
+            <p className="max-w-[25rem] font-serif text-[clamp(0.9rem,min(2.15vh,3.8vw),1.2rem)] leading-snug text-paper/90 text-pretty">
               Una lectura sobre desplazamiento, derechos y la posibilidad de volver a orientarse.
             </p>
-            <p className="mt-4 flex items-center gap-2.5 font-sans text-[10px] uppercase tracking-[0.14em] text-paper/58 transition-colors group-hover:text-paper/86 md:mt-6">
-              <span aria-hidden="true" className="h-px w-7 bg-paper/45" />
-              Abrir el libro
+            <p className="mt-4 flex items-center justify-between gap-3 border-t border-paper/30 pt-3 font-sans text-[11px] uppercase tracking-[0.12em] text-paper md:mt-5 md:pt-4 [@media(max-height:560px)]:mt-2 [@media(max-height:560px)]:pt-1">
+              <span>Abrir el libro</span>
+              <span aria-hidden="true" className="text-xl text-[#e4c58b]">→</span>
             </p>
           </div>
         </div>

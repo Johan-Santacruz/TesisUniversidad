@@ -70,6 +70,13 @@ Object.defineProperty(Element.prototype, "scrollIntoView", {
   value: () => undefined,
 })
 
+// Tampoco window.scrollTo, que cada pantalla usa para empezar por arriba.
+Object.defineProperty(window, "scrollTo", {
+  configurable: true,
+  writable: true,
+  value: () => undefined,
+})
+
 class IntersectionObserverMock implements IntersectionObserver {
   readonly root = null
   readonly rootMargin = "0px"

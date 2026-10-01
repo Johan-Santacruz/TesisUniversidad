@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import {
   BrowserRouter,
@@ -60,6 +61,13 @@ function LoginWithBookBackdrop() {
 // la capa de fondo del login— y se desanclarían del viewport.
 function RouteStage({ children }: { children: React.ReactNode }) {
   const prefersReducedMotion = useReducedMotion()
+
+  // Cada pantalla empieza por arriba. En un teléfono hay que bajar para pulsar
+  // "Ingresar", y la ruta nueva heredaba ese desplazamiento: la subida
+  // aparecía con el antetítulo y el titular metidos bajo la barra fija.
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
 
   if (prefersReducedMotion) {
     return <div className="page-route-stage">{children}</div>

@@ -323,7 +323,7 @@ function BookHeader({
         }}
       >
         <div className="flex min-w-0 items-baseline gap-3" aria-live="polite">
-          <span className="truncate font-sans text-[10px] uppercase tracking-[0.14em] text-ink-faded">
+          <span className="truncate font-sans text-[11px] uppercase tracking-[0.12em] text-ink-faded">
             {currentPage.eyebrow}
           </span>
           <span
@@ -359,7 +359,7 @@ function BookHeader({
 
         <Link
           to="/conversar"
-          className="group flex shrink-0 items-center gap-2 font-sans text-[10px] uppercase tracking-[0.14em] text-ink transition-colors hover:text-rojo focus:outline-none"
+          className="group flex shrink-0 items-center gap-2 font-sans text-[11px] uppercase tracking-[0.12em] text-ink transition-colors hover:text-rojo focus:outline-none"
           onClick={(event) => {
             event.preventDefault()
             onDepart("/conversar")
@@ -404,7 +404,7 @@ function BookProgressRibbon({
           />
         ))}
       </div>
-      <span className="font-sans text-[10px] tabular-nums tracking-[0.1em] text-ink-faded">
+      <span className="font-sans text-[11px] tabular-nums tracking-[0.12em] text-ink-faded">
         {String(progressIndex + 1).padStart(2, "0")} · {String(totalPages).padStart(2, "0")}
       </span>
     </div>
@@ -503,7 +503,7 @@ function PageTurnCaption({
   return (
     <motion.p
       className={cx(
-        "pointer-events-none absolute inset-x-0 -bottom-8 z-30 flex items-center justify-center gap-3 font-sans text-[10px] uppercase tracking-[0.14em] md:-bottom-9",
+        "pointer-events-none absolute inset-x-0 -bottom-8 z-30 flex items-center justify-center gap-3 font-sans text-[11px] uppercase tracking-[0.12em] md:-bottom-9",
         onTable ? "text-paper/58" : "text-ink-faded"
       )}
       initial={{ opacity: 0, y: -4 }}
@@ -568,6 +568,12 @@ const FlipBookPage = forwardRef<
     >
       <div
         data-book-page-scroll
+        /* En hoja única la página se desplaza por dentro, así que debe poder
+           recibir el foco: sin él, quien usa teclado no puede leer lo que
+           queda debajo del pliegue. */
+        tabIndex={single ? 0 : undefined}
+        role={single ? "region" : undefined}
+        aria-label={single ? page.label : undefined}
         /* En hoja única la página crece con su contenido y es este
            contenedor el que desplaza: clavarla a h-full hacía que el
            overflow-hidden de la sección recortara el texto y que el pie se
