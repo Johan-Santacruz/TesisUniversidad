@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 
-from app.ai.ml_service.classifier_service import ViolenceClassifier
+from app.ai.ml_service.classifier_service import WINDOW_BATCH, ViolenceClassifier
 
 
 CLS, SEP, PAD = 101, 102, 0
@@ -76,3 +76,34 @@ def test_sin_archivo_de_calibracion_la_temperatura_es_neutra(tmp_path: Path):
     service.artifact_dir = tmp_path
 
     assert service._load_calibration() == (1.0, 1.0)
+
+
+def test_leer_las_ventanas_de_a_tandas_da_los_mismos_logits():
+    """Las tandas sólo bajan el pico de memoria: el resultado no cambia."""
+    torch.manual_seed(0)
+
+    class Modelo(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.embedding = torch.nn.Embedding(100, 8)
+            self.salida = torch.nn.Linear(8 + 3, 4)
+
+        def forward(self, input_ids, attention_mask, extra=None):
+            mascara = attention_mask.unsqueeze(-1).float()
+            promedio = (self.embedding(input_ids) * mascara).sum(1) / mascara.sum(1)
+            return self.salida(torch.cat([promedio, extra], dim=1))
+
+    modelo = Modelo().eval()
+    total = 3 * WINDOW_BATCH + 5
+    ventanas = {
+        "input_ids": torch.randint(1, 100, (total, 12)),
+        "attention_mask": torch.ones(total, 12, dtype=torch.long),
+    }
+    extra = torch.rand(1, 3).expand(total, -1)
+
+    with torch.inference_mode():
+        juntas = modelo(**ventanas, extra=extra)
+        por_tandas = ViolenceClassifier._window_logits(modelo, ventanas, extra)
+
+    assert por_tandas.shape == juntas.shape
+    assert torch.allclose(por_tandas, juntas, atol=1e-6)

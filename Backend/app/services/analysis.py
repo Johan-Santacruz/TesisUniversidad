@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 from datetime import datetime, timezone
 import json
+from pathlib import Path
+import threading
 import time
 from typing import Any
 from uuid import uuid4
@@ -102,6 +104,7 @@ class AnalysisService:
         memory_images: Any | None = None,
         audit: Any | None = None,
         retry_attempts: int = 2,
+        max_concurrent: int = 2,
     ) -> None:
         self.database = database
         self.cipher = cipher
@@ -117,6 +120,61 @@ class AnalysisService:
         self.memory_images = memory_images
         self.audit = audit
         self.retry_attempts = retry_attempts
+        # Cada análisis decodifica audio, corre BETO y retiene la transcripción:
+        # varios a la vez se reparten la misma RAM y los mismos núcleos. Los que
+        # llegan de más esperan en "queued", que es el estado con que nacen.
+        self._slots = threading.BoundedSemaphore(max_concurrent)
+
+    def recover_interrupted(self) -> int:
+        """Cierra los análisis que un reinicio dejó a medias.
+
+        Corren en segundo plano dentro del proceso: si se detiene a mitad,
+        quedaban en "running" para siempre y la pantalla de progreso seguía
+        preguntando por un análisis que ya nadie hacía. Se cierran por el mismo
+        camino que un análisis sin proveedor —etapas restantes como no
+        disponibles—, que la interfaz ya sabe mostrar. Si el caso alcanzó a
+        guardarse, el análisis se da por terminado.
+
+        Supone lo que hoy es cierto: la API corre en un solo proceso (el
+        Dockerfile levanta uvicorn sin workers). Con varios, el que arranca
+        cerraría los análisis que otro está corriendo.
+        """
+        with self.database.session() as session:
+            pending = list(
+                session.execute(
+                    select(Analysis.id, Analysis.current_stage).where(
+                        Analysis.status.in_(("queued", "running"))
+                    )
+                )
+            )
+        stages = list(AnalysisStage)
+        for analysis_id, current_stage in pending:
+            if current_stage == AnalysisStage.ROUTES.value:
+                with self.database.session() as session:
+                    analysis = session.get(Analysis, analysis_id)
+                    analysis.status = "completed"
+                    analysis.completed_at = datetime.now(timezone.utc)
+                continue
+            following = (
+                stages[stages.index(AnalysisStage(current_stage)) + 1]
+                if current_stage in ANALYSIS_STAGES
+                else AnalysisStage.AUDIO
+            )
+            self._finish_unavailable(
+                analysis_id,
+                from_stage=following,
+                reason="analysis_interrupted",
+            )
+        return len(pending)
+
+    def run_from_file(self, analysis_id: str, audio_path: Path) -> None:
+        """Corre el análisis con el WAV que mandó el navegador y lo borra al
+        terminar. El audio espera en disco y no en memoria: retenerlo como
+        bytes lo mantenía entero en RAM durante todo el análisis."""
+        try:
+            self.run(analysis_id, audio_path)
+        finally:
+            audio_path.unlink(missing_ok=True)
 
     def start(self, session: Session, *, video: Video, user: User) -> Analysis:
         existing = session.scalar(
@@ -543,9 +601,13 @@ class AnalysisService:
         session.flush()
         return case_id
 
-    def run(self, analysis_id: str, audio: bytes | None = None) -> None:
+    def run(self, analysis_id: str, audio: bytes | Path | None = None) -> None:
         """Corre el análisis. `audio` es el WAV que mandó el navegador cuando
         el video todavía está subiendo; sin él, el audio sale del video."""
+        with self._slots:
+            self._run(analysis_id, audio)
+
+    def _run(self, analysis_id: str, audio: bytes | Path | None = None) -> None:
         started = time.monotonic()
         try:
             with self.database.session() as session:
@@ -1076,7 +1138,7 @@ class AnalysisService:
         routes, _, _ = self._reconcile_routes(reading, None)
         return routes
 
-    def _run_uploaded(self, analysis_id: str, audio: bytes | None = None) -> None:
+    def _run_uploaded(self, analysis_id: str, audio: bytes | Path | None = None) -> None:
         if audio is None and self.video_service is None:
             self._finish_unavailable(
                 analysis_id,
@@ -1169,6 +1231,9 @@ class AnalysisService:
                 reason="transcription_unavailable",
             )
             return
+        # El audio ya quedó transcrito: soltarlo aquí libera decenas de megas
+        # que, si no, seguían en memoria durante las llamadas a los modelos.
+        chunks = []
         self._append_event(
             analysis_id,
             AnalysisStage.TRANSCRIPTION,

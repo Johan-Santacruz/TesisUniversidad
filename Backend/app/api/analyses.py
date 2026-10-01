@@ -97,6 +97,9 @@ def stream_analysis_events(
         after = int(last_event_id or 0)
     except ValueError:
         raise HTTPException(status_code=400, detail="Last-Event-ID inválido")
+    # El flujo dura lo que dure el análisis y abre sus propias sesiones: ésta
+    # se cierra ya, para no retener una conexión del pool todo ese tiempo.
+    session.commit()
     return StreamingResponse(
         service.event_stream(analysis_id, after_sequence=max(0, after)),
         media_type="text/event-stream",

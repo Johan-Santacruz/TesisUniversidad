@@ -7,6 +7,8 @@ primero; el video sigue subiendo mientras el análisis corre.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from io import BytesIO
 import json
 import math
@@ -202,8 +204,9 @@ class FakeUploadedMedia:
     def __init__(self) -> None:
         self.received: bytes | None = None
 
-    def iter_uploaded_audio(self, audio: bytes):
-        self.received = audio
+    def iter_uploaded_audio(self, audio):
+        # El audio espera en disco a que el análisis lo lea.
+        self.received = audio.read_bytes() if isinstance(audio, Path) else audio
         yield AudioChunk(index=0, start_ms=0, end_ms=16000, wav_bytes=b"audio-en-memoria")
 
     def iter_audio_chunks(self, video):

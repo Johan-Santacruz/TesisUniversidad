@@ -135,3 +135,26 @@ def test_a_provider_failure_never_carries_the_credentials():
         adapter.synthesize("Un paso.")
 
     assert "voz" not in str(caught.value)
+
+
+def test_la_cache_de_voz_no_pasa_de_su_tope_en_bytes():
+    """Contar entradas no basta: cada audio puede pesar hasta 2 MB."""
+    calls: list[str] = []
+
+    class Grande:
+        def synthesize(self, text: str):
+            from app.ai.narration import NarratedAudio
+
+            calls.append(text)
+            return NarratedAudio(data=b"x" * 400, mime_type="audio/mpeg")
+
+    service = NarrationService(adapter=Grande(), cache_size=64, cache_bytes=1000)
+    for index in range(5):
+        service.narrate_step({"title": f"Paso {index}", "instructions": "Ir."})
+
+    assert service._cached_bytes <= 1000
+    assert len(service._cache) == 2
+    # El más reciente sigue en caché; el primero ya salió y se vuelve a pedir.
+    service.narrate_step({"title": "Paso 4", "instructions": "Ir."})
+    service.narrate_step({"title": "Paso 0", "instructions": "Ir."})
+    assert len(calls) == 6

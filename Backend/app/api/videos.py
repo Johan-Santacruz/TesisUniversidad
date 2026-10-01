@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import shutil
+import tempfile
+import time
 from typing import Annotated
 
 from fastapi import (
@@ -45,6 +50,46 @@ from app.services.video_links import (
 
 
 router = APIRouter(prefix="/videos", tags=["videos"])
+
+# Prefijo del WAV que espera en disco a que el análisis lo lea. Si el proceso se
+# detiene antes de borrarlo, el arranque siguiente lo encuentra por este nombre.
+INTAKE_AUDIO_PREFIX = "senda-audio-"
+
+
+def _park_intake_audio(source) -> Path:
+    """Copia el audio subido a un archivo privado, fuera del almacenamiento.
+
+    El análisis corre después de responder y dura minutos: leerlo como bytes
+    lo mantenía entero en memoria todo ese tiempo. Mientras se sube ya vive en
+    un temporal del servidor, así que esperar en disco no expone nada nuevo.
+    """
+    descriptor, name = tempfile.mkstemp(prefix=INTAKE_AUDIO_PREFIX, suffix=".wav")
+    path = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as target:
+            source.seek(0)
+            shutil.copyfileobj(source, target)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return path
+
+
+# Un WAV más viejo que esto ya no lo espera ningún análisis: ni el más largo en
+# cola tarda tanto. Los recientes pueden ser de otro proceso en marcha —un
+# servidor de desarrollo mientras corren las pruebas— y no se tocan.
+STALE_INTAKE_AUDIO_SECONDS = 6 * 60 * 60
+
+
+def discard_stale_intake_audio(*, now: float | None = None) -> None:
+    """Borra los WAV que un reinicio dejó sin leer: su análisis ya no corre."""
+    limit = (now if now is not None else time.time()) - STALE_INTAKE_AUDIO_SECONDS
+    for path in Path(tempfile.gettempdir()).glob(f"{INTAKE_AUDIO_PREFIX}*.wav"):
+        try:
+            if path.stat().st_mtime < limit:
+                path.unlink(missing_ok=True)
+        except FileNotFoundError:
+            continue
 
 
 def get_video_service(request: Request) -> VideoService:
@@ -134,10 +179,14 @@ def intake_video_audio(
         raise HTTPException(status_code=422, detail="El audio está vacío")
     except InvalidVideoError as exc:
         raise HTTPException(status_code=415, detail=str(exc))
-    analysis = analyses.start(session, video=video, user=operator)
-    session.commit()
-    audio.file.seek(0)
-    background_tasks.add_task(analyses.run, analysis.id, audio.file.read())
+    audio_path = _park_intake_audio(audio.file)
+    try:
+        analysis = analyses.start(session, video=video, user=operator)
+        session.commit()
+    except BaseException:
+        audio_path.unlink(missing_ok=True)
+        raise
+    background_tasks.add_task(analyses.run_from_file, analysis.id, audio_path)
     return VideoIntakeRead(
         video=VideoRead.model_validate(video),
         analysis=AnalysisRead(
@@ -312,6 +361,9 @@ def stream_video(
     }
     if partial:
         headers["Content-Range"] = f"bytes {start}-{end}/{video.size_bytes}"
+    # La transmisión puede durar minutos y no vuelve a tocar la base: se cierra
+    # la transacción ya, para no retener una conexión del pool todo ese tiempo.
+    session.commit()
     return StreamingResponse(
         service.chunk_cipher.iter_range(video.id, manifest, start, end),
         status_code=206 if partial else 200,

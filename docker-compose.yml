@@ -4,11 +4,20 @@
 # anfitrión (el del proveedor del servidor). Caddy se queda como repartidor
 # interno —/api a la API, el resto al frontend— y publica HTTP plano en el 80,
 # que es por donde entra ese proxy. Por eso el 443 no se abre.
+# Los registros de Docker crecen sin límite si no se rotan, y acaban llenando el
+# disco del servidor. Diez megas por archivo y tres archivos por servicio.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   api:
     build:
       context: ./Backend
     restart: unless-stopped
+    logging: *logging
     env_file: .env
     environment:
       # Dentro de la red de Docker todo es HTTP; el TLS lo termina Caddy.
@@ -38,12 +47,14 @@ services:
         # lo reparte. Así no hay CORS ni una URL absoluta que se quede vieja.
         VITE_API_URL: ""
     restart: unless-stopped
+    logging: *logging
     expose:
       - "80"
 
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *logging
     ports:
       # Solo el 80, y en HTTP plano: el proxy del anfitrión entra por aquí,
       # termina el TLS de cara a internet y reparte el dominio. El 443 no se

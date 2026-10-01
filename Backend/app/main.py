@@ -229,6 +229,15 @@ def create_app(
             audit=application.state.audit,
             retry_attempts=app_settings.analysis_retry_attempts,
         )
+        # Un análisis corre dentro del proceso: si el proceso se detuvo a mitad,
+        # el análisis quedaba "en curso" para siempre y su audio temporal, sin
+        # dueño. Se cierran aquí, antes de aceptar peticiones. Igual que la cola
+        # de purgas, un fallo no debe dejar la API sin arrancar.
+        try:
+            videos.discard_stale_intake_audio()
+            application.state.analysis.recover_interrupted()
+        except Exception:
+            logger.exception("interrupted_analysis_recovery_failed")
         if app_settings.demo_users_enabled:
             demo_email = app_settings.demo_admin_email.lower()
             demo_password = app_settings.demo_admin_password.get_secret_value()

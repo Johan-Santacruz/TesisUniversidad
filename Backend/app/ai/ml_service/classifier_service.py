@@ -12,6 +12,10 @@ import torch.nn.functional as F
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 
+# Ventanas que se leen a la vez. Con un tope fijo, el pico de memoria de BETO es
+# el mismo para un testimonio de cinco minutos que para uno de dos horas.
+WINDOW_BATCH = 16
+
 class TransformerClasificador(nn.Module):
     def __init__(
         self,
@@ -315,6 +319,33 @@ class ViolenceClassifier:
         }
 
     @staticmethod
+    def _window_logits(
+        model: nn.Module,
+        windows: dict[str, torch.Tensor],
+        extra: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Pasa las ventanas por el modelo de a tandas y junta los logits.
+
+        Cada ventana se lee por separado —LayerNorm es por muestra y en
+        evaluación no hay dropout—, así que leerlas de a tandas da los mismos
+        logits que leerlas todas juntas. Lo que cambia es el pico de memoria:
+        en un solo lote crecía con la duración del testimonio, y uno de dos
+        horas pasaba de 250 ventanas a la vez.
+        """
+        total = windows["input_ids"].shape[0]
+        parts = []
+        for start in range(0, total, WINDOW_BATCH):
+            stop = start + WINDOW_BATCH
+            parts.append(
+                model(
+                    input_ids=windows["input_ids"][start:stop],
+                    attention_mask=windows["attention_mask"][start:stop],
+                    extra=None if extra is None else extra[start:stop],
+                )
+            )
+        return torch.cat(parts, dim=0)
+
+    @staticmethod
     def _pool(logits: torch.Tensor) -> torch.Tensor:
         """Promedia los logits de las ventanas en un solo vector de documento.
 
@@ -345,7 +376,9 @@ class ViolenceClassifier:
             raise ValueError("El texto no puede estar vacio.")
 
         windows = self._token_windows(clean_text, self.category_max_len)
-        category_logits = self._pool(self.category_model(**windows))
+        category_logits = self._pool(
+            self._window_logits(self.category_model, windows)
+        )
         # La distribución que ve el modelo de subcategoría va SIN calibrar: se entrenó
         # recibiendo el softmax crudo (get_category_extra), y darle uno con temperatura
         # sería una entrada que nunca vio. La temperatura sólo afecta al número que se
@@ -369,7 +402,9 @@ class ViolenceClassifier:
         category_extra = category_extra.expand(subcategory_windows["input_ids"].shape[0], -1)
 
         subcategory_logits = self._pool(
-            self.subcategory_model(**subcategory_windows, extra=category_extra)
+            self._window_logits(
+                self.subcategory_model, subcategory_windows, category_extra
+            )
         )
         subcategory_probs = (
             torch.softmax(subcategory_logits / self.subcategory_temperature, dim=1)

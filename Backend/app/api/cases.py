@@ -264,8 +264,12 @@ def stream_rendered_video(
     }
     if partial:
         headers["Content-Range"] = f"bytes {start}-{end}/{video.size_bytes}"
+    manifest = service.manifest(video)
+    # La transmisión puede durar minutos y no vuelve a tocar la base: se cierra
+    # la transacción ya, para no retener una conexión del pool todo ese tiempo.
+    session.commit()
     return StreamingResponse(
-        service.chunk_cipher.iter_range(video.id, service.manifest(video), start, end),
+        service.chunk_cipher.iter_range(video.id, manifest, start, end),
         status_code=206 if partial else 200,
         media_type=video.media_type,
         headers=headers,

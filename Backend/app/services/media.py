@@ -29,6 +29,13 @@ PCM_CHUNK_BYTES = (
     SAMPLE_RATE * SAMPLE_WIDTH_BYTES * CHANNEL_COUNT * AUDIO_CHUNK_SECONDS
 )
 MAX_TOOL_OUTPUT_BYTES = 1024 * 1024
+# Topes de tiempo para las herramientas que validan lo que se sube. Son muy
+# holgados a propósito: no están para apurar a nadie, sino para que un archivo
+# que deja a ffmpeg colgado no retenga para siempre el hilo que lo atiende.
+# ffprobe sólo lee cabeceras; la verificación decodifica el audio entero, que en
+# un testimonio de dos horas toma un par de minutos.
+PROBE_TIMEOUT_SECONDS = 120
+DECODE_CHECK_TIMEOUT_SECONDS = 30 * 60
 
 
 class MediaValidationError(ValueError):
@@ -105,9 +112,15 @@ def _bounded_reader(stream: BinaryIO, target: bytearray) -> None:
             target.extend(block[:remaining])
 
 
+def _timed_out(command: list[str]) -> _ToolResult:
+    """Un proceso que superó su tope cuenta como archivo que no se pudo leer."""
+    return _ToolResult(-1, b"", f"{command[0]} timed out".encode())
+
+
 def _run_piped_source(
     command: list[str],
     source: BinaryIO,
+    timeout: float | None = None,
 ) -> _ToolResult:
     try:
         process = subprocess.Popen(
@@ -148,7 +161,14 @@ def _run_piped_source(
     ]
     for thread in threads:
         thread.start()
-    returncode = process.wait()
+    try:
+        returncode = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        for thread in threads:
+            thread.join()
+        return _timed_out(command)
     for thread in threads:
         thread.join()
     return _ToolResult(returncode, bytes(stdout), bytes(stderr))
@@ -184,6 +204,7 @@ def _run_seekable_source(
         return _run_piped_source(
             [*command_before_input, "pipe:0"],
             source,
+            timeout=PROBE_TIMEOUT_SECONDS,
         )
     try:
         completed = subprocess.run(
@@ -191,9 +212,12 @@ def _run_seekable_source(
             capture_output=True,
             check=False,
             pass_fds=(descriptor,),
+            timeout=PROBE_TIMEOUT_SECONDS,
         )
     except FileNotFoundError as exc:
         raise MediaToolUnavailableError(command_before_input[0]) from exc
+    except subprocess.TimeoutExpired:
+        return _timed_out(command_before_input)
     return _ToolResult(
         completed.returncode,
         completed.stdout[:MAX_TOOL_OUTPUT_BYTES],
@@ -347,16 +371,21 @@ class MediaValidator:
             "-",
         ]
         if descriptor is None:
-            return _run_piped_source(command, source)
+            return _run_piped_source(
+                command, source, timeout=DECODE_CHECK_TIMEOUT_SECONDS
+            )
         try:
             completed = subprocess.run(
                 command,
                 capture_output=True,
                 check=False,
                 pass_fds=(descriptor,),
+                timeout=DECODE_CHECK_TIMEOUT_SECONDS,
             )
         except FileNotFoundError as exc:
             raise MediaToolUnavailableError("ffmpeg") from exc
+        except subprocess.TimeoutExpired:
+            return _timed_out(command)
         return _ToolResult(
             completed.returncode,
             completed.stdout[:MAX_TOOL_OUTPUT_BYTES],
@@ -443,15 +472,19 @@ class MediaPipeline:
             finally:
                 path.unlink(missing_ok=True)
 
-    def iter_uploaded_audio(self, audio: bytes) -> Iterator[AudioChunk]:
+    def iter_uploaded_audio(self, audio: bytes | Path) -> Iterator[AudioChunk]:
         """Trocea el audio que mandó el navegador igual que el de un video.
 
         Llega ya validado como WAV, pero pasa por el mismo ffmpeg: así los
-        bloques que ve Whisper salen idénticos vengan de donde vengan.
+        bloques que ve Whisper salen idénticos vengan de donde vengan. Si llega
+        como archivo, ffmpeg lo lee del disco y el WAV no pasa por la memoria.
         """
         if shutil.which("ffmpeg") is None:
             raise MediaToolUnavailableError("ffmpeg")
         try:
+            if isinstance(audio, Path):
+                yield from self._decode(None, input_name=str(audio))
+                return
             yield from self._decode(
                 lambda: (
                     audio[start : start + IO_BLOCK_BYTES]

@@ -91,6 +91,15 @@ class Database:
     def _configure_sqlite(dbapi_connection: object, _: object) -> None:
         cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
         cursor.execute("PRAGMA foreign_keys=ON")
+        # El análisis escribe en segundo plano mientras la API lee. Con el
+        # diario por omisión una escritura bloquea a los lectores y viceversa,
+        # y bajo carga salía "database is locked". En WAL leer y escribir no se
+        # estorban; busy_timeout hace esperar al segundo escritor en vez de
+        # fallar, y NORMAL es la sincronización recomendada para WAL. En una
+        # base en memoria WAL no aplica y SQLite lo ignora sin error.
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
 
     def create_schema(self) -> None:

@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 from typing import BinaryIO, Callable, Protocol
 
 from PIL import Image, ImageDraw, ImageFont
@@ -19,6 +20,11 @@ DISCLOSURE = (
 )
 _WIDTH = 1536
 _HEIGHT = 864
+# El render recodifica el testimonio entero: ocupa todos los núcleos y cientos
+# de megas. Uno a la vez, y con un tope muy holgado que sólo corta un ffmpeg
+# colgado; el render que se pasa queda fallido y se puede reintentar.
+_RENDER_SLOTS = threading.BoundedSemaphore(1)
+RENDER_TIMEOUT_SECONDS = 60 * 60
 
 
 class _VideoService(Protocol):
@@ -40,6 +46,12 @@ class MemoryVideoRenderer:
         self.on_temporary_directory = on_temporary_directory
 
     def render(
+        self, video: object, image_bytes: bytes, target: BinaryIO
+    ) -> MediaMetadata:
+        with _RENDER_SLOTS:
+            return self._render_one(video, image_bytes, target)
+
+    def _render_one(
         self, video: object, image_bytes: bytes, target: BinaryIO
     ) -> MediaMetadata:
         with tempfile.TemporaryDirectory(prefix="senda-memory-render-") as value:
@@ -149,8 +161,15 @@ class MemoryVideoRenderer:
             "-c:a", "aac", "-movflags", "+faststart", str(output),
         ]
         try:
-            completed = subprocess.run(command, capture_output=True, check=False)
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                check=False,
+                timeout=RENDER_TIMEOUT_SECONDS,
+            )
         except FileNotFoundError as exc:
             raise MediaToolUnavailableError("ffmpeg") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("memory video render timed out") from exc
         if completed.returncode != 0:
             raise RuntimeError("memory video render failed")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from hashlib import sha256
+import threading
 from typing import Any
 
 from app.ai.narration import (
@@ -23,10 +24,23 @@ class NarrationService:
     proxy against the project's quota.
     """
 
-    def __init__(self, *, adapter: Any | None, cache_size: int = 64) -> None:
+    def __init__(
+        self,
+        *,
+        adapter: Any | None,
+        cache_size: int = 64,
+        cache_bytes: int = 32 * 1024 * 1024,
+    ) -> None:
         self.adapter = adapter
         self._cache: OrderedDict[str, NarratedAudio] = OrderedDict()
         self._cache_size = cache_size
+        # Tope también en bytes: cada audio puede pesar hasta 2 MB, y 64 de ellos
+        # eran 128 MB de memoria sólo para no repetir una llamada.
+        self._cache_bytes = cache_bytes
+        self._cached_bytes = 0
+        # Las peticiones llegan en hilos distintos: sin candado, dos que
+        # escriben a la vez pueden desordenar la caché.
+        self._lock = threading.Lock()
 
     @property
     def available(self) -> bool:
@@ -43,15 +57,23 @@ class NarrationService:
         # Repetir un paso no vuelve a costar: la voz de un texto idéntico ya
         # está resuelta.
         key = sha256(text.encode("utf-8")).hexdigest()
-        cached = self._cache.get(key)
-        if cached is not None:
-            self._cache.move_to_end(key)
-            return cached
+        with self._lock:
+            cached = self._cache.get(key)
+            if cached is not None:
+                self._cache.move_to_end(key)
+                return cached
         try:
             audio = self.adapter.synthesize(text)
         except NarrationProviderError:
             raise
-        self._cache[key] = audio
-        if len(self._cache) > self._cache_size:
-            self._cache.popitem(last=False)
+        with self._lock:
+            if key not in self._cache:
+                self._cache[key] = audio
+                self._cached_bytes += len(audio.data)
+            while self._cache and (
+                len(self._cache) > self._cache_size
+                or self._cached_bytes > self._cache_bytes
+            ):
+                _, evicted = self._cache.popitem(last=False)
+                self._cached_bytes -= len(evicted.data)
         return audio

@@ -96,9 +96,9 @@ def test_validator_decodes_the_whole_audio_but_only_the_first_video_frames(
     commands: list[list[str]] = []
     real_run = media._run_piped_source
 
-    def recording(command, source):
+    def recording(command, source, **options):
         commands.append(command)
-        return real_run(command, source)
+        return real_run(command, source, **options)
 
     monkeypatch.setattr(media, "_run_piped_source", recording)
 
@@ -320,3 +320,18 @@ def test_browser_audio_is_cut_into_the_same_pcm_blocks_as_a_video():
 
     assert (chunk.index, chunk.start_ms, chunk.end_ms) == (0, 0, 2000)
     assert chunk.wav_bytes[:4] == b"RIFF"
+
+
+def test_el_audio_del_navegador_se_lee_igual_desde_el_disco(tmp_path):
+    """El WAV espera en disco y no en memoria: los bloques salen idénticos."""
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is required")
+    wav = _tone_wav(2.0)
+    path = tmp_path / "audio.wav"
+    path.write_bytes(wav)
+    pipeline = MediaPipeline(Mock())
+
+    desde_memoria = list(pipeline.iter_uploaded_audio(wav))
+    desde_disco = list(pipeline.iter_uploaded_audio(path))
+
+    assert desde_disco == desde_memoria
