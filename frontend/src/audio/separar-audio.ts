@@ -11,6 +11,7 @@ export const AUDIO_SAMPLE_RATE = 16_000
 // llega: el relleno del AAC y las listas de edición no pasan de décimas.
 const DURATION_TOLERANCE_S = 1.5
 const METADATA_TIMEOUT_MS = 10_000
+const WAV_HEADER_BYTES = 44
 
 
 export async function extractAudio(
@@ -90,7 +91,7 @@ function downmix(buffer: AudioBuffer): Float32Array {
    cuenta sus muestras para saber cuánto dura el audio que se analizó. */
 export function encodeWav(samples: Float32Array, sampleRate: number): Blob {
   const dataBytes = samples.length * 2
-  const header = new DataView(new ArrayBuffer(44))
+  const header = new DataView(new ArrayBuffer(WAV_HEADER_BYTES))
   const ascii = (offset: number, text: string) => {
     for (let index = 0; index < text.length; index += 1) {
       header.setUint8(offset + index, text.charCodeAt(index))
@@ -116,4 +117,11 @@ export function encodeWav(samples: Float32Array, sampleRate: number): Blob {
     pcm.setInt16(index * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true)
   }
   return new Blob([header.buffer, pcm.buffer], { type: "audio/wav" })
+}
+
+
+/* Cuánto dura un WAV de encodeWav: la cabecera y dos bytes por muestra. Así se
+   sabe la duración del testimonio sin volver a decodificarlo. */
+export function wavSeconds(wav: Blob, sampleRate = AUDIO_SAMPLE_RATE): number {
+  return Math.max(0, wav.size - WAV_HEADER_BYTES) / (sampleRate * 2)
 }

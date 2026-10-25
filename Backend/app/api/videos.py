@@ -34,6 +34,7 @@ from app.services.videos import (
     VideoNotAwaitedError,
     VideoService,
     VideoTooLargeError,
+    VideoTooLongError,
     parse_byte_range,
 )
 from app.services.media import (
@@ -124,6 +125,8 @@ def upload_video(
         )
     except EmptyMediaError:
         raise HTTPException(status_code=422, detail="El video está vacío")
+    except VideoTooLongError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except MediaToolUnavailableError:
         raise HTTPException(
             status_code=503,
@@ -177,6 +180,8 @@ def intake_video_audio(
         )
     except EmptyMediaError:
         raise HTTPException(status_code=422, detail="El audio está vacío")
+    except VideoTooLongError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except InvalidVideoError as exc:
         raise HTTPException(status_code=415, detail=str(exc))
     audio_path = _park_intake_audio(audio.file)
@@ -303,6 +308,8 @@ def create_video_from_link(
         )
     except EmptyMediaError:
         raise HTTPException(status_code=422, detail="El video del enlace está vacío")
+    except VideoTooLongError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except MediaToolUnavailableError:
         raise HTTPException(
             status_code=503,

@@ -111,7 +111,7 @@ class AnalysisReadinessRead(BaseModel):
     # aparte porque es una capacidad del servidor, como ffmpeg o BETO: la
     # pantalla de ingesta ya pregunta por todas de una vez.
     link_ingest_enabled: bool = False
-    link_ingest_max_seconds: int = 1800
+    link_ingest_max_seconds: int = 300
     openai_configured: bool
     anthropic_configured: bool
     beto_available: bool
@@ -119,6 +119,7 @@ class AnalysisReadinessRead(BaseModel):
     ffprobe_available: bool
     accepted_media_types: list[Literal["video/mp4", "video/webm"]]
     max_video_bytes: int
+    max_video_seconds: int = 300
     video_retention_days: int
 
 

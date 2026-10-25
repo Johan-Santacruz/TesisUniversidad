@@ -37,6 +37,20 @@ DECLARED_MEDIA_TYPES = frozenset(
 )
 
 
+def _clock(duration_ms: int) -> str:
+    """6:12, como lo muestra un reproductor."""
+    seconds = round(duration_ms / 1000)
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def _span(seconds: int) -> str:
+    """El tope en palabras: "5 minutos", o en segundos si no son minutos justos."""
+    if seconds % 60 == 0:
+        minutes = seconds // 60
+        return f"{minutes} minuto" if minutes == 1 else f"{minutes} minutos"
+    return f"{seconds} segundo" if seconds == 1 else f"{seconds} segundos"
+
+
 class InvalidVideoError(ValueError):
     pass
 
@@ -47,6 +61,10 @@ class VideoTooLargeError(ValueError):
 
 class AudioTooLargeError(ValueError):
     pass
+
+
+class VideoTooLongError(ValueError):
+    """El testimonio dura más que el tope configurado (max_video_seconds)."""
 
 
 class VideoNotAwaitedError(ValueError):
@@ -91,6 +109,7 @@ class VideoService:
             raise VideoTooLargeError(str(exc)) from exc
         except UnsupportedMediaError as exc:
             raise InvalidVideoError(str(exc)) from exc
+        self._check_duration(metadata.duration_ms)
         media_type = metadata.media_type
 
         return self._persist(
@@ -165,6 +184,9 @@ class VideoService:
             raise AudioTooLargeError(str(exc)) from exc
         except UnsupportedMediaError as exc:
             raise InvalidVideoError(str(exc)) from exc
+        # Se rechaza aquí, con el audio, y no cuando llegue el video: el
+        # análisis ya habría arrancado sobre un testimonio que no se admite.
+        self._check_duration(duration_ms)
         # El tipo definitivo lo decide la firma del archivo cuando llegue; hasta
         # entonces vale el que declaró el navegador. MOV es un MP4 para ffprobe.
         provisional = "video/webm" if declared_type == "video/webm" else "video/mp4"
@@ -302,6 +324,15 @@ class VideoService:
         if difference > max(AUDIO_MATCH_TOLERANCE_MS, expected // 100):
             raise AudioMismatchError("video audio does not match the analyzed audio")
         return difference
+
+    def _check_duration(self, duration_ms: int) -> None:
+        # Con la misma holgura que al comparar audio y video: una grabación de
+        # 5:00 declara 300,02 s por el relleno del AAC y no debe quedar fuera.
+        limit_s = self.settings.max_video_seconds
+        if duration_ms > limit_s * 1000 + AUDIO_MATCH_TOLERANCE_MS:
+            raise VideoTooLongError(
+                f"El video dura {_clock(duration_ms)} y el máximo son {_span(limit_s)}."
+            )
 
     @staticmethod
     def _filename(media_type: str) -> str:

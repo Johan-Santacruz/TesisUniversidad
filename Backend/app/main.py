@@ -318,7 +318,7 @@ def create_app(
     # el interruptor de configuración, que el propio servicio consulta.
     application.state.video_links = VideoLinkService(
         enabled=app_settings.link_ingest_enabled,
-        max_duration_seconds=app_settings.link_ingest_max_seconds,
+        max_duration_seconds=app_settings.link_max_seconds,
         downloader=YtDlpDownloader(
             max_bytes=app_settings.max_video_bytes,
             cookie_file=app_settings.link_cookies_file,

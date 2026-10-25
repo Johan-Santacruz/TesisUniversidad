@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import { ApiError, apiClient } from "../../api/client"
-import { extractAudio } from "../../audio/separar-audio"
+import { extractAudio, wavSeconds } from "../../audio/separar-audio"
 import { analysisReady } from "../../audio/sonidos"
 import type { components } from "../../api/generated"
 import { useAnalysisEvents } from "../../hooks/use-analysis-events"
@@ -21,7 +21,7 @@ import { MemoryImagePlate } from "./memory-image-plate"
 import { narrativeStageTransition, stageVariants } from "./motion"
 import { RouteStage, routeStageDescription } from "./route-stage"
 import { StagePager } from "./stage-pager"
-import { UploadPanel } from "./upload-panel"
+import { UploadPanel, tooLongMessage } from "./upload-panel"
 import { usePlayhead } from "./use-playhead"
 import { useStageHistory } from "./use-stage-history"
 import { DocumentaryVideoRail } from "./video-panel"
@@ -44,6 +44,11 @@ type MemoryImageDecision = components["schemas"]["MemoryImageDecisionRead"]
 // no conoce la ruta (404, 405), el audio le pesa (413) o no lo pudo leer (415,
 // 422). Subir el video entero, como antes, sigue siendo un camino válido.
 const AUDIO_FIRST_FALLBACK = new Set([404, 405, 413, 415, 422])
+
+// El tope del servidor si la consulta de capacidades no responde, y la misma
+// holgura con que él lo aplica: una grabación de 5:00 mide unas centésimas más.
+const DEFAULT_MAX_VIDEO_SECONDS = 300
+const DURATION_LIMIT_TOLERANCE_S = 1.5
 
 // Ritmo de sondeo mientras el cierre se genera o se renderiza.
 export const MEMORY_CLOSING_POLL_MS = 4000
@@ -496,8 +501,9 @@ export function AnalysisWorkspace({
      que devuelve 503. Si la consulta falla, no se ofrece y no se avisa —es una
      capacidad de más, no un fallo del análisis. */
   const [linkIngest, setLinkIngest] = useState<{ enabled: boolean; maxSeconds: number }>(
-    { enabled: false, maxSeconds: 1800 },
+    { enabled: false, maxSeconds: DEFAULT_MAX_VIDEO_SECONDS },
   )
+  const [maxVideoSeconds, setMaxVideoSeconds] = useState(DEFAULT_MAX_VIDEO_SECONDS)
 
   const uploadLink = async (url: string) => {
     setBusy(true)
@@ -532,6 +538,12 @@ export function AnalysisWorkspace({
       audio = await extractAudio(file)
     } catch {
       return null
+    }
+    // El audio sale a 16 kHz y mono, así que su peso dice cuánto dura: un
+    // testimonio más largo que el tope se rechaza aquí, antes de subir nada.
+    const seconds = wavSeconds(audio)
+    if (seconds > maxVideoSeconds + DURATION_LIMIT_TOLERANCE_S) {
+      throw new Error(tooLongMessage(seconds, maxVideoSeconds))
     }
     const body = new FormData()
     body.append("audio", audio, "audio.wav")
@@ -818,6 +830,7 @@ export function AnalysisWorkspace({
           enabled: readiness.link_ingest_enabled,
           maxSeconds: readiness.link_ingest_max_seconds,
         })
+        setMaxVideoSeconds(readiness.max_video_seconds ?? DEFAULT_MAX_VIDEO_SECONDS)
       })
       .catch(() => {})
     return () => {
@@ -867,6 +880,7 @@ export function AnalysisWorkspace({
             error={error}
             linkIngestEnabled={linkIngest.enabled}
             linkMaxSeconds={linkIngest.maxSeconds}
+            maxVideoSeconds={maxVideoSeconds}
             onUpload={upload}
             onLink={uploadLink}
             onDemo={useDemo}

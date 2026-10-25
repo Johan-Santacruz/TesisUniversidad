@@ -20,7 +20,8 @@ services:
     logging: *logging
     env_file: .env
     environment:
-      # Dentro de la red de Docker todo es HTTP; el TLS lo termina Caddy.
+      # Dentro de la red de Docker todo es HTTP; el TLS lo termina el proxy
+      # del anfitrión, por delante de Caddy.
       SENDA_DATABASE_URL: sqlite:////datos/senda.db
       SENDA_STORAGE_DIR: /datos/storage
       SENDA_FRONTEND_ORIGIN: https://${SENDA_DOMINIO}

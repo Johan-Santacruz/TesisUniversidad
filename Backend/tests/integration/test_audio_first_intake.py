@@ -177,6 +177,31 @@ def test_a_video_too_large_is_refused_before_analyzing_it(operator_client):
         assert session.query(Analysis).count() == 0
 
 
+def test_a_testimony_longer_than_the_limit_is_refused_before_analyzing_it(
+    operator_client, monkeypatch
+):
+    monkeypatch.setattr(operator_client.app.state.settings, "max_video_seconds", 1)
+
+    response = _intake(operator_client, _wav(3))
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "El video dura 0:03 y el máximo son 1 segundo."
+    with operator_client.app.state.database.session() as session:
+        assert session.query(Analysis).count() == 0
+        assert session.query(Video).count() == 0
+
+
+def test_a_testimony_just_over_the_limit_still_fits_the_tolerance(
+    operator_client, monkeypatch
+):
+    # El relleno del AAC alarga unas centésimas una grabación de 5:00 justos.
+    monkeypatch.setattr(operator_client.app.state.settings, "max_video_seconds", 1)
+
+    response = _intake(operator_client, _wav(2.4))
+
+    assert response.status_code == 201
+
+
 def test_an_audio_over_the_limit_is_refused_so_the_browser_sends_the_video(
     operator_client, monkeypatch
 ):

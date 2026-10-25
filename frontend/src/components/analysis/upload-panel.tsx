@@ -20,6 +20,26 @@ function readableSize(bytes: number) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
+/* El tope en palabras, como lo dice el servidor: "5 minutos", o en segundos si
+   no son minutos justos. */
+export function durationSpan(seconds: number) {
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60
+    return minutes === 1 ? "1 minuto" : `${minutes} minutos`
+  }
+  return seconds === 1 ? "1 segundo" : `${seconds} segundos`
+}
+
+function clock(seconds: number) {
+  const whole = Math.round(seconds)
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`
+}
+
+/* El mismo mensaje con que el servidor rechaza un testimonio largo. */
+export function tooLongMessage(seconds: number, maxSeconds: number) {
+  return `El video dura ${clock(seconds)} y el máximo son ${durationSpan(maxSeconds)}.`
+}
+
 /* Se valida aquí y no sólo en el servidor: antes se aceptaba cualquier archivo
  * soltado —un PDF, o uno de 2 GB— y el rechazo llegaba después de subirlo. */
 export function validateVideo(file: File): string | null {
@@ -71,7 +91,8 @@ export function UploadPanel({
   uploadProgress = null,
   error = "",
   linkIngestEnabled = false,
-  linkMaxSeconds = 1800,
+  linkMaxSeconds = 300,
+  maxVideoSeconds = 300,
   onUpload,
   onLink,
   onDemo,
@@ -81,6 +102,7 @@ export function UploadPanel({
   error?: string
   linkIngestEnabled?: boolean
   linkMaxSeconds?: number
+  maxVideoSeconds?: number
   onUpload: (file: File) => Promise<void> | void
   onLink?: (url: string) => Promise<void> | void
   onDemo: () => Promise<void> | void
@@ -211,7 +233,7 @@ export function UploadPanel({
               {file ? "Cambiar archivo" : "Elegir archivo"}
             </span>
             <span id={hintId} className="intake-hint">
-              MP4, WebM o MOV · hasta 500 MB
+              MP4, WebM o MOV · hasta {durationSpan(maxVideoSeconds)} y 500 MB
             </span>
           </span>
         </button>
@@ -278,8 +300,7 @@ export function UploadPanel({
         {linkIngestEnabled && onLink && !file ? (
           <div className="intake-link">
             <p className="intake-link-or">
-              o un enlace de YouTube, de hasta{" "}
-              {Math.round(linkMaxSeconds / 60)} minutos
+              o un enlace de YouTube, de hasta {durationSpan(linkMaxSeconds)}
             </p>
             <div className="intake-link-row">
               <input

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { AUDIO_SAMPLE_RATE, encodeWav, extractAudio } from "./separar-audio"
+import { AUDIO_SAMPLE_RATE, encodeWav, extractAudio, wavSeconds } from "./separar-audio"
 
 
 // El Blob de jsdom no se deja leer por el Response de Node; FileReader sí.
@@ -40,6 +40,15 @@ describe("encodeWav", () => {
 
     expect(view.getInt16(44, true)).toBe(0x7fff)
     expect(view.getInt16(46, true)).toBe(-0x8000)
+  })
+})
+
+
+describe("wavSeconds", () => {
+  it("reads the duration from the size of the WAV it encodes", () => {
+    const wav = encodeWav(new Float32Array(AUDIO_SAMPLE_RATE * 3), AUDIO_SAMPLE_RATE)
+
+    expect(wavSeconds(wav)).toBe(3)
   })
 })
 

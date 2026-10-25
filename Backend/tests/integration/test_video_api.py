@@ -70,6 +70,25 @@ def test_video_without_audio_is_rejected_before_encrypted_persistence(
     assert not storage.exists() or list(storage.iterdir()) == []
 
 
+def test_a_video_longer_than_the_limit_is_rejected_before_encrypted_persistence(
+    operator_client,
+    media_fixture_factory,
+    monkeypatch,
+):
+    # Un segundo de tope y la holgura de 1,5 s: un video de 3 s queda fuera
+    # sin tener que generar uno de cinco minutos.
+    monkeypatch.setattr(operator_client.app.state.settings, "max_video_seconds", 1)
+
+    response = _upload_fictitious(
+        operator_client, media_fixture_factory(duration_seconds=3)
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "El video dura 0:03 y el máximo son 1 segundo."
+    storage = operator_client.app.state.settings.storage_dir / "videos"
+    assert not storage.exists() or list(storage.iterdir()) == []
+
+
 def test_missing_media_tool_maps_to_503_without_leaking_diagnostics(
     operator_client,
     valid_mp4_bytes,
@@ -254,4 +273,5 @@ def test_la_disponibilidad_del_enlace_se_publica_en_readiness(operator_client):
     listo = operator_client.get("/api/v1/analyses/readiness").json()
 
     assert listo["link_ingest_enabled"] is False
-    assert listo["link_ingest_max_seconds"] == 1800
+    assert listo["link_ingest_max_seconds"] == 300
+    assert listo["max_video_seconds"] == 300

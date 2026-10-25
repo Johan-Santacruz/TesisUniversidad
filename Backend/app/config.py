@@ -56,6 +56,10 @@ class Settings(BaseSettings):
 
     video_chunk_bytes: int = Field(default=1024 * 1024, ge=64 * 1024)
     max_video_bytes: int = Field(default=500 * 1024 * 1024, ge=1024)
+    # Duración máxima de un testimonio, por archivo o por enlace. Cinco minutos
+    # cubren todo el corpus con que se validó el sistema (el más largo dura
+    # 234 s); un testimonio más largo pide validar primero con ese material.
+    max_video_seconds: int = Field(default=300, ge=60, le=7200)
     # Audio que el navegador separa del video para que el análisis no espere a
     # que el video termine de subir. En WAV de 16 kHz mono son unos 70 minutos;
     # si pesa más, el navegador sube el video entero como antes.
@@ -65,7 +69,10 @@ class Settings(BaseSettings):
     # descargador de videos ajeno con la IP del servidor. Se enciende en el
     # equipo donde la descarga es parte del método de trabajo.
     link_ingest_enabled: bool = False
-    link_ingest_max_seconds: int = Field(default=1800, ge=60, le=7200)
+    # Nunca supera max_video_seconds: el video bajado sigue el mismo camino que
+    # un archivo, y bajarlo entero para rechazarlo después sería gastar la
+    # descarga.
+    link_ingest_max_seconds: int = Field(default=300, ge=60, le=7200)
     # Sesión para la descarga. Sin ella las peticiones van anónimas y YouTube
     # acaba pidiendo verificación por tasa. El archivo de cookies es el camino
     # del servidor; leerlas del navegador sólo sirve donde hay navegador.
@@ -115,6 +122,12 @@ class Settings(BaseSettings):
     @property
     def anthropic_configured(self) -> bool:
         return _secret_is_configured(self.anthropic_api_key)
+
+    @property
+    def link_max_seconds(self) -> int:
+        # Un .env viejo puede traer 1800 para los enlaces: el tope de cualquier
+        # video sigue mandando.
+        return min(self.link_ingest_max_seconds, self.max_video_seconds)
 
 
 def _secret_is_configured(value: SecretStr | None) -> bool:

@@ -6,7 +6,13 @@ import {
 } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
-import { UploadPanel, validateLink, validateVideo } from "./upload-panel"
+import {
+  UploadPanel,
+  durationSpan,
+  tooLongMessage,
+  validateLink,
+  validateVideo,
+} from "./upload-panel"
 
 
 function fakeFile(name: string, type: string, sizeBytes: number) {
@@ -38,6 +44,20 @@ describe("validateVideo", () => {
   it("rechaza un video por encima de 500 MB", () => {
     expect(validateVideo(fakeFile("largo.mp4", "video/mp4", 620 * 1024 * 1024)))
       .toMatch(/máximo son 500 MB/i)
+  })
+})
+
+describe("el tope de duración", () => {
+  it("lo dice en minutos, o en segundos si no son minutos justos", () => {
+    expect(durationSpan(300)).toBe("5 minutos")
+    expect(durationSpan(60)).toBe("1 minuto")
+    expect(durationSpan(90)).toBe("90 segundos")
+  })
+
+  it("explica el rechazo con lo que dura el video", () => {
+    expect(tooLongMessage(372.4, 300)).toBe(
+      "El video dura 6:12 y el máximo son 5 minutos.",
+    )
   })
 })
 
@@ -77,7 +97,7 @@ describe("UploadPanel", () => {
     const described = zone.getAttribute("aria-describedby")
     expect(described).toBeTruthy()
     expect(document.getElementById(described!.split(" ")[0]))
-      .toHaveTextContent("MP4, WebM o MOV · hasta 500 MB")
+      .toHaveTextContent("MP4, WebM o MOV · hasta 5 minutos y 500 MB")
   })
 
   it("permite quitar el archivo elegido", async () => {

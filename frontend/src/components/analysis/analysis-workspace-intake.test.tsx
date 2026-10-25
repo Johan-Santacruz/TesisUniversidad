@@ -7,7 +7,11 @@ import { caseFixture } from "../../test/case-fixture"
 import { AnalysisWorkspace } from "./analysis-workspace"
 
 
-vi.mock("../../audio/separar-audio", () => ({ extractAudio: vi.fn() }))
+// Sólo se simula la decodificación: wavSeconds mide el WAV de verdad.
+vi.mock("../../audio/separar-audio", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../audio/separar-audio")>()),
+  extractAudio: vi.fn(),
+}))
 
 
 const VIDEO_ID = caseFixture.video_id
@@ -134,6 +138,28 @@ describe("AnalysisWorkspace — el audio primero", () => {
     pickAndAnalyze()
 
     await waitFor(() => expect(signal?.aborted).toBe(true))
+  })
+
+  it("refuses a testimony longer than the limit before sending anything", async () => {
+    // 62 s de WAV a 16 kHz mono, contra un tope de un minuto.
+    vi.mocked(extractAudio).mockResolvedValue(
+      new Blob([new Uint8Array(44 + 16_000 * 2 * 62)], { type: "audio/wav" }),
+    )
+    vi.mocked(apiClient.request).mockResolvedValue({
+      link_ingest_enabled: false,
+      link_ingest_max_seconds: 60,
+      max_video_seconds: 60,
+    } as never)
+    const upload = vi.spyOn(apiClient, "upload")
+
+    render(<AnalysisWorkspace role="operador" />)
+    await screen.findByText(/hasta 1 minuto y 500 MB/)
+    pickAndAnalyze()
+
+    expect(
+      await screen.findByText("El video dura 1:02 y el máximo son 1 minuto."),
+    ).toBeInTheDocument()
+    expect(upload).not.toHaveBeenCalled()
   })
 
   it("uploads the whole video when the browser cannot read its audio", async () => {

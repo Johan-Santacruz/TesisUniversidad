@@ -30,7 +30,7 @@ class AnalysisReadinessService:
         return AnalysisReadinessRead(
             can_upload=role in {UserRole.OPERATOR, UserRole.ADMIN},
             link_ingest_enabled=self.settings.link_ingest_enabled,
-            link_ingest_max_seconds=self.settings.link_ingest_max_seconds,
+            link_ingest_max_seconds=self.settings.link_max_seconds,
             openai_configured=self.settings.openai_configured,
             anthropic_configured=self.settings.anthropic_configured,
             beto_available=beto_available,
@@ -38,5 +38,6 @@ class AnalysisReadinessService:
             ffprobe_available=ffprobe_available,
             accepted_media_types=["video/mp4", "video/webm"],
             max_video_bytes=self.settings.max_video_bytes,
+            max_video_seconds=self.settings.max_video_seconds,
             video_retention_days=self.settings.video_retention_days,
         )

@@ -576,11 +576,16 @@ export interface components {
             link_ingest_enabled: boolean;
             /**
              * Link Ingest Max Seconds
-             * @default 1800
+             * @default 300
              */
             link_ingest_max_seconds: number;
             /** Max Video Bytes */
             max_video_bytes: number;
+            /**
+             * Max Video Seconds
+             * @default 300
+             */
+            max_video_seconds: number;
             /** Openai Configured */
             openai_configured: boolean;
             /** Video Retention Days */
