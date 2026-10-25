@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { beforeEach, expect, it, vi } from "vitest"
 
@@ -110,6 +110,63 @@ it("returns to the book from the login screen", async () => {
   expect(
     screen.queryByRole("heading", { name: /bienvenido de nuevo/i }),
   ).not.toBeInTheDocument()
+})
+
+
+it("keeps the case history behind the login", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(JSON.stringify({ detail: "Sin sesión" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    }),
+  )
+
+  renderAt("/historial/case-fixture")
+
+  expect(
+    await screen.findByRole("heading", { name: /bienvenido de nuevo/i }),
+  ).toBeVisible()
+})
+
+
+it("moves between the new analysis and the history from the bar", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = String(input)
+    const body = url.includes("/auth/refresh")
+      ? {
+          access_token: "token",
+          token_type: "bearer",
+          expires_in: 900,
+          user: {
+            id: "operator-1",
+            email: "operador@senda.local",
+            role: "operador",
+            is_active: true,
+          },
+        }
+      : url.includes("/api/v1/cases")
+        ? { items: [], total: 0 }
+        : { can_upload: true }
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  })
+
+  renderAt("/subir-video")
+
+  const nav = await screen.findByRole("navigation", { name: "Secciones del módulo" })
+  expect(within(nav).getByRole("link", { name: "Nuevo análisis" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  )
+  fireEvent.click(within(nav).getByRole("link", { name: "Historial" }))
+
+  expect(await screen.findByTestId("case-history")).toBeVisible()
+  expect(
+    within(screen.getByRole("navigation", { name: "Secciones del módulo" }))
+      .getByRole("link", { name: "Historial" }),
+  ).toHaveAttribute("aria-current", "page")
 })
 
 

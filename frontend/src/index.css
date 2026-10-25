@@ -4110,6 +4110,43 @@
   white-space: nowrap;
 }
 
+/* Las dos secciones del módulo hablan con la voz del rótulo de contexto que
+   reemplazan —cuerpo, tinta suave—. La actual pasa a tinta y se subraya en
+   amarillo, que en el módulo ya significa "aquí vamos". El peso no cambia:
+   si la actual engordara, la barra se movería al cambiar de sección. */
+.workspace-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  min-width: 0;
+}
+
+.workspace-nav a {
+  position: relative;
+  padding-block: 0.35rem;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: var(--t-cuerpo);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 160ms ease;
+}
+
+.workspace-nav a:hover { color: var(--ink); }
+
+.workspace-nav a[aria-current="page"] { color: var(--ink); }
+
+.workspace-nav a[aria-current="page"]::after {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--amarillo);
+  content: "";
+}
+
 .workspace-identity {
   display: flex;
   align-items: center;
@@ -4164,6 +4201,21 @@
 @media (max-width: 720px) {
   .workspace-context,
   .workspace-bar-rule { display: none; }
+}
+
+/* En un teléfono la barra no da para todo: "Volver al inicio" se queda en la
+   flecha y "Nuevo análisis" en "Nuevo". Las palabras siguen ahí para el
+   lector de pantalla; sólo dejan de ocupar sitio. */
+@media (max-width: 600px) {
+  .workspace-back-label,
+  .workspace-nav-long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 /* Raíz tipográfica del módulo: lo que no declare familia propia hereda la

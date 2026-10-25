@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 
-from typing import Annotated, Any
+from datetime import datetime, timezone
+from typing import Annotated, Any, Literal
 
 from fastapi import (
     APIRouter,
@@ -10,6 +11,7 @@ from fastapi import (
     Depends,
     Header,
     HTTPException,
+    Query,
     Request,
     Response,
     status,
@@ -30,6 +32,7 @@ from app.schemas import (
     CaseApprovalRead,
     CaseApprovalRequest,
     CaseRead,
+    CaseSummaryList,
     FactRead,
     FactReviewRequest,
     MemoryImageDecisionRead,
@@ -37,7 +40,9 @@ from app.schemas import (
     TombstoneRead,
 )
 from app.services.analysis import AnalysisService
-from app.services.cases import CaseConflictError, CaseService
+from app.services.audit import AuditService
+from app.services.case_report import ReportContext, includes_routes, render_case_report
+from app.services.cases import CaseConflictError, CaseService, case_reference
 from app.services.memory_images import (
     MemoryImageAssetUnavailableError,
     MemoryImageConflictError,
@@ -71,6 +76,10 @@ def get_narration_service(request: Request) -> NarrationService:
     return request.app.state.narration
 
 
+def get_audit_service(request: Request) -> AuditService:
+    return request.app.state.audit
+
+
 def _case_or_404(session: Session, case_id: str) -> CaseRecord:
     case = session.get(CaseRecord, case_id)
     if case is None:
@@ -78,7 +87,7 @@ def _case_or_404(session: Session, case_id: str) -> CaseRecord:
     return case
 
 
-def _can_read_memory_image(user_id: str, user_role: str, video: Video) -> bool:
+def _can_read_case_assets(user_id: str, user_role: str, video: Video) -> bool:
     return user_id == video.owner_id or user_role in {"validador", "admin"}
 
 
@@ -98,6 +107,36 @@ _BINARY_RESPONSE: dict[int | str, dict[str, Any]] = {
 }
 
 
+class _PdfResponse(Response):
+    media_type = "application/pdf"
+
+
+_PDF_RESPONSE: dict[int | str, dict[str, Any]] = {
+    200: {"content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}}
+}
+
+
+@router.get("/cases", response_model=CaseSummaryList)
+def list_cases(
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    service: Annotated[CaseService, Depends(get_case_service)],
+    # `status` ya nombra el módulo de códigos HTTP en este archivo.
+    status_filter: Annotated[
+        Literal["in_review", "approved"] | None, Query(alias="status")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> CaseSummaryList:
+    return service.list_summaries(
+        session,
+        viewer=user,
+        status=status_filter,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @router.get("/cases/{case_id}", response_model=CaseRead)
 def read_case(
     case_id: str,
@@ -106,6 +145,64 @@ def read_case(
     service: Annotated[CaseService, Depends(get_case_service)],
 ) -> CaseRead:
     return service.read(session, _case_or_404(session, case_id))
+
+
+@router.get(
+    "/cases/{case_id}/report",
+    response_class=_PdfResponse,
+    responses=_PDF_RESPONSE,
+)
+def export_case_report(
+    case_id: str,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    service: Annotated[CaseService, Depends(get_case_service)],
+    audit: Annotated[AuditService, Depends(get_audit_service)],
+) -> Response:
+    case = _case_or_404(session, case_id)
+    video = session.get(Video, case.video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video no encontrado")
+    if not _can_read_case_assets(user.id, user.role, video):
+        raise HTTPException(status_code=403, detail="Sin acceso a este caso")
+    view = service.read(session, case)
+    reference = case_reference(case.id)
+    content = render_case_report(
+        view,
+        ReportContext(
+            reference=reference,
+            analyzed_at=case.created_at,
+            is_demo=video.is_demo,
+            generated_at=datetime.now(timezone.utc),
+            generated_by_role=user.role,
+        ),
+    )
+    # El resumen sale del sistema cifrado: queda registrado quién lo sacó y
+    # en qué estado estaba el caso, y se confirma antes de entregar un byte.
+    session.add(
+        audit.build_record(
+            actor_id=user.id,
+            actor_role=user.role,
+            action="case_report_exported",
+            entity_type="case",
+            entity_id=case.id,
+            details={
+                "recommendation_status": case.recommendation_status,
+                "routes_included": includes_routes(view),
+                "size_bytes": len(content),
+            },
+        )
+    )
+    session.commit()
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Cache-Control": "private, no-store",
+            "Content-Disposition": f'attachment; filename="senda-caso-{reference}.pdf"',
+            "Content-Length": str(len(content)),
+        },
+    )
 
 
 @router.get(
@@ -123,7 +220,7 @@ def read_memory_image_content(
     video = session.get(Video, case.video_id)
     if video is None:
         raise HTTPException(status_code=404, detail="Video no encontrado")
-    if not _can_read_memory_image(user.id, user.role, video):
+    if not _can_read_case_assets(user.id, user.role, video):
         raise HTTPException(status_code=403, detail="Sin acceso a esta imagen")
     image = service.active_for_case(session, case.id)
     if image is None or image.status not in {"pending_review", "approved"}:
@@ -226,7 +323,7 @@ def stream_rendered_video(
     original = session.get(Video, case.video_id)
     if original is None:
         raise HTTPException(status_code=404, detail="Video no encontrado")
-    if not _can_read_memory_image(user.id, user.role, original):
+    if not _can_read_case_assets(user.id, user.role, original):
         raise HTTPException(status_code=403, detail="Sin acceso a este video")
     image = session.scalar(
         select(MemoryImage)
@@ -432,7 +529,7 @@ def narrate_route_step(
     video = session.get(Video, case.video_id)
     if video is None:
         raise HTTPException(status_code=404, detail="Video no encontrado")
-    if not _can_read_memory_image(user.id, user.role, video):
+    if not _can_read_case_assets(user.id, user.role, video):
         raise HTTPException(status_code=403, detail="Sin acceso a esta ruta")
     route = session.get(Route, route_id)
     if route is None or route.case_id != case.id:

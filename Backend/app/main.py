@@ -332,6 +332,9 @@ def create_app(
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Sin exponerlo, un frontend en otro origen no puede leer el nombre
+        # con que el servidor entrega el resumen en PDF.
+        expose_headers=["Content-Disposition"],
     )
     application.include_router(auth.router, prefix=app_settings.api_prefix)
     application.include_router(admin.router, prefix=app_settings.api_prefix)

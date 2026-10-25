@@ -107,6 +107,8 @@ export const DocumentaryVideoRail = forwardRef<
     frozenHeight?: number | null
     sourceLabel?: string
     playbackError?: string
+    // Lo que dice el reproductor mientras no tiene video que mostrar.
+    placeholder?: string
     // Un aviso bajo el reproductor, como el de la subida que sigue en curso.
     note?: React.ReactNode
     ref2?: React.Ref<HTMLElement>
@@ -124,6 +126,7 @@ export const DocumentaryVideoRail = forwardRef<
     frozenHeight,
     sourceLabel = "Reproductor del testimonio ficticio",
     playbackError = "",
+    placeholder = "Preparando la vista local protegida…",
     note = null,
     ref2,
     onSegmentSelect,
@@ -194,7 +197,7 @@ export const DocumentaryVideoRail = forwardRef<
         {!source ? (
           <div className="video-placeholder" aria-hidden="true">
             <span>SENDA</span>
-            <p>Preparando la vista local protegida…</p>
+            <p>{placeholder}</p>
           </div>
         ) : null}
       </div>

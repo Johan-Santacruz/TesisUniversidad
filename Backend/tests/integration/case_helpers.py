@@ -27,8 +27,12 @@ def create_validator(client) -> None:
     assert created.status_code in {201, 409}
 
 
-def create_demo_case(client) -> str:
-    login(client, "admin@senda.local", "Cambiar-Esta-Clave-2026!")
+def create_demo_case(
+    client,
+    email: str = "admin@senda.local",
+    password: str = "Cambiar-Esta-Clave-2026!",
+) -> str:
+    login(client, email, password)
     video = client.post("/api/v1/videos/demo").json()
     analysis = client.post(f"/api/v1/videos/{video['id']}/analyses").json()
     stream = client.get(analysis["events_url"]).text

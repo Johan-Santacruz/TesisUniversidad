@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
 import { ApiError, apiClient } from "../../api/client"
@@ -20,8 +20,10 @@ import { MemoryImagePanel, type VideoMode } from "./memory-image-panel"
 import { MemoryImagePlate } from "./memory-image-plate"
 import { narrativeStageTransition, stageVariants } from "./motion"
 import { RouteStage, routeStageDescription } from "./route-stage"
+import { StagePager } from "./stage-pager"
 import { UploadPanel } from "./upload-panel"
 import { usePlayhead } from "./use-playhead"
+import { useStageHistory } from "./use-stage-history"
 import { DocumentaryVideoRail } from "./video-panel"
 import { VideoTransferNote, type VideoTransfer } from "./video-transfer"
 
@@ -58,6 +60,9 @@ export const TOUR_SEEN_KEY = "senda:recorrido-subida"
 // termine lo dejaría midiendo elementos que todavía se están colocando.
 export const TOUR_DELAY_MS = 700
 
+// El mismo corte con que index.css apila las dos páginas del pliego.
+const STACKED_LAYOUT = "(max-width: 1000px)"
+
 
 // Relevo entre carga, procesamiento y resultados.
 // Las hojas caen sobre la mesa y se levantan de ella, con el mismo gesto con
@@ -83,11 +88,25 @@ function phaseMotion(reduceMotion: boolean) {
 export function AnalysisWorkspace({
   initialCase,
   role,
+  loadRemoteVideo: loadRemoteVideoAtStart = false,
+  caseActions,
+  onRestart,
+  backAction,
   closingPollMs = MEMORY_CLOSING_POLL_MS,
   evidenceMinMs = EVIDENCE_MIN_MS,
 }: {
   initialCase?: CaseData
   role: Role
+  // Un caso abierto desde el historial no tiene el archivo en este equipo:
+  // su video se baja del servidor desde el principio.
+  loadRemoteVideo?: boolean
+  // Acciones sobre el caso guardado, en el pie del pliego.
+  caseActions?: (caseData: CaseData) => ReactNode
+  // Qué hacer con "Analizar otro testimonio" cuando esta pantalla no es la
+  // de subida. Sin ella, la misma pantalla vuelve a la subida.
+  onRestart?: () => void
+  // Adónde lleva "atrás" desde la primera etapa, si hay adónde.
+  backAction?: { label: string; onClick: () => void }
   // Ritmos del recorrido; las pruebas los acortan.
   closingPollMs?: number
   evidenceMinMs?: number
@@ -125,7 +144,7 @@ export function AnalysisWorkspace({
   const [claimingClosing, setClaimingClosing] = useState(false)
   const claimedClosingRef = useRef<string | null>(null)
   const [playbackError, setPlaybackError] = useState("")
-  const [loadRemoteVideo, setLoadRemoteVideo] = useState(false)
+  const [loadRemoteVideo, setLoadRemoteVideo] = useState(loadRemoteVideoAtStart)
   const [railCollapsed, setRailCollapsed] = useState(false)
   // El nodo vive en estado, no en un ref: así los efectos que lo escuchan
   // vuelven a correr cuando el video aparece, después de la pantalla de carga.
@@ -190,12 +209,43 @@ export function AnalysisWorkspace({
     changeStage(next)
   }, [changeStage])
 
+  // Cambiar de etapa con un botón deja la pantalla donde estaba el botón: en
+  // un teléfono, al final de la etapa anterior, con la nueva empezando fuera
+  // de la vista. Las navegaciones explícitas llevan al principio de la etapa;
+  // las automáticas no, para no arrancarle el video a quien lo está viendo.
+  const sheetRef = useRef<HTMLElement>(null)
+  const stageScrollRef = useRef<HTMLDivElement>(null)
+  const stageScrollPendingRef = useRef(false)
+  const goToStage = useCallback((next: NarrativeStage) => {
+    if (next !== stageRef.current) stageScrollPendingRef.current = true
+    takeControl(next)
+  }, [takeControl])
+
   useEffect(() => {
     stageRef.current = narrativeStage
     if (narrativeStage === "evidence" && evidenceEnteredAtRef.current === null) {
       evidenceEnteredAtRef.current = Date.now()
     }
   }, [narrativeStage])
+
+  // Corre cuando la etapa anterior terminó de irse y la nueva ya está en la
+  // página. Calculado antes, el salto se medía contra la etapa saliente: si
+  // era más corta, la ventana no alcanzaba a bajar y la nueva quedaba a
+  // medio camino.
+  const revealStageStart = useCallback(() => {
+    if (!stageScrollPendingRef.current) return
+    stageScrollPendingRef.current = false
+    // Con el pliego abierto sólo se desplaza el contenido de la etapa; con
+    // las páginas apiladas se desplaza la ventana entera.
+    if (stageScrollRef.current) stageScrollRef.current.scrollTop = 0
+    if (!window.matchMedia?.(STACKED_LAYOUT).matches) return
+    window.requestAnimationFrame(() => {
+      sheetRef.current?.scrollIntoView({
+        block: "start",
+        behavior: reduceMotion ? "auto" : "smooth",
+      })
+    })
+  }, [reduceMotion])
 
   useEffect(() => {
     autoAdvanceRef.current = autoAdvance
@@ -221,6 +271,11 @@ export function AnalysisWorkspace({
     ? localVideo.url
     : null
 
+  // La retención borra el video días después de aprobar el caso; el análisis
+  // queda. Desde el historial se llega a casos así, y pedir el video sería un
+  // 404 seguro con la pantalla diciendo "Preparando…" para siempre.
+  const videoDeleted = caseData?.video_status === "deleted"
+
   useEffect(() => () => {
     if (localVideo) URL.revokeObjectURL(localVideo.url)
   }, [localVideo])
@@ -230,7 +285,7 @@ export function AnalysisWorkspace({
       setVideoSource(localSource)
       return
     }
-    if (!activeVideoUrl || !loadRemoteVideo) return
+    if (!activeVideoUrl || !loadRemoteVideo || videoDeleted) return
     let active = true
     let localUrl: string | null = null
     apiClient.download(activeVideoUrl).then(
@@ -247,7 +302,7 @@ export function AnalysisWorkspace({
       active = false
       if (localUrl) URL.revokeObjectURL(localUrl)
     }
-  }, [activeVideoUrl, loadRemoteVideo, localSource])
+  }, [activeVideoUrl, loadRemoteVideo, localSource, videoDeleted])
 
   // La ruta de la imagen no cambia entre generaciones: la identidad y el estado
   // son los que deciden si hay que volver a descargar el recurso protegido.
@@ -368,10 +423,17 @@ export function AnalysisWorkspace({
     }
   }, [video, changeStage])
 
+  const rewindStageHistory = useStageHistory({
+    caseId,
+    stage: narrativeStage,
+    onRestore: takeControl,
+  })
+
   // Analizar otro testimonio era un callejón sin salida: había que volver al
   // inicio y entrar de nuevo. El caso ya está guardado en el servidor, así que
   // dejarlo no pierde nada; sólo se limpia lo que vive en esta pantalla.
   const startAnother = useCallback(() => {
+    rewindStageHistory()
     window.clearTimeout(routeTimerRef.current)
     evidenceEnteredAtRef.current = null
     setCaseData(null)
@@ -390,7 +452,7 @@ export function AnalysisWorkspace({
     setPlaybackError("")
     setLoadRemoteVideo(false)
     setRailCollapsed(false)
-  }, [])
+  }, [rewindStageHistory])
 
   const startAnalysis = async (video: VideoRead) => {
     const analysis = await apiClient.request<AnalysisRead>(
@@ -682,10 +744,12 @@ export function AnalysisWorkspace({
   // cuesta una llamada al proveedor y más de un minuto—, y sólo para quien
   // puede revisarla, que es quien el endpoint autoriza. Tampoco mientras el
   // video sigue subiendo: el cierre toma un fotograma suyo, así que el
-  // servidor lo rechaza y lo genera él mismo cuando termina de recibirlo.
+  // servidor lo rechaza y lo genera él mismo cuando termina de recibirlo. Ni
+  // cuando la retención ya lo borró: el cierre saldría genérico y no habría
+  // testimonio al que pegarle la placa final.
   useEffect(() => {
     if (!caseId || (role !== "validador" && role !== "admin")) return
-    if (!videoArrived) return
+    if (!videoArrived || videoDeleted) return
     if (memoryImage !== null || claimedClosingRef.current === caseId) return
     claimedClosingRef.current = caseId
     setClaimingClosing(true)
@@ -698,7 +762,7 @@ export function AnalysisWorkspace({
     // memoryImageAction se redefine en cada render y volvería a disparar el
     // efecto; el guardia por caso es lo que gobierna cuándo corre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caseId, memoryImage, role, videoArrived])
+  }, [caseId, memoryImage, role, videoArrived, videoDeleted])
 
   const approve = async () => {
     if (!caseData) return
@@ -877,12 +941,23 @@ export function AnalysisWorkspace({
           frozenHeight={railCollapsed ? railHeight : null}
           collapsed={railCollapsed}
           playbackError={playbackError}
+          placeholder={videoDeleted ? "Video eliminado por retención" : undefined}
           note={
             videoTransfer?.videoId === caseData.video_id
               ? <VideoTransferNote transfer={videoTransfer} onRetry={retryVideo} />
               : caseData.video_status === "receiving"
                 ? <VideoTransferNote transfer={null} />
-                : null
+                : videoDeleted
+                  ? (
+                      <div className="video-transfer">
+                        <p>
+                          El video se eliminó al cumplirse el plazo de
+                          retención. El análisis y la transcripción siguen
+                          disponibles.
+                        </p>
+                      </div>
+                    )
+                  : null
           }
           sourceLabel={
             videoMode === "memory"
@@ -897,7 +972,7 @@ export function AnalysisWorkspace({
           }}
           onSegmentSelect={playhead.selectSegment}
         />
-        <main className="narrative-sheet" aria-live="polite">
+        <main ref={sheetRef} className="narrative-sheet" aria-live="polite">
           <NarrativeStageHeader
             stage={narrativeStage}
             description={
@@ -905,16 +980,22 @@ export function AnalysisWorkspace({
                 ? routeStageDescription(caseData)
                 : undefined
             }
-            onStageChange={takeControl}
+            onStageChange={goToStage}
           />
 
           <motion.div
+            ref={stageScrollRef}
             initial={revealing && !reduceMotion ? { opacity: 0, y: 12 } : false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             onAnimationComplete={() => setRevealing(false)}
           >
-          <AnimatePresence mode="wait" initial={false} custom={stageDirection}>
+          <AnimatePresence
+            mode="wait"
+            initial={false}
+            custom={stageDirection}
+            onExitComplete={revealStageStart}
+          >
             <motion.div
               key={narrativeStage}
               className="narrative-stage-content"
@@ -955,7 +1036,7 @@ export function AnalysisWorkspace({
                   caseData={caseData}
                   role={role}
                   onApprove={approve}
-                  onGoToSignals={() => takeControl("evidence")}
+                  onGoToSignals={() => goToStage("evidence")}
                   onRetryRebuild={retryRebuild}
                   memoryPanel={
                     <MemoryImagePanel
@@ -983,6 +1064,7 @@ export function AnalysisWorkspace({
           </motion.div>
           <footer className="narrative-stage-actions">
             <p>
+              {caseActions?.(caseData)}
               {/* El recorrido se ofrece una vez. Sin esta puerta queda visto y
                   enterrado: nadie encuentra otra vez lo que ya cerró. */}
               <button
@@ -996,29 +1078,13 @@ export function AnalysisWorkspace({
             {/* La ranura de "qué sigue" recorre las tres etapas: revisar
                 señales, continuar a la ruta y, cuando el recorrido termina,
                 empezar otro. Antes vivía en el pie de todas y le disputaba la
-                atención al avance. */}
-            {narrativeStage !== "route" ? (
-              <button
-                type="button"
-                onClick={() => takeControl(
-                  narrativeStage === "listening" ? "evidence" : "route",
-                )}
-              >
-                {narrativeStage === "listening"
-                  ? "Revisar señales"
-                  : "Continuar a la ruta"}{" "}
-                <span aria-hidden="true">→</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="workspace-restart"
-                onClick={startAnother}
-              >
-                Analizar otro testimonio{" "}
-                <span aria-hidden="true">→</span>
-              </button>
-            )}
+                atención al avance. Ahora también tiene regreso. */}
+            <StagePager
+              stage={narrativeStage}
+              back={backAction}
+              onStageChange={goToStage}
+              onFinish={onRestart ?? startAnother}
+            />
           </footer>
         </main>
       </motion.div>

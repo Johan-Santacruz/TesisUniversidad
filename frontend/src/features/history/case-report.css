@@ -1,0 +1,55 @@
+/* El botón del resumen en PDF y las acciones del caso guardado. Viven aparte
+   de la hoja del historial porque el pie del pliego de análisis también las
+   usa, y allí esa hoja no se carga. */
+
+.analysis-app .case-report-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--rojo);
+  font-size: var(--t-meta);
+  line-height: 1.45;
+  text-align: right;
+}
+
+/* ── En el pie del pliego: guardado, PDF y el recorrido ────────────────── */
+
+.narrative-stage-actions .case-file-actions {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin-right: 0.6rem;
+}
+
+/* Gana a `.narrative-stage-actions p .tour-again`, que separa el atajo del
+   recorrido con un margen propio: aquí lo pone el espacio entre acciones. */
+.narrative-stage-actions p .case-file-actions .tour-again {
+  margin-left: 0;
+}
+
+/* "Guardado" es un estado antes que un enlace: lleva el verde con que la
+   aplicación dice que algo quedó firme. */
+.narrative-stage-actions p .case-file-actions .case-file-saved {
+  color: var(--green);
+  text-decoration-color: color-mix(in oklch, var(--green) 34%, transparent);
+}
+
+.narrative-stage-actions p .case-file-actions .case-file-saved:hover {
+  color: var(--ink);
+}
+
+.narrative-stage-actions .case-file-actions .case-report-error {
+  text-align: left;
+}
+
+/* En el teléfono el pie las pone en columna: el envoltorio se disuelve para
+   que cada acción sea un renglón propio, igual que "Ver cómo funciona". */
+@media (max-width: 600px) {
+  .analysis-app .narrative-stage-actions .case-file-actions {
+    display: contents;
+  }
+
+  .analysis-app .narrative-stage-actions .case-file-actions .case-report-error {
+    text-align: center;
+  }
+}

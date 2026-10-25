@@ -112,6 +112,32 @@ Imagen, metadatos y video derivado se almacenan cifrados, siguen la misma
 retención que el original y se eliminan con el caso a través de una cola de purga
 cifrada e idempotente.
 
+## Historial y resumen en PDF
+
+Cada análisis queda guardado y cifrado en el servidor desde que termina. La
+sección **Historial** (`/historial`) lista los casos del más reciente al más
+viejo, con su referencia corta, la categoría que clasificó BETO, cuántas señales
+críticas faltan por confirmar y su estado; se filtran por estado y se cargan por
+páginas. Quien opera ve los casos que subió; quien valida o administra ve todos.
+Un caso se reabre en la misma mesa de análisis, con sus tres etapas y sus
+acciones de revisión.
+
+Desde el historial, o desde el pie del pliego de cualquier caso, se descarga un
+resumen en PDF tamaño carta con la tipografía del libro: tipo de caso, señales
+con su estado de revisión, cronología, rutas institucionales y fuentes. El
+resumen aplica las mismas reglas que la pantalla —las rutas no se imprimen
+mientras haya señales críticas sin confirmar o mientras se están ajustando— y
+nunca incluye la transcripción ni el video. Cada exportación queda en la
+auditoría (`case_report_exported`) antes de entregar el archivo.
+
+```text
+GET /api/v1/cases?status=in_review|approved&limit=20&offset=0
+GET /api/v1/cases/{case_id}/report
+```
+
+Las fuentes del PDF (Libre Caslon Text y Poppins, licencia OFL) viven en
+`Backend/app/data/fonts/` junto a sus licencias.
+
 ## Administración sin panel visual
 
 ```bash

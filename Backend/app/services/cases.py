@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.ai.contracts import ConfidenceBand, RouteType, VerificationStatus
@@ -34,6 +34,8 @@ from app.schemas import (
     CaseApprovalRead,
     CaseApprovalRequest,
     CaseRead,
+    CaseSummaryList,
+    CaseSummaryRead,
     FactRead,
     FactReviewRequest,
     MemoryImageRead,
@@ -48,6 +50,42 @@ from app.services.audit import AuditService
 from app.services.rag import RagCatalog
 from app.services.purges import PurgeService
 from app.services.videos import RECEIVING_STATUSES
+
+
+def case_reference(case_id: str) -> str:
+    """El nombre corto con que el historial y el PDF citan un caso.
+
+    Ocho caracteres del UUID: suficientes para no confundir dos casos de una
+    misma mesa de trabajo, y cortos para dictarlos. No identifican nada por sí
+    solos; el identificador completo sigue siendo el id.
+    """
+    return case_id.replace("-", "")[:8].upper()
+
+
+def _classification_view(payload: dict[str, Any]) -> dict[str, Any]:
+    """La clasificación tal como la lee la pantalla, desde su evento.
+
+    El análisis real la anida bajo "classification"; el caso de demostración
+    la guarda plana junto al estado del evento.
+    """
+    if isinstance(payload.get("classification"), dict):
+        return payload["classification"]
+    return {key: value for key, value in payload.items() if key not in {"state"}}
+
+
+def _classification_label(classification: dict[str, Any], level: str) -> str | None:
+    value = classification.get(level)
+    if isinstance(value, dict) and isinstance(value.get("label"), str):
+        return value["label"]
+    return None
+
+
+def _video_status_of(video: Video | None) -> str:
+    if video is None:
+        return "deleted"
+    # "storing" es un detalle de la subida: para quien lee el caso el video
+    # sigue en camino.
+    return "receiving" if video.status in RECEIVING_STATUSES else video.status
 
 
 def _display_value(value: object) -> str | None:
@@ -188,15 +226,7 @@ class CaseService:
         else:
             source_values = by_stage.get("sources", {}).get("sources", [])
             sources = [SourceRead.model_validate(value) for value in source_values]
-        classification = by_stage.get("classification", {})
-        if isinstance(classification.get("classification"), dict):
-            classification = classification["classification"]
-        else:
-            classification = {
-                key: value
-                for key, value in classification.items()
-                if key not in {"state"}
-            }
+        classification = _classification_view(by_stage.get("classification", {}))
         critical_inconsistencies = sum(
             fact.is_critical
             and fact.verification_status is not VerificationStatus.CONFIRMED
@@ -237,12 +267,102 @@ class CaseService:
 
     @staticmethod
     def _video_status(session: Session, video_id: str) -> str:
-        video = session.get(Video, video_id)
-        if video is None:
-            return "deleted"
-        # "storing" es un detalle de la subida: para quien lee el caso el video
-        # sigue en camino.
-        return "receiving" if video.status in RECEIVING_STATUSES else video.status
+        return _video_status_of(session.get(Video, video_id))
+
+    def list_summaries(
+        self,
+        session: Session,
+        *,
+        viewer: User,
+        status: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> CaseSummaryList:
+        """Los casos que esta persona puede abrir, del más reciente al más viejo.
+
+        Quien opera ve los testimonios que subió; quien valida o administra ve
+        todos, porque revisar los de otros es su trabajo. Es la misma regla con
+        que se entregan la imagen de memoria y la narración de la ruta.
+        """
+        visible = (
+            select(CaseRecord, Video)
+            .outerjoin(Video, Video.id == CaseRecord.video_id)
+            # Un caso que se está borrando ya no es de nadie.
+            .where(CaseRecord.deletion_claimed_at.is_(None))
+        )
+        if viewer.role not in {"validador", "admin"}:
+            visible = visible.where(Video.owner_id == viewer.id)
+        if status is not None:
+            visible = visible.where(CaseRecord.status == status)
+        total = session.scalar(
+            select(func.count()).select_from(visible.subquery())
+        ) or 0
+        rows = session.execute(
+            visible.order_by(CaseRecord.created_at.desc(), CaseRecord.id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        if not rows:
+            return CaseSummaryList(items=[], total=total)
+
+        case_ids = [case.id for case, _ in rows]
+        signal_counts = {
+            case_id: (signals, pending)
+            for case_id, signals, pending in session.execute(
+                select(
+                    Fact.case_id,
+                    func.count(),
+                    func.count().filter(
+                        Fact.is_critical.is_(True),
+                        Fact.verification_status
+                        != VerificationStatus.CONFIRMED.value,
+                    ),
+                )
+                .where(
+                    Fact.case_id.in_(case_ids),
+                    Fact.fact_type.not_in(RETIRED_KEYS),
+                )
+                .group_by(Fact.case_id)
+            )
+        }
+        # Sólo se descifra el evento de la clasificación: el resto del relato
+        # no hace falta para reconocer el caso en una lista. Si el análisis se
+        # repitió, vale el último evento, igual que al abrir el caso.
+        classifications: dict[str, dict[str, Any]] = {}
+        for event in session.scalars(
+            select(AnalysisEvent)
+            .where(
+                AnalysisEvent.analysis_id.in_([case.analysis_id for case, _ in rows]),
+                AnalysisEvent.stage == "classification",
+            )
+            .order_by(AnalysisEvent.sequence)
+        ):
+            classifications[event.analysis_id] = _classification_view(
+                self._event_payload(event)
+            )
+
+        items = []
+        for case, video in rows:
+            classification = classifications.get(case.analysis_id, {})
+            signals, pending = signal_counts.get(case.id, (0, 0))
+            items.append(
+                CaseSummaryRead(
+                    id=case.id,
+                    reference=case_reference(case.id),
+                    created_at=case.created_at,
+                    status=case.status,
+                    recommendation_status=case.recommendation_status,
+                    routes_status=case.routes_status,
+                    approved_at=case.approved_at,
+                    is_demo=bool(video is not None and video.is_demo),
+                    video_status=_video_status_of(video),
+                    category=_classification_label(classification, "category"),
+                    subcategory=_classification_label(classification, "subcategory"),
+                    signals_total=signals,
+                    critical_pending=pending,
+                )
+            )
+        return CaseSummaryList(items=items, total=total)
 
     @staticmethod
     def memory_image_read(

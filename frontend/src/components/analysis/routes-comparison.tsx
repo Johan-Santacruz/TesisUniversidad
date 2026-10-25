@@ -334,7 +334,10 @@ function RouteStops({
                       >
                         {source.is_expired
                           ? "Vigencia vencida — confirmar con la entidad"
-                          : `Vigente hasta el ${new Date(source.expires_at).toLocaleDateString("es-CO")}`}
+                          // La vigencia es una fecha de calendario guardada
+                          // como medianoche UTC: leída en hora de Colombia
+                          // caía en el día anterior.
+                          : `Vigente hasta el ${new Date(source.expires_at).toLocaleDateString("es-CO", { timeZone: "UTC" })}`}
                       </span>
                     </p>
                     {source.disclaimer ? (

@@ -1,0 +1,102 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   La barra de etapas · atrás y adelante desde el pie
+
+   Con el pliego abierto vive en el pie, a la derecha, como la ranura de "qué
+   sigue" que reemplaza. Con las páginas apiladas —tableta en vertical,
+   teléfono— flota abajo, al alcance del pulgar, con el mismo papel y la misma
+   píldora que la barra de arriba: la pieza flotante del módulo, ahora en los
+   dos extremos.
+
+   Este archivo se carga antes que index.css: las reglas que compiten con las
+   del pie llevan un selector más largo para ganarles.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.narrative-stage-actions .stage-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* El regreso habla más bajo que el avance: contorno, como "Analizar otro
+   testimonio", frente a la tinta de "Revisar señales". */
+.narrative-stage-actions .stage-pager .stage-pager-back {
+  border-color: color-mix(in oklch, var(--ink) 34%, var(--rule));
+  background: transparent;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.narrative-stage-actions .stage-pager .stage-pager-back:hover {
+  border-color: var(--ink);
+  background: color-mix(in oklch, var(--ink) 6%, transparent);
+}
+
+@media (max-width: 1000px) {
+  .analysis-app .narrative-stage-actions .stage-pager {
+    position: fixed;
+    z-index: 45;
+    inset-inline: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    max-width: 34rem;
+    margin-inline: auto;
+    padding: 0.35rem;
+    border: 1px solid color-mix(in oklch, var(--ink) 8%, transparent);
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--paper) 95%, transparent);
+    box-shadow:
+      0 12px 30px rgb(12 9 6 / 34%),
+      0 2px 6px rgb(12 9 6 / 20%),
+      inset 0 1px 0 rgb(255 255 255 / 62%);
+  }
+
+  /* Gana al `width: 100%` que el pie da a sus botones en el teléfono. */
+  .analysis-app .narrative-stage-actions .stage-pager button {
+    flex: 1 1 auto;
+    width: auto;
+    min-height: 48px;
+    padding: 0 1.1rem;
+    border-radius: 999px;
+  }
+
+  .analysis-app .narrative-stage-actions .stage-pager .stage-pager-back {
+    flex: 0 0 auto;
+  }
+
+  /* El final de cada etapa no puede quedar debajo de la barra. */
+  .analysis-app .analysis-workspace.desk-stage {
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  }
+
+  /* Al saltar al principio de una etapa, las pestañas quedan bajo la barra
+     de arriba y no detrás de ella. */
+  .analysis-app .analysis-workspace .narrative-sheet {
+    scroll-margin-top: 5.25rem;
+  }
+}
+
+/* ── El resto del pie en el teléfono ────────────────────────────────────
+   Las acciones del caso y el recorrido van en columna, centradas, y cada una
+   con un blanco de dedo entero. Antes heredaban el `width: 100%` de los
+   botones del pie: los botones se estiraban y el enlace no, y quedaban tres
+   renglones con tres alineaciones distintas. */
+
+@media (max-width: 600px) {
+  .analysis-app .narrative-stage-actions > p {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    text-align: center;
+  }
+
+  /* Con flex, el espacio que separaba la marca "✓" del texto se recorta:
+     lo pone el hueco. */
+  .analysis-app .narrative-stage-actions > p .tour-again {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: auto;
+    min-height: 44px;
+    margin: 0;
+  }
+}

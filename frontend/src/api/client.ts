@@ -209,6 +209,20 @@ export class ApiClient {
   }
 
   async download(path: string): Promise<Blob> {
+    return (await this.fetchBinary(path)).blob()
+  }
+
+  /* Un archivo para guardar en el equipo, con el nombre que propone el
+     servidor. null si no propone ninguno: quien guarda elige el suyo. */
+  async downloadFile(path: string): Promise<{ blob: Blob; filename: string | null }> {
+    const response = await this.fetchBinary(path)
+    return {
+      blob: await response.blob(),
+      filename: attachmentFilename(response.headers.get("Content-Disposition")),
+    }
+  }
+
+  private async fetchBinary(path: string): Promise<Response> {
     const headers = new Headers()
     if (this.accessToken) {
       headers.set("Authorization", `Bearer ${this.accessToken}`)
@@ -228,8 +242,14 @@ export class ApiClient {
     if (!response.ok) {
       await this.parse(response)
     }
-    return response.blob()
+    return response
   }
+}
+
+
+export function attachmentFilename(disposition: string | null): string | null {
+  const match = disposition?.match(/filename="([^"]+)"/)
+  return match ? match[1] : null
 }
 
 

@@ -20,6 +20,13 @@ configure({ asyncUtilTimeout: 5000 })
 
 afterEach(cleanup)
 
+// Cada etapa de un caso queda en el historial del navegador, y el caso se
+// retoma en la etapa que encuentra ahí. Sin limpiarlo, una prueba abriría el
+// caso donde lo dejó la anterior.
+afterEach(() => {
+  window.history.replaceState(null, "")
+})
+
 
 function memoryStorage(): Storage {
   const values = new Map<string, string>()

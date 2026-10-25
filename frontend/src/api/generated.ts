@@ -123,6 +123,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Cases */
+        get: operations["list_cases_api_v1_cases_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}": {
         parameters: {
             query?: never;
@@ -252,6 +269,23 @@ export interface paths {
         };
         /** Stream Rendered Video */
         get: operations["stream_rendered_video_api_v1_cases__case_id__rendered_video_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Case Report */
+        get: operations["export_case_report_api_v1_cases__case_id__report_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -672,6 +706,55 @@ export interface components {
             video_status: string;
             /** Video Stream Url */
             video_stream_url: string;
+        };
+        /** CaseSummaryList */
+        CaseSummaryList: {
+            /** Items */
+            items: components["schemas"]["CaseSummaryRead"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * CaseSummaryRead
+         * @description Una fila del historial: lo justo para reconocer el caso sin abrirlo.
+         *
+         *     No lleva nada del relato. Para el historial basta con la clasificación,
+         *     que es una etiqueta y no un dato de la persona, y con los conteos de las
+         *     señales, que salen de columnas en claro sin descifrar ninguna.
+         */
+        CaseSummaryRead: {
+            /** Approved At */
+            approved_at: string | null;
+            /** Category */
+            category: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Critical Pending */
+            critical_pending: number;
+            /** Id */
+            id: string;
+            /** Is Demo */
+            is_demo: boolean;
+            /** Recommendation Status */
+            recommendation_status: string;
+            /** Reference */
+            reference: string;
+            /** Routes Status */
+            routes_status: string;
+            /** Signals Total */
+            signals_total: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in_review" | "approved";
+            /** Subcategory */
+            subcategory: string | null;
+            /** Video Status */
+            video_status: string;
         };
         /**
          * ConfidenceBand
@@ -1296,6 +1379,39 @@ export interface operations {
             };
         };
     };
+    list_cases_api_v1_cases_get: {
+        parameters: {
+            query?: {
+                status?: ("in_review" | "approved") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseSummaryList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_case_api_v1_cases__case_id__get: {
         parameters: {
             query?: never;
@@ -1575,6 +1691,37 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_case_report_api_v1_cases__case_id__report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
             /** @description Validation Error */

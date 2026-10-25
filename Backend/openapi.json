@@ -413,6 +413,128 @@
         "title": "CaseRead",
         "type": "object"
       },
+      "CaseSummaryList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseSummaryRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "CaseSummaryList",
+        "type": "object"
+      },
+      "CaseSummaryRead": {
+        "description": "Una fila del historial: lo justo para reconocer el caso sin abrirlo.\n\nNo lleva nada del relato. Para el historial basta con la clasificación,\nque es una etiqueta y no un dato de la persona, y con los conteos de las\nseñales, que salen de columnas en claro sin descifrar ninguna.",
+        "properties": {
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "critical_pending": {
+            "title": "Critical Pending",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_demo": {
+            "title": "Is Demo",
+            "type": "boolean"
+          },
+          "recommendation_status": {
+            "title": "Recommendation Status",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "routes_status": {
+            "title": "Routes Status",
+            "type": "string"
+          },
+          "signals_total": {
+            "title": "Signals Total",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "in_review",
+              "approved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subcategory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategory"
+          },
+          "video_status": {
+            "title": "Video Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "created_at",
+          "status",
+          "recommendation_status",
+          "routes_status",
+          "approved_at",
+          "is_demo",
+          "video_status",
+          "category",
+          "subcategory",
+          "signals_total",
+          "critical_pending"
+        ],
+        "title": "CaseSummaryRead",
+        "type": "object"
+      },
       "ConfidenceBand": {
         "enum": [
           "high",
@@ -1978,6 +2100,87 @@
         ]
       }
     },
+    "/api/v1/cases": {
+      "get": {
+        "operationId": "list_cases_api_v1_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "in_review",
+                    "approved"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseSummaryList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Cases",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
     "/api/v1/cases/{case_id}": {
       "delete": {
         "operationId": "delete_case_api_v1_cases__case_id__delete",
@@ -2444,6 +2647,54 @@
           }
         ],
         "summary": "Stream Rendered Video",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/report": {
+      "get": {
+        "operationId": "export_case_report_api_v1_cases__case_id__report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Export Case Report",
         "tags": [
           "cases"
         ]

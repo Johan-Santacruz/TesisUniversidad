@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from typing import Any, Literal
@@ -274,6 +274,47 @@ class CaseRead(BaseModel):
     # iniciales y se puede reintentar.
     routes_status: str = "initial"
     memory_image: MemoryImageRead | None = None
+
+
+class CaseSummaryRead(BaseModel):
+    """Una fila del historial: lo justo para reconocer el caso sin abrirlo.
+
+    No lleva nada del relato. Para el historial basta con la clasificación,
+    que es una etiqueta y no un dato de la persona, y con los conteos de las
+    señales, que salen de columnas en claro sin descifrar ninguna.
+    """
+
+    id: str
+    # Los primeros caracteres del identificador, para nombrar el caso de viva
+    # voz y encontrarlo en el PDF. El nombre del archivo no sirve: se guarda
+    # anonimizado ("testimonio.mp4").
+    reference: str
+    created_at: datetime
+    status: Literal["in_review", "approved"]
+    recommendation_status: str
+    routes_status: str
+    approved_at: datetime | None
+    is_demo: bool
+    video_status: str
+    category: str | None
+    subcategory: str | None
+    signals_total: int
+    critical_pending: int
+
+    @field_validator("created_at", "approved_at")
+    @classmethod
+    def assume_utc(cls, value: datetime | None) -> datetime | None:
+        # SQLite devuelve las fechas sin zona aunque se guardaron en UTC. Sin
+        # ella, el navegador las leería como hora local y en Colombia el
+        # historial mostraría cada caso cinco horas corrido.
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
+
+class CaseSummaryList(BaseModel):
+    items: list[CaseSummaryRead]
+    total: int
 
 
 class CaseApprovalRequest(BaseModel):

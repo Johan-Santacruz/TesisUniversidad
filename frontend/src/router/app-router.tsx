@@ -11,10 +11,19 @@ import { ProtectedRoute } from "../auth/protected-route"
 import { useAuth } from "../auth/auth-context"
 import BookPage from "../features/book/book-page"
 import { OpeningCurtain, useOpeningCurtain } from "../components/opening-curtain"
+import CasePage from "../features/history/case-page"
+import HistoryPage from "../features/history/history-page"
 import ConversationPage from "../pages/conversation-page"
 import LoginPage from "../pages/login-page"
 
-const PROTECTED_PATHS = ["/conversar", "/subir-video"]
+// Cada pantalla protegida con su llave de transición: pasar del análisis al
+// historial es cambiar de hoja y merece su fundido.
+function protectedStage(pathname: string) {
+  if (pathname === "/conversar" || pathname === "/subir-video") return "app"
+  if (pathname === "/historial") return "historial"
+  if (pathname.startsWith("/historial/")) return "caso"
+  return null
+}
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
@@ -105,8 +114,9 @@ function useStageKey() {
 
   if (pathname === "/") return "libro"
   if (pathname === "/login") return "login"
-  if (PROTECTED_PATHS.includes(pathname)) {
-    return status === "authenticated" ? "app" : "login"
+  const stage = protectedStage(pathname)
+  if (stage) {
+    return status === "authenticated" ? stage : "login"
   }
 
   return "app"
@@ -142,6 +152,26 @@ export function AppRoutes({ curtainHoldMs }: { curtainHoldMs?: number } = {}) {
             }
           />
           <Route path="/conversar" element={<Navigate to="/subir-video" replace />} />
+          <Route
+            path="/historial"
+            element={
+              <RouteStage>
+                <PageShell>
+                  <HistoryPage />
+                </PageShell>
+              </RouteStage>
+            }
+          />
+          <Route
+            path="/historial/:caseId"
+            element={
+              <RouteStage>
+                <PageShell>
+                  <CasePage />
+                </PageShell>
+              </RouteStage>
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

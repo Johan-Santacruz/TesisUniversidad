@@ -19,6 +19,9 @@ dependencies = [
   "PyJWT>=2.10,<3",
   # Sin import directo: FastAPI la exige para UploadFile/File en videos.py.
   "python-multipart>=0.0.20,<1",
+  # El resumen del caso en PDF. Pura Python y sin dependencias del sistema,
+  # a diferencia de los motores que pasan por HTML y necesitan Pango.
+  "reportlab>=4.4,<5",
   "SQLAlchemy>=2.0.38,<3",
   "typer>=0.15,<1",
   "uvicorn[standard]>=0.34,<1",
@@ -52,6 +55,8 @@ voz = [
 ]
 test = [
   "httpx>=0.28,<1",  # la usa fastapi.testclient.TestClient
+  # Lee el texto del resumen en PDF para comprobar qué dice y qué no.
+  "pypdf>=6,<7",
   "pytest>=8.3,<9",
   "pytest-cov>=6,<7",
 ]
