@@ -28,6 +28,36 @@ type PageFlipApi = {
   flipPrev: (corner?: "top" | "bottom") => void
   turnToPage: (pageNumber: number) => void
   getCurrentPageIndex: () => number
+  getSettings: () => { disableFlipByClick: boolean }
+}
+
+const backwardFlipAllowed = new WeakSet<PageFlipApi>()
+
+/* page-flip 2.0.7 retrocede simulando un toque en x=10 del contenedor. Con el
+ * pliego abierto ese punto cae en la esquina de la hoja izquierda; con una sola
+ * hoja, la librería corre la hoja visible hacia la derecha y el punto queda en
+ * mitad de la página. Como `disableFlipByClick` —que evita pasar la página al
+ * tocar el texto— descarta todo giro que no empiece en una esquina, en el
+ * teléfono ni "Página anterior" ni deslizar hacia atrás hacían nada: el libro
+ * se podía avanzar pero no devolver.
+ *
+ * Retroceder siempre es un gesto deliberado —el botón o el deslizamiento, que
+ * la librería también resuelve con flipPrev—, así que durante esa llamada se
+ * levanta el filtro. Tocar el texto sigue sin pasar la página. */
+function allowBackwardFlip(pageFlip: PageFlipApi) {
+  if (backwardFlipAllowed.has(pageFlip)) return
+  backwardFlipAllowed.add(pageFlip)
+  const flipPrev = pageFlip.flipPrev.bind(pageFlip)
+  pageFlip.flipPrev = (corner) => {
+    const settings = pageFlip.getSettings()
+    const filtered = settings.disableFlipByClick
+    settings.disableFlipByClick = false
+    try {
+      flipPrev(corner)
+    } finally {
+      settings.disableFlipByClick = filtered
+    }
+  }
 }
 
 type FlipBookRef = {
@@ -1117,6 +1147,10 @@ export default function BookPage({ backgroundMode = false, arrival = "now" }: Bo
                     state === "flipping" || state === "user_fold"
                 }}
                 onInit={(event) => {
+                  // Cada montaje —también al girar el teléfono— trae una
+                  // instancia nueva de la librería.
+                  const pageFlip = flipBookRef.current?.pageFlip()
+                  if (pageFlip) allowBackwardFlip(pageFlip)
                   const initialIndex = Number(event.data.page)
                   if (Number.isNaN(initialIndex)) return
                   openPageIndexRef.current = initialIndex
