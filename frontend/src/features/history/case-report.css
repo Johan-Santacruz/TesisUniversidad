@@ -82,3 +82,17 @@
     min-height: 44px;
   }
 }
+
+/* La barra de aprobación, una vez aprobada: el verde con que la aplicación
+   dice que algo quedó firme, y debajo para qué sirve ahora. */
+.analysis-app .approval-bar.is-final strong {
+  display: block;
+  color: var(--green);
+}
+
+.analysis-app .approval-bar-note {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--ink-faded);
+  font-size: var(--t-meta);
+}

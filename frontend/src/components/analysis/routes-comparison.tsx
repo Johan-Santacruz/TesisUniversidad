@@ -7,6 +7,7 @@ import {
   narrativeChildTransition,
   narrativeStageStagger,
 } from "./motion"
+import { ReportButton } from "../../features/history/case-report"
 import { ReadAloud } from "./read-aloud"
 import { StatusBadge } from "./status-badge"
 
@@ -570,7 +571,22 @@ export function RoutesComparison({
           )
         })}
       </motion.div>
-      {canValidate ? (
+      {/* Aprobada la orientación, la barra deja de pedir y entrega: el
+          resumen en PDF sólo existe desde este momento, así que se ofrece
+          aquí, donde se acaba de aprobar, y a cualquier rol que vea el caso. */}
+      {isFinal ? (
+        <div className="approval-bar is-final">
+          <div>
+            <strong>Orientación final aprobada</strong>
+            <span className="approval-bar-note">
+              Ya puedes llevarte el resumen del caso en PDF.
+            </span>
+          </div>
+          <div className="approval-action">
+            <ReportButton caseId={caseData.id} label="Descargar resumen en PDF" />
+          </div>
+        </div>
+      ) : canValidate ? (
         <div className="approval-bar">
           <div>
             <strong>
