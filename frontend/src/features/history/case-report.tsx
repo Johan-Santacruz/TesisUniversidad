@@ -91,17 +91,33 @@ export function ReportButton({
  * salidas: volver a encontrarlo en el historial o llevárselo en PDF. Va como
  * ranura y no dentro del espacio de trabajo para que éste no dependa del
  * enrutador. */
-export function CaseFileActions({ caseId }: { caseId: string }) {
+export function CaseFileActions({
+  caseId,
+  approved,
+}: {
+  caseId: string
+  approved: boolean
+}) {
   return (
     <span className="case-file-actions">
       <Link to="/historial" className="tour-again case-file-saved">
         <span aria-hidden="true">✓ </span>Guardado en el historial
       </Link>
-      <ReportButton
-        caseId={caseId}
-        className="tour-again"
-        label="Descargar resumen en PDF"
-      />
+      {approved ? (
+        <ReportButton
+          caseId={caseId}
+          className="tour-again"
+          label="Descargar resumen en PDF"
+        />
+      ) : (
+        <span className="case-report-pending">{REPORT_PENDING}</span>
+      )}
     </span>
   )
 }
+
+
+/* El resumen sólo existe para una orientación aprobada: impreso, un papel
+ * pierde el aviso de "preliminar" que la pantalla pone alrededor y se leería
+ * como definitivo. El servidor lo rechaza igual; aquí se dice antes. */
+export const REPORT_PENDING = "PDF disponible al aprobar la orientación"

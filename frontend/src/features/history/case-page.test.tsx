@@ -66,7 +66,8 @@ describe("CasePage", () => {
     await waitFor(() =>
       expect(download).toHaveBeenCalledWith("/api/v1/videos/video-fixture/stream"))
     expect(screen.getByRole("link", { name: /guardado en el historial/i })).toBeVisible()
-    expect(screen.getByRole("button", { name: "Descargar resumen en PDF" })).toBeVisible()
+    // En revisión todavía no hay PDF: sólo la nota de cuándo lo habrá.
+    expect(screen.getByText("PDF disponible al aprobar la orientación")).toBeVisible()
   })
 
   it("sends 'analyse another testimony' to the upload screen", async () => {

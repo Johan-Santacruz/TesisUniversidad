@@ -135,9 +135,42 @@ def test_history_requires_a_session(client):
     assert client.get("/api/v1/cases").status_code == 401
 
 
-def test_report_downloads_an_audited_pdf(client):
+def _approve(client, case_id: str) -> None:
+    login(client, *ADMIN)
+    confirm_critical_facts(client, case_id)
+    response = client.post(f"/api/v1/cases/{case_id}/approve", json=APPROVAL_PAYLOAD)
+    assert response.status_code == 200
+
+
+def _report_exports(client) -> list[str]:
+    with client.app.state.database.session() as session:
+        return list(
+            session.scalars(
+                select(AuditLog.actor_role).where(
+                    AuditLog.action == "case_report_exported"
+                )
+            )
+        )
+
+
+def test_report_is_not_generated_before_the_orientation_is_approved(client):
     case_id = create_demo_case(client)
+
+    response = client.get(f"/api/v1/cases/{case_id}/report")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "El resumen en PDF se genera cuando la orientación está aprobada"
+    )
+    # Lo que no se entregó no queda como exportado.
+    assert _report_exports(client) == []
+
+
+def test_report_downloads_an_audited_pdf_of_an_approved_case(client):
+    case_id = create_demo_case(client)
+    _approve(client, case_id)
     reference = case_id.replace("-", "")[:8].upper()
+    routes = client.get(f"/api/v1/cases/{case_id}").json()["routes"]
 
     response = client.get(f"/api/v1/cases/{case_id}/report")
 
@@ -152,8 +185,10 @@ def test_report_downloads_an_audited_pdf(client):
     assert reader.metadata.title == f"Resumen del caso {reference}"
     assert "Desplazamiento forzado" in text
     assert "Demostración con datos ficticios" in text
-    # El caso demo trae una señal crítica sin confirmar: la ruta no se imprime.
-    assert "Las rutas se incluirán cuando las señales críticas estén confirmadas" in text
+    assert "Final, aprobada" in text
+    assert "Orientación preliminar" not in text
+    assert all(route["title"] in text for route in routes)
+    assert "Fuentes institucionales" in text
 
     with client.app.state.database.session() as session:
         record = session.scalar(
@@ -165,25 +200,9 @@ def test_report_downloads_an_audited_pdf(client):
         assert record is not None
         assert record.actor_role == "admin"
         details = client.app.state.audit.read_details(record)
-    assert details["routes_included"] is False
-    assert details["recommendation_status"] == "preliminary"
+    assert details["routes_included"] is True
+    assert details["recommendation_status"] == "final"
     assert details["size_bytes"] == len(response.content)
-
-
-def test_report_includes_routes_once_critical_signals_are_confirmed(client):
-    case_id = create_demo_case(client)
-    confirm_critical_facts(client, case_id)
-    routes = client.get(f"/api/v1/cases/{case_id}").json()["routes"]
-
-    response = client.get(f"/api/v1/cases/{case_id}/report")
-
-    text = " ".join(
-        " ".join(
-            page.extract_text() for page in PdfReader(BytesIO(response.content)).pages
-        ).split()
-    )
-    assert all(route["title"] in text for route in routes)
-    assert "Fuentes institucionales" in text
 
 
 def test_report_is_only_for_the_owner_or_reviewers(client):
@@ -191,6 +210,7 @@ def test_report_is_only_for_the_owner_or_reviewers(client):
     _create_operator(client, *OTHER_OPERATOR)
     case_id = create_demo_case(client, *OPERATOR)
     create_validator(client)
+    _approve(client, case_id)
 
     login(client, *OTHER_OPERATOR)
     foreign = client.get(f"/api/v1/cases/{case_id}/report")
@@ -202,12 +222,8 @@ def test_report_is_only_for_the_owner_or_reviewers(client):
     assert foreign.status_code == 403
     assert own.status_code == 200
     assert reviewer.status_code == 200
-    with client.app.state.database.session() as session:
-        exports = session.scalars(
-            select(AuditLog.actor_role).where(AuditLog.action == "case_report_exported")
-        ).all()
     # El intento denegado no deja una exportación registrada.
-    assert sorted(exports) == ["operador", "validador"]
+    assert sorted(_report_exports(client)) == ["operador", "validador"]
 
 
 def test_report_for_an_unknown_case_is_not_found(client):

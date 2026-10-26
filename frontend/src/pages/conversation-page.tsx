@@ -12,7 +12,12 @@ export default function ConversationPage() {
       {user ? (
         <AnalysisWorkspace
           role={user.role}
-          caseActions={(caseData) => <CaseFileActions caseId={caseData.id} />}
+          caseActions={(caseData) => (
+            <CaseFileActions
+              caseId={caseData.id}
+              approved={caseData.status === "approved"}
+            />
+          )}
         />
       ) : null}
     </div>

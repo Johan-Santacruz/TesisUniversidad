@@ -53,3 +53,32 @@
     text-align: center;
   }
 }
+
+/* Lo que todavía no se puede descargar se dice en el tono de una nota, no de
+   un botón apagado: un botón gris invita a pulsarlo y no explica nada. */
+.analysis-app .case-report-pending {
+  color: var(--ink-faded);
+  font-size: var(--t-meta);
+  line-height: 1.45;
+}
+
+.analysis-app .history-entry-actions .case-report-pending {
+  max-width: 11rem;
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .analysis-app .history-entry-actions .case-report-pending {
+    flex: 1 1 0;
+    max-width: none;
+    text-align: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .analysis-app .narrative-stage-actions .case-report-pending {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

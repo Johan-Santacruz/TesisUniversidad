@@ -107,6 +107,8 @@ describe("HistoryPage", () => {
     expect(within(pending).getByRole("heading", { name: "Desplazamiento" })).toBeVisible()
     expect(within(pending).getByText("4 señales · 1 crítica sin confirmar")).toBeVisible()
     expect(within(pending).getByText("En revisión")).toBeVisible()
+    expect(within(pending).getByText("PDF disponible al aprobar la orientación")).toBeVisible()
+    expect(within(pending).queryByRole("button", { name: /descargar/i })).not.toBeInTheDocument()
     expect(within(pending).getByText(/24 de octubre de 2026/)).toBeVisible()
     expect(within(approved).getByText("Caso 77AB12CD · Demostración")).toBeVisible()
     expect(within(approved).getByRole("heading", { name: "Caso sin clasificar" })).toBeVisible()
@@ -215,7 +217,7 @@ describe("HistoryPage", () => {
   })
 
   it("downloads the PDF summary with the name the server proposes", async () => {
-    serve(() => page([summary()]))
+    serve(() => page([summary({ status: "approved", critical_pending: 0 })]))
     const downloadFile = vi.spyOn(apiClient, "downloadFile").mockResolvedValue({
       blob: new Blob(["%PDF-"], { type: "application/pdf" }),
       filename: "senda-caso-3F2A9C1B.pdf",
@@ -243,7 +245,7 @@ describe("HistoryPage", () => {
   })
 
   it("explains a failed PDF next to its case", async () => {
-    serve(() => page([summary()]))
+    serve(() => page([summary({ status: "approved", critical_pending: 0 })]))
     vi.spyOn(apiClient, "downloadFile").mockRejectedValue(new Error("Sin acceso a este caso"))
 
     renderHistory()

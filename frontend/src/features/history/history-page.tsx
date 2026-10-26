@@ -12,7 +12,7 @@ import {
   caseTime,
   caseTitle,
 } from "./case-labels"
-import { ReportButton } from "./case-report"
+import { REPORT_PENDING, ReportButton } from "./case-report"
 import { useCaseHistory, type HistoryFilter } from "./use-case-history"
 import "./history-page.css"
 
@@ -144,11 +144,15 @@ export default function HistoryPage() {
                     >
                       Abrir caso <span aria-hidden="true">→</span>
                     </Link>
-                    <ReportButton
-                      caseId={item.id}
-                      className="history-report"
-                      accessibleName={`Descargar en PDF el resumen del caso ${item.reference}`}
-                    />
+                    {item.status === "approved" ? (
+                      <ReportButton
+                        caseId={item.id}
+                        className="history-report"
+                        accessibleName={`Descargar en PDF el resumen del caso ${item.reference}`}
+                      />
+                    ) : (
+                      <span className="case-report-pending">{REPORT_PENDING}</span>
+                    )}
                   </div>
                 </li>
               ))}

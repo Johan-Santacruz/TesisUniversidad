@@ -66,7 +66,12 @@ export default function CasePage() {
           initialCase={load.caseData}
           role={user.role}
           loadRemoteVideo
-          caseActions={(caseData) => <CaseFileActions caseId={caseData.id} />}
+          caseActions={(caseData) => (
+            <CaseFileActions
+              caseId={caseData.id}
+              approved={caseData.status === "approved"}
+            />
+          )}
           onRestart={() => navigate("/subir-video")}
           // Desde la primera etapa, "atrás" es la lista de donde se vino.
           backAction={{ label: "Historial", onClick: () => navigate("/historial") }}

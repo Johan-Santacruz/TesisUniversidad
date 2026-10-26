@@ -122,13 +122,15 @@ páginas. Quien opera ve los casos que subió; quien valida o administra ve todo
 Un caso se reabre en la misma mesa de análisis, con sus tres etapas y sus
 acciones de revisión.
 
-Desde el historial, o desde el pie del pliego de cualquier caso, se descarga un
-resumen en PDF tamaño carta con la tipografía del libro: tipo de caso, señales
+Cuando la orientación está aprobada, desde el historial o desde el pie del
+pliego se descarga un resumen en PDF tamaño carta con la tipografía del libro: tipo de caso, señales
 con su estado de revisión, cronología, rutas institucionales y fuentes. El
 resumen aplica las mismas reglas que la pantalla —las rutas no se imprimen
 mientras haya señales críticas sin confirmar o mientras se están ajustando— y
 nunca incluye la transcripción ni el video. Cada exportación queda en la
 auditoría (`case_report_exported`) antes de entregar el archivo.
+Antes de aprobar, el servidor responde 409: impreso, el resumen perdería el aviso
+de «preliminar» y se leería como definitivo.
 
 ```text
 GET /api/v1/cases?status=in_review|approved&limit=20&offset=0

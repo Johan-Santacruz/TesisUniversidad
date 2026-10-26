@@ -165,6 +165,13 @@ def export_case_report(
         raise HTTPException(status_code=404, detail="Video no encontrado")
     if not _can_read_case_assets(user.id, user.role, video):
         raise HTTPException(status_code=403, detail="Sin acceso a este caso")
+    # Un papel sale de la aplicación sin el aviso de "preliminar" que la
+    # rodea: antes de la aprobación se leería como orientación definitiva.
+    if case.status != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El resumen en PDF se genera cuando la orientación está aprobada",
+        )
     view = service.read(session, case)
     reference = case_reference(case.id)
     content = render_case_report(
